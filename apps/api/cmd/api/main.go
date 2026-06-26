@@ -43,6 +43,8 @@ func main() {
 	health := service.NewHealthService(store)
 	teams := service.NewTeamService(store)
 	schedules := service.NewScheduleService(store)
+	overrides := service.NewOverrideService(store)
+	oncall := service.NewOnCallService(store)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -53,6 +55,8 @@ func main() {
 	handler.NewAlertHandler(alerts).Register(r)
 	handler.NewTeamHandler(teams, auth).Register(r)
 	handler.NewScheduleHandler(schedules, auth).Register(r)
+	handler.NewOverrideHandler(overrides, auth).Register(r)
+	handler.NewOnCallHandler(oncall, auth).Register(r)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

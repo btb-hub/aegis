@@ -108,6 +108,10 @@ func (m *scheduleHandlerRepo) DeleteScheduleForTeam(ctx context.Context, teamID,
 	return nil
 }
 
+func (m *scheduleHandlerRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+	return nil
+}
+
 func setupScheduleRouter(t *testing.T) (*gin.Engine, *scheduleHandlerRepo) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,8 +30,21 @@ func TestKindFor(t *testing.T) {
 	require.Equal(t, "process_alert", KindFor(Job{Kind: "process_alert"}))
 }
 
+func noopMaterialise() *MaterialiseProcessor {
+	return NewMaterialiseProcessor(nil, materialiseStoreStub{})
+}
+
+type materialiseStoreStub struct{}
+
+func (materialiseStoreStub) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
+	return nil
+}
+func (materialiseStoreStub) ListTeamIDsWithSchedules(ctx context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 func TestWorkerNoJob(t *testing.T) {
-	w := NewWorker(nil, &mockStore{claim: false}, nil)
+	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil), noopMaterialise())
 	err := w.RunOnce(context.Background())
 	require.NoError(t, err)
 }
@@ -56,6 +70,6 @@ func TestWorkerProcessesJob(t *testing.T) {
 		claim: true,
 		job: Job{ID: "j1", Kind: "process_alert", Payload: json.RawMessage(`{"alert_id":"x"}`)},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil))
+	w := NewWorker(nil, store, NewAlertProcessor(nil), noopMaterialise())
 	require.NoError(t, w.RunOnce(context.Background()))
 }

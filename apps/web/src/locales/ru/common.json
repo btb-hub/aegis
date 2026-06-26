@@ -6,5 +6,17 @@
   "language.en": "English",
   "language.ru": "Русский",
   "sample.date_label": "Пример даты",
-  "sample.primary": "Основное действие"
+  "sample.primary": "Основное действие",
+  "shifts.demo_team": "Платформа",
+  "shifts.page_subtitle": "График дежурств и подмены",
+  "shifts.on_call_now": "Сейчас на смене",
+  "shifts.on_call_empty": "Сейчас никто не дежурит",
+  "shifts.calendar_title": "Календарь смен",
+  "shifts.weekday.sun": "Вс",
+  "shifts.weekday.mon": "Пн",
+  "shifts.weekday.tue": "Вт",
+  "shifts.weekday.wed": "Ср",
+  "shifts.weekday.thu": "Чт",
+  "shifts.weekday.fri": "Пт",
+  "shifts.weekday.sat": "Сб"
 }

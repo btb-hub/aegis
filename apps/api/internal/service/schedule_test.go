@@ -115,6 +115,10 @@ func (m *scheduleRepoMock) DeleteScheduleForTeam(ctx context.Context, teamID, sc
 	return nil
 }
 
+func (m *scheduleRepoMock) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+	return nil
+}
+
 func validScheduleInput(participants ...uuid.UUID) CreateScheduleInput {
 	return CreateScheduleInput{
 		Name:     "Primary",

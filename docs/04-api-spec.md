@@ -70,10 +70,16 @@ Create/update schedule body:
 `handoff_weekday`: 0 (Sunday) through 6 (Saturday). `participants` must be non-empty, unique, and team members.
 
 | GET/POST | `/teams/{id}/schedules` | List/create schedules (create: admin) |
-| GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
-| GET/POST | `/teams/{id}/overrides` | Overrides |
+| GET/POST | `/teams/{id}/overrides` | List/create overrides (create: admin) |
+| DELETE | `/teams/{id}/overrides/{oid}` | Delete override (admin) |
 | GET | `/teams/{id}/on-call/current` | Current on-call user(s) |
-| GET | `/teams/{id}/on-call/calendar` | Materialised slots in range |
+| GET | `/teams/{id}/on-call/calendar` | Materialised slots in range (`from`, `to` RFC3339) |
+
+Create override body: `{"user_id": "uuid", "start_at": "RFC3339", "end_at": "RFC3339"}`. `user_id` must be a team member; `end_at` must be after `start_at`.
+
+Schedule and override changes enqueue a `materialise_oncall` worker job for the team. The worker also runs a nightly job for all teams with schedules.
+
+| GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
 
 ## Incidents (Phase 2)
 

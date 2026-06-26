@@ -6,5 +6,17 @@
   "language.en": "English",
   "language.ru": "Русский",
   "sample.date_label": "Sample date",
-  "sample.primary": "Primary action"
+  "sample.primary": "Primary action",
+  "shifts.demo_team": "Platform",
+  "shifts.page_subtitle": "On-call schedule and overrides",
+  "shifts.on_call_now": "On call now",
+  "shifts.on_call_empty": "No one is on call right now",
+  "shifts.calendar_title": "Shifts calendar",
+  "shifts.weekday.sun": "Sun",
+  "shifts.weekday.mon": "Mon",
+  "shifts.weekday.tue": "Tue",
+  "shifts.weekday.wed": "Wed",
+  "shifts.weekday.thu": "Thu",
+  "shifts.weekday.fri": "Fri",
+  "shifts.weekday.sat": "Sat"
 }

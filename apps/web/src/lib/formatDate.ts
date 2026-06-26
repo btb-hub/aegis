@@ -1,10 +1,15 @@
-export function formatDateTime(value: Date, locale: string): string {
+export function formatDateTime(
+  value: Date,
+  locale: string,
+  options?: Intl.DateTimeFormatOptions,
+): string {
   return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    ...options,
   }).format(value);
 }
 

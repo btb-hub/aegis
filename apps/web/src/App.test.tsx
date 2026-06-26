@@ -11,7 +11,8 @@ describe('App', () => {
         <App />
       </I18nextProvider>,
     );
-    expect(screen.getByText('Incident ops platform')).toBeInTheDocument();
-    expect(screen.getByText('Primary action')).toBeInTheDocument();
+    expect(screen.getByText('On-call schedule and overrides')).toBeInTheDocument();
+    expect(screen.getByText(/on call now/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
   });
 });
