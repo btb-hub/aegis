@@ -1,7 +1,7 @@
 # EPIC-01 — Foundation
 
 **Phase:** 0  
-**Exit:** App runs locally, alert stored, OIDC auth works, CI green.
+**Exit:** App runs locally, alert stored, OIDC auth works, CI green, Storybook documents base UI components.
 
 ---
 
@@ -133,4 +133,21 @@
   - [x] IBM Plex Sans + IBM Plex Mono loaded; typography scale applied
   - [x] Base components: Button (primary/secondary/ghost), Input, Severity tag, Toast shell
   - [x] App shell layout: 240px sidebar, 56px header per design system
-  - [x] Storybook or sample route documents component states (hover, disabled, P1–P4)
+  - [x] Sample route demonstrates component states (P1 severity tag, primary button, `Intl` date)
+
+---
+
+### AEG-056 — Storybook for UI components
+
+- **Status:** Done
+- **Depends on:** AEG-055, AEG-054
+- **PRD:** REQ-DS-04
+- **Acceptance:**
+  - [x] Storybook 8+ in `apps/web` (`npm run storybook` on port 6006)
+  - [x] Stories for Button (primary/secondary/ghost, hover/disabled), Input, SeverityTag (P1–P4), Toast
+  - [x] Stories for AppShell and LanguageSwitcher with `en` and `ru` decorators
+  - [x] Tailwind + design tokens apply in Storybook preview (same theme as app)
+  - [x] `make lint` / CI includes Storybook build (`npm run build-storybook`)
+  - [x] New UI components added in feature work include a Storybook story in the same PR
+
+**Plan (implemented):** Storybook 8 with Vite in `apps/web`; stories for base components; locale toolbar + `en`/`ru` layout stories; `build-storybook` in `make lint` / CI.

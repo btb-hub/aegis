@@ -21,7 +21,7 @@ monitoring  ->  [ API (Go/Gin) ]  ->  validate + store alert + insert job  ->  2
 |-----------|------|----------------|
 | API | `apps/api` | HTTP: OIDC auth, CRUD, alert webhook, connector callbacks, analytics reads |
 | Worker | `apps/worker` | Poll `jobs`, process alerts, connectors, escalations, on-call materialisation |
-| Web | `apps/web` | React + TS + Vite, Tailwind (design tokens), TanStack Query, react-i18next (`en`, `ru`) |
+| Web | `apps/web` | React + TS + Vite, Tailwind (design tokens), TanStack Query, react-i18next (`en`, `ru`), Storybook |
 | Database | Postgres 16 | All state + job queue |
 | Migrations | `db/migrations/` | golang-migrate SQL |
 | Queries | `db/query/` | sqlc-generated Go |
@@ -90,7 +90,8 @@ No local passwords. No self-hosted IdP.
 
 Web UI follows [`12-design-system.md`](./12-design-system.md); visual reference
 [`design_system.html`](./design_system.html). Tokens map to Tailwind theme variables; shared
-components live under `apps/web/src/components/ui/`.
+components live under `apps/web/src/components/ui/`. **Storybook** (`apps/web`, port 6006) is the
+living catalog of component states; feature UI must reuse components documented there.
 
 ## Localization
 

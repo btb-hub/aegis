@@ -19,4 +19,5 @@ pkg/coverage-pkg.out
 .idea/
 .vscode/
 apps/web/coverage/
+apps/web/storybook-static/
 bin/

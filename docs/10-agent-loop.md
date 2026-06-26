@@ -60,7 +60,8 @@ Before building or changing web UI:
 
 1. Read [`12-design-system.md`](./12-design-system.md) for tokens and component rules.
 2. Open [`design_system.html`](./design_system.html) in a browser for the visual spec.
-3. Reuse components from `apps/web/src/components/ui/`; extend the library if a pattern is missing.
+3. Run Storybook (`cd apps/web && npm run storybook`) for component states.
+4. Reuse components from `apps/web/src/components/ui/`; extend the library + Storybook if a pattern is missing.
 
 ## Definition of Done
 

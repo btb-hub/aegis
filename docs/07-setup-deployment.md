@@ -18,6 +18,17 @@ docker compose -f deploy/docker-compose.yml up --build
 
 Open `http://localhost:3000` (web) and `http://localhost:8080` (API).
 
+### Storybook (design system)
+
+Component catalog for `apps/web` — run locally while building UI:
+
+```bash
+cd apps/web
+npm run storybook
+```
+
+Open `http://localhost:6006`. Build static catalog for CI: `npm run build-storybook`.
+
 ## Services
 
 | Service | Port | Image/build |

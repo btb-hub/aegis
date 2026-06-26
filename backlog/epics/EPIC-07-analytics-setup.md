@@ -50,7 +50,7 @@
 ### AEG-049 — Dashboard UI
 
 - **Status:** Blocked
-- **Depends on:** AEG-048, AEG-054, AEG-055
+- **Depends on:** AEG-048, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-AN-01, REQ-AN-02
 - **Acceptance:**
   - [ ] Recharts widgets for five questions
@@ -61,7 +61,7 @@
 ### AEG-050 — Setup wizard shell
 
 - **Status:** Blocked
-- **Depends on:** AEG-005, AEG-054, AEG-055
+- **Depends on:** AEG-005, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-AN-04
 - **Acceptance:**
   - [ ] Multi-step wizard route in web app

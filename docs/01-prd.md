@@ -48,6 +48,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-DS-01 | Web UI uses shared tokens and components per [`12-design-system.md`](./12-design-system.md). |
 | REQ-DS-02 | Severity colors (P1–P4, resolved) match the design system across list, detail, and badges. |
 | REQ-DS-03 | One primary action per view; buttons and toasts use consistent labels per CLAUDE.md writing rules. |
+| REQ-DS-04 | Base UI components documented in Storybook (`apps/web`); new components ship with a story in the same PR. |
 
 ---
 

@@ -42,7 +42,7 @@
 ### AEG-043 — Handoff UI
 
 - **Status:** Blocked
-- **Depends on:** AEG-040, AEG-041, AEG-054, AEG-055
+- **Depends on:** AEG-040, AEG-041, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-L2L3-01, REQ-L2L3-04
 - **Acceptance:**
   - [ ] Hand off and bounce buttons on incident detail

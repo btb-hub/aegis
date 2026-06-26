@@ -11,13 +11,14 @@ features end to end.
 
 ## Phase 0 — Foundation
 
-*Exit: the app runs locally, an alert can be POSTed and stored, OIDC auth works, CI is green.*
+*Exit: the app runs locally, an alert can be POSTed and stored, OIDC auth works, CI is green, Storybook documents the design system.*
 
 - Repo scaffolding (`apps/api`, `apps/worker`, `apps/web`, `deploy/`, `db/`), Docker Compose dev stack.
 - Config, Postgres + golang-migrate baseline, Postgres `jobs` table for async work.
 - OIDC auth (Google, Slack, eXpress) + session + RBAC skeleton, `/healthz` `/readyz` `/metrics`.
 - Web i18n scaffold: English + Russian (`react-i18next`, `pkg/i18n` for chat templates).
 - Design system scaffold: Tailwind tokens + base UI components per `docs/12-design-system.md`.
+- **Storybook** for base components (Button, Input, SeverityTag, Toast, shell) — required before Phase 1.
 - CI: lint, type, test gate. PR template. `make` targets.
 - Generic alert webhook that validates + stores a raw alert (no processing yet).
 
@@ -26,6 +27,8 @@ features end to end.
 ## Phase 1 — Shifts & on-call
 
 *Exit: admins define teams + a rotation; "who's on call now" is correct, including DST + an override.*
+
+**Gate:** Phase 0 Storybook story ([AEG-056](./epics/EPIC-01-foundation.md)) must be `Done` before picking EPIC-02 stories.
 
 - Teams, memberships, schedules, overrides, on-call resolution + materialisation.
 - Calendar API/view and "who's on call now" view.

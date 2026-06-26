@@ -121,7 +121,7 @@
 ### AEG-031 — Incident list and detail UI
 
 - **Status:** Blocked
-- **Depends on:** AEG-025, AEG-028, AEG-029, AEG-054, AEG-055
+- **Depends on:** AEG-025, AEG-028, AEG-029, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-INC-11
 - **Acceptance:**
   - [ ] List with status filters

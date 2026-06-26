@@ -22,3 +22,4 @@ Link: <!-- e.g. AEG-001 in backlog/epics/EPIC-01-foundation.md -->
 - [ ] User-facing copy follows CLAUDE.md writing rules
 - [ ] UI strings added in both `en` and `ru` locale files (see `docs/11-localization.md`)
 - [ ] Web UI matches design system (`docs/12-design-system.md`, visual: `docs/design_system.html`)
+- [ ] New shared UI components include a Storybook story (REQ-DS-04)

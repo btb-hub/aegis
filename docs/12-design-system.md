@@ -113,13 +113,28 @@ Do not hard-code hex values in feature components — use semantic names (`sever
 
 1.5px stroke, 24px grid. Lucide (or equivalent) at consistent weight.
 
+### Storybook
+
+Living component catalog in `apps/web` (Storybook 8+). Required before Phase 1 UI work.
+
+| What | Where |
+|------|-------|
+| Run locally | `cd apps/web && npm run storybook` → `http://localhost:6006` |
+| Stories | `apps/web/src/components/**/*.stories.tsx` |
+| CI | `npm run build-storybook` must pass |
+
+Every base component story covers: default, hover/focus (via pseudo or action), disabled where
+applicable, and severity variants (P1–P4 for tags). Shell stories wrap content in `AppShell` with
+`en` and `ru` locale decorators.
+
+New shared components **must** ship with a Storybook story in the same PR (REQ-DS-04).
+
 ### Agent workflow
 
-1. **Before UI work:** open [`design_system.html`](./design_system.html) for the components you need.
-2. **Reuse** shared components; extend the library if a pattern is missing — do not fork styles per
-   feature.
+1. **Before UI work:** open [`design_system.html`](./design_system.html) for tokens; browse Storybook for component states.
+2. **Reuse** shared components; extend the library if a pattern is missing — add a Storybook story with the component.
 3. **PR checklist:** new UI matches tokens, typography, and component rules; one primary button per
-   view; severity colors from the system.
+   view; severity colors from the system; Storybook story for new shared components.
 4. **Strings:** still ship `en` + `ru` per [`11-localization.md`](./11-localization.md).
 
 ## References
@@ -127,4 +142,4 @@ Do not hard-code hex values in feature components — use semantic names (`sever
 - Visual canvas: [`design_system.html`](./design_system.html)
 - Localization: [`11-localization.md`](./11-localization.md)
 - Architecture (web stack): [`02-architecture.md`](./02-architecture.md)
-- Story: [AEG-055](../backlog/epics/EPIC-01-foundation.md) in EPIC-01
+- Story: [AEG-055](../backlog/epics/EPIC-01-foundation.md), [AEG-056](../backlog/epics/EPIC-01-foundation.md) (Storybook) in EPIC-01

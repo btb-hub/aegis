@@ -40,7 +40,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Quick facts
 
-- **Stack:** Go 1.22+ (API + worker), PostgreSQL 16, React + TypeScript (Vite). No Redis.
+- **Stack:** Go 1.22+ (API + worker), PostgreSQL 16, React + TypeScript (Vite), Storybook. No Redis.
 - **Auth:** OIDC via Google, Slack, and eXpress.
 - **Locales:** English and Russian (`en`, `ru`).
 - **Coverage:** `make test` enforces ≥90% unit-test coverage on business logic (NFR-5).

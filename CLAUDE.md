@@ -42,6 +42,7 @@ A story is done only when **all** of these hold:
   (see [`docs/11-localization.md`](./docs/11-localization.md)).
 - New web UI matches the design system ([`docs/12-design-system.md`](./docs/12-design-system.md),
   visual reference [`docs/design_system.html`](./docs/design_system.html)).
+- New shared UI components include a Storybook story (`apps/web`, REQ-DS-04).
 - The PR description says what changed and how it was verified.
 
 ## Conventions
@@ -54,7 +55,8 @@ A story is done only when **all** of these hold:
 - **TS style:** `eslint` + `prettier`. Functional components, TanStack Query, `react-i18next` for UI copy.
 - **UI design:** Follow [`docs/12-design-system.md`](./docs/12-design-system.md) and
   [`docs/design_system.html`](./docs/design_system.html). Reuse shared components; map tokens in
-  Tailwind — no ad-hoc colors or one-off button styles in feature code.
+  Tailwind — no ad-hoc colors or one-off button styles in feature code. New shared components ship
+  with a Storybook story (REQ-DS-04).
 - **Tests:** `go test` (API/worker), `vitest` + React Testing Library (web). Integration tests for
   every external connector use recorded fixtures, never live calls in CI. `make test` enforces
   ≥ 90% coverage on business-logic packages (Go: `-coverprofile`; web: Vitest thresholds).

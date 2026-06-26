@@ -74,7 +74,7 @@
 ### AEG-038 — Alert workspace UI — list and filters
 
 - **Status:** Blocked
-- **Depends on:** AEG-033, AEG-034, AEG-054, AEG-055
+- **Depends on:** AEG-033, AEG-034, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-ALERT-01, REQ-ALERT-03
 - **Acceptance:**
   - [ ] Filter bar, paginated table, group-by toggle

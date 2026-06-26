@@ -8,7 +8,7 @@
 ### AEG-009 — Teams and memberships API
 
 - **Status:** Ready
-- **Depends on:** AEG-005
+- **Depends on:** AEG-005, AEG-056
 - **PRD:** REQ-SHIFT-01
 - **Acceptance:**
   - [ ] CRUD teams and team members
@@ -77,7 +77,7 @@
 ### AEG-015 — Shifts calendar UI
 
 - **Status:** Blocked
-- **Depends on:** AEG-014, AEG-054, AEG-055
+- **Depends on:** AEG-014, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-SHIFT-06
 - **Acceptance:**
   - [ ] Month calendar with rotations and overrides
