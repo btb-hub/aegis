@@ -83,8 +83,8 @@ Standard org structure. Membership links `users` to `teams` with optional team r
 
 ### schedules, schedule_layers, overrides
 
-- `schedules`: team_id, name, timezone (IANA).
-- `schedule_layers`: rotation config (participants, handoff time, type).
+- `schedules`: `team_id`, `name` (unique per team), `timezone` (IANA), timestamps.
+- `schedule_layers`: `schedule_id`, `priority`, `rotation_type` (`weekly`), `handoff_weekday` (0=Sunday…6=Saturday), `handoff_time`, `participant_user_ids` (ordered UUID array).
 - `overrides`: user_id, start_at, end_at, replaces layer slot.
 
 ### on_call_slots

@@ -217,6 +217,14 @@ func TestAuthCallbackBadState(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestHealthReadyz(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
 func TestLogoutMissingSession(t *testing.T) {
 	r, _ := setupRouter(t)
 	w := httptest.NewRecorder()

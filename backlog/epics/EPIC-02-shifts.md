@@ -7,7 +7,7 @@
 
 ### AEG-009 — Teams and memberships API
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-005, AEG-056
 - **PRD:** REQ-SHIFT-01
 - **Acceptance:**
@@ -21,19 +21,21 @@
 
 ### AEG-010 — Schedule and layer model
 
-- **Status:** Ready
+- **Status:** Done
 - **Depends on:** AEG-009
 - **PRD:** REQ-SHIFT-02
 - **Acceptance:**
-  - [ ] Migration for schedules, schedule_layers
-  - [ ] API create/update weekly rotation with timezone
-  - [ ] Validation for participants list
+  - [x] Migration for schedules, schedule_layers
+  - [x] API create/update weekly rotation with timezone
+  - [x] Validation for participants list
+
+**Plan:** Migration `schedules` + `schedule_layers`; store/service/handlers on `/api/v1/teams/{id}/schedules`; validate IANA timezone, weekly handoff, participants ⊆ team members; admin-only mutations.
 
 ---
 
 ### AEG-011 — Overrides API
 
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** AEG-010
 - **PRD:** REQ-SHIFT-03
 - **Acceptance:**

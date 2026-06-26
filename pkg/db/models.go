@@ -78,3 +78,29 @@ type TeamMember struct {
 	DisplayName string    `json:"display_name"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+type Schedule struct {
+	ID        uuid.UUID `json:"id"`
+	TeamID    uuid.UUID `json:"team_id"`
+	Name      string    `json:"name"`
+	Timezone  string    `json:"timezone"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ScheduleLayer struct {
+	ID                 uuid.UUID   `json:"id"`
+	ScheduleID         uuid.UUID   `json:"schedule_id"`
+	Priority           int32       `json:"priority"`
+	RotationType       string      `json:"rotation_type"`
+	HandoffWeekday     int32       `json:"handoff_weekday"`
+	HandoffTime        time.Time   `json:"handoff_time"`
+	ParticipantUserIDs []uuid.UUID `json:"participant_user_ids"`
+	CreatedAt          time.Time   `json:"created_at"`
+	UpdatedAt          time.Time   `json:"updated_at"`
+}
+
+type ScheduleWithLayers struct {
+	Schedule Schedule        `json:"schedule"`
+	Layers   []ScheduleLayer `json:"layers"`
+}

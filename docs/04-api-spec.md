@@ -53,8 +53,24 @@ Add member body: `{"user_id": "uuid", "team_role": "member" | "lead"}` (defaults
 
 Member response includes `user_id`, `team_role`, `email`, `display_name`.
 
-| GET/POST | `/teams/{id}/schedules` | Schedules |
-| GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD |
+Create/update schedule body:
+
+```json
+{
+  "name": "Primary",
+  "timezone": "Europe/Moscow",
+  "rotation": {
+    "handoff_weekday": 1,
+    "handoff_time": "09:00",
+    "participants": ["<user-uuid>"]
+  }
+}
+```
+
+`handoff_weekday`: 0 (Sunday) through 6 (Saturday). `participants` must be non-empty, unique, and team members.
+
+| GET/POST | `/teams/{id}/schedules` | List/create schedules (create: admin) |
+| GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
 | GET/POST | `/teams/{id}/overrides` | Overrides |
 | GET | `/teams/{id}/on-call/current` | Current on-call user(s) |
 | GET | `/teams/{id}/on-call/calendar` | Materialised slots in range |
