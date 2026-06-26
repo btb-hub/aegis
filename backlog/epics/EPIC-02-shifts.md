@@ -95,5 +95,6 @@
   - [x] Month calendar with rotations and overrides
   - [x] "On call now" banner on team page
   - [x] Vitest tests for key components
+  - [x] Storybook stories for OnCallBanner, ShiftsCalendar, TeamShiftsPage (en/ru)
 
 **Plan:** `OnCallBanner`, `ShiftsCalendar`, `TeamShiftsPage` with i18n; Vitest coverage for banner + calendar.
