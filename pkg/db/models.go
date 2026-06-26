@@ -52,3 +52,29 @@ type Alert struct {
 	RawPayload  []byte    `json:"raw_payload"`
 	ReceivedAt  time.Time `json:"received_at"`
 }
+
+type Team struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type TeamMembership struct {
+	ID        uuid.UUID `json:"id"`
+	TeamID    uuid.UUID `json:"team_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	TeamRole  string    `json:"team_role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type TeamMember struct {
+	ID          uuid.UUID `json:"id"`
+	TeamID      uuid.UUID `json:"team_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	TeamRole    string    `json:"team_role"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	CreatedAt   time.Time `json:"created_at"`
+}

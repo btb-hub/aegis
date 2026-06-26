@@ -24,6 +24,14 @@ func TestErrorCodes(t *testing.T) {
 
 	webhook := InvalidWebhookSecret()
 	require.Equal(t, 401, webhook.StatusCode)
+
+	notFound := NotFound("team")
+	require.Equal(t, "NOT_FOUND", notFound.Code)
+	require.Equal(t, 404, notFound.StatusCode)
+
+	conflict := Conflict("duplicate")
+	require.Equal(t, "CONFLICT", conflict.Code)
+	require.Equal(t, 409, conflict.StatusCode)
 }
 
 func TestErrorString(t *testing.T) {

@@ -16,6 +16,7 @@ import (
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,7 +51,11 @@ func (m *authMockUsers) UpsertUser(ctx context.Context, provider, providerSub, e
 	return user, nil
 }
 func (m *authMockUsers) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
-	return m.users[id], nil
+	user, ok := m.users[id]
+	if !ok {
+		return db.User{}, pgx.ErrNoRows
+	}
+	return user, nil
 }
 func (m *authMockUsers) UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error) {
 	user := m.users[id]
@@ -193,6 +198,23 @@ func TestWriteJSONHelper(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	WriteJSON(c, http.StatusOK, gin.H{"ok": true})
 	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestAuthLoginUnknownProvider(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/unknown/login", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestAuthCallbackBadState(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=bad&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: "aegis_oauth_state", Value: "good"})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestLogoutMissingSession(t *testing.T) {

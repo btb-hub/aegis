@@ -7,19 +7,21 @@
 
 ### AEG-009 — Teams and memberships API
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-005, AEG-056
 - **PRD:** REQ-SHIFT-01
 - **Acceptance:**
-  - [ ] CRUD teams and team members
-  - [ ] Admin-only mutations
-  - [ ] Tests for authz
+  - [x] CRUD teams and team members
+  - [x] Admin-only mutations
+  - [x] Tests for authz
+
+**Plan:** Migration for `teams` + `team_memberships`; store + service + `/api/v1/teams` handlers; session middleware; `RequireAdmin` on mutations; handler/service tests for authz.
 
 ---
 
 ### AEG-010 — Schedule and layer model
 
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** AEG-009
 - **PRD:** REQ-SHIFT-02
 - **Acceptance:**

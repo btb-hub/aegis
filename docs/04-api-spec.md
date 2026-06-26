@@ -35,11 +35,24 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 
 ## Teams & shifts (Phase 1)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/teams` | List/create teams |
-| GET/PATCH/DELETE | `/teams/{id}` | Team CRUD |
-| GET/POST | `/teams/{id}/members` | Memberships |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/teams` | session | List teams |
+| POST | `/teams` | session + admin | Create team |
+| GET | `/teams/{id}` | session | Team detail |
+| PATCH | `/teams/{id}` | session + admin | Update team |
+| DELETE | `/teams/{id}` | session + admin | Delete team |
+| GET | `/teams/{id}/members` | session | List memberships |
+| POST | `/teams/{id}/members` | session + admin | Add member |
+| PATCH | `/teams/{id}/members/{userId}` | session + admin | Update member `team_role` |
+| DELETE | `/teams/{id}/members/{userId}` | session + admin | Remove member |
+
+Create team body: `{"name": "Platform", "description": "optional"}`.
+
+Add member body: `{"user_id": "uuid", "team_role": "member" | "lead"}` (defaults to `member`).
+
+Member response includes `user_id`, `team_role`, `email`, `display_name`.
+
 | GET/POST | `/teams/{id}/schedules` | Schedules |
 | GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD |
 | GET/POST | `/teams/{id}/overrides` | Overrides |

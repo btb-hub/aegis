@@ -27,3 +27,16 @@ func RequireMutate() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get(userRoleKey)
+		r, ok := role.(string)
+		if !ok || !rbac.CanAdminister(rbac.Role(r)) {
+			err := apperrors.Forbidden("admin role required")
+			c.AbortWithStatusJSON(err.StatusCode, gin.H{"code": err.Code, "message": err.Message})
+			return
+		}
+		c.Next()
+	}
+}

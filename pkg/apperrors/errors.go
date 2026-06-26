@@ -41,3 +41,11 @@ func InvalidLocale() *Error {
 func InvalidWebhookSecret() *Error {
 	return New("INVALID_WEBHOOK_SECRET", "webhook secret is invalid", http.StatusUnauthorized)
 }
+
+func NotFound(resource string) *Error {
+	return New("NOT_FOUND", resource+" not found", http.StatusNotFound)
+}
+
+func Conflict(message string) *Error {
+	return New("CONFLICT", message, http.StatusConflict)
+}

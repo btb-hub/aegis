@@ -41,6 +41,7 @@ func main() {
 	auth := service.NewAuthService(cfg, store, store, service.NewOAuthTokenExchanger(cfg))
 	alerts := service.NewAlertService(cfg.WebhookSecret, store)
 	health := service.NewHealthService(store)
+	teams := service.NewTeamService(store)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -49,6 +50,7 @@ func main() {
 	handler.NewHealthHandler(health).Register(r)
 	handler.NewAuthHandler(auth).Register(r)
 	handler.NewAlertHandler(alerts).Register(r)
+	handler.NewTeamHandler(teams, auth).Register(r)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

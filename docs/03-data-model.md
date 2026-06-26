@@ -75,7 +75,11 @@ Index: `(status, run_at) WHERE status = 'pending'` for worker claims.
 
 ### teams, team_memberships
 
-Standard org structure. Membership links `users` to `teams` with optional team role.
+Standard org structure. Membership links `users` to `teams` with optional team role (`member`, `lead`).
+
+**teams:** `id`, `name` (unique), `description`, `created_at`, `updated_at`.
+
+**team_memberships:** `id`, `team_id`, `user_id`, `team_role`, `created_at`; unique `(team_id, user_id)`.
 
 ### schedules, schedule_layers, overrides
 
