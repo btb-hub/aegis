@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aegis
+          POSTGRES_PASSWORD: aegis
+          POSTGRES_DB: aegis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://aegis:aegis@localhost:5432/aegis?sslmode=disable
+      SESSION_SECRET: test-session-secret
+      WEBHOOK_SECRET: test-webhook-secret
+      PUBLIC_URL: http://localhost:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-amd64.tar.gz | tar xz
+          ./migrate -path db/migrations -database "$DATABASE_URL" up
+      - name: Install web deps
+        working-directory: apps/web
+        run: npm ci || npm install
+      - run: make tidy
+      - run: make lint
+      - run: make type
+      - run: make test

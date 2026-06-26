@@ -1,0 +1,16 @@
+FROM golang:1.22-alpine AS build
+WORKDIR /src
+COPY go.work go.work
+COPY pkg pkg
+COPY apps/api apps/api
+COPY db db
+WORKDIR /src/apps/api
+RUN go mod download
+RUN CGO_ENABLED=0 go build -o /api ./cmd/api
+
+FROM alpine:3.20
+WORKDIR /app
+COPY --from=build /api /app/api
+COPY pkg/i18n/messages /app/pkg/i18n/messages
+EXPOSE 8080
+CMD ["/app/api"]

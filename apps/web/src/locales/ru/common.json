@@ -1,0 +1,10 @@
+{
+  "app.title": "Aegis",
+  "app.tagline": "Платформа инцидент-менеджмента",
+  "nav.home": "Главная",
+  "actions.save": "Сохранить",
+  "language.en": "English",
+  "language.ru": "Русский",
+  "sample.date_label": "Пример даты",
+  "sample.primary": "Основное действие"
+}

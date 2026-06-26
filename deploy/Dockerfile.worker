@@ -1,0 +1,13 @@
+FROM golang:1.22-alpine AS build
+WORKDIR /src
+COPY go.work go.work
+COPY pkg pkg
+COPY apps/worker apps/worker
+WORKDIR /src/apps/worker
+RUN go mod download
+RUN CGO_ENABLED=0 go build -o /worker ./cmd/worker
+
+FROM alpine:3.20
+WORKDIR /app
+COPY --from=build /worker /app/worker
+CMD ["/app/worker"]

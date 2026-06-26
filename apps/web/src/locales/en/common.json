@@ -1,0 +1,10 @@
+{
+  "app.title": "Aegis",
+  "app.tagline": "Incident ops platform",
+  "nav.home": "Home",
+  "actions.save": "Save",
+  "language.en": "English",
+  "language.ru": "Русский",
+  "sample.date_label": "Sample date",
+  "sample.primary": "Primary action"
+}

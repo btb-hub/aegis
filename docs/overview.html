@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — plan overview</title>
+<style>
+  :root{
+    --paper:#f4f1ea;
+    --paper-2:#ebe6db;
+    --ink:#1f2430;
+    --ink-soft:#4a5160;
+    --line:#d6cfc0;
+    --accent:#b5651d;      /* ochre */
+    --accent-soft:#e8d4b8;
+    --signal:#3a6ea5;      /* cool blue for "now/ops" */
+    --sev1:#a8322d;
+    --ok:#3f7d54;
+    --code-bg:#2a2f3a;
+    --code-ink:#e9e4d8;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+  /* top bar */
+  header.top{
+    border-bottom:2px solid var(--ink);background:var(--paper);
+    position:sticky;top:0;z-index:20;
+  }
+  .top .wrap{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:14px 24px}
+  .brand{font-weight:800;letter-spacing:.5px;font-size:18px}
+  .brand b{color:var(--accent)}
+  nav.jump{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;font-family:var(--mono)}
+  nav.jump a{color:var(--ink-soft)}
+  nav.jump a:hover{color:var(--accent)}
+
+  /* hero */
+  .hero{padding:56px 0 36px;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+  .hero h1{font-size:46px;line-height:1.05;margin:0 0 16px;letter-spacing:-1px;max-width:18ch}
+  .hero p.lede{font-size:19px;color:var(--ink-soft);max-width:62ch;margin:0 0 26px}
+  .facts{display:flex;flex-wrap:wrap;gap:10px}
+  .pill{font-family:var(--mono);font-size:12px;border:1px solid var(--line);background:var(--paper-2);
+    padding:6px 11px;border-radius:2px;color:var(--ink-soft)}
+  .pill b{color:var(--ink)}
+
+  section{padding:48px 0;border-bottom:1px solid var(--line)}
+  .sec-head{display:flex;align-items:baseline;gap:14px;margin:0 0 8px}
+  .sec-num{font-family:var(--mono);color:var(--accent);font-size:14px;font-weight:700}
+  h2{font-size:28px;margin:0;letter-spacing:-.5px}
+  .sec-sub{color:var(--ink-soft);margin:6px 0 28px;max-width:64ch}
+
+  /* north stars */
+  .stars{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line)}
+  .star{padding:24px;border-right:1px solid var(--line)}
+  .star:last-child{border-right:0}
+  .star .n{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:1px}
+  .star h3{margin:8px 0 6px;font-size:20px}
+  .star p{margin:0;color:var(--ink-soft);font-size:14.5px}
+
+  /* features */
+  .feat{display:grid;grid-template-columns:auto 1fr;gap:0 22px;padding:20px 0;border-top:1px solid var(--line)}
+  .feat:first-of-type{border-top:0}
+  .feat .tag{font-family:var(--mono);font-size:12px;color:#fff;background:var(--ink);
+    padding:3px 8px;height:fit-content;border-radius:2px;white-space:nowrap}
+  .feat h3{margin:0 0 6px;font-size:18px}
+  .feat p{margin:0;color:var(--ink-soft);font-size:15px}
+  .feat .links{margin-top:8px;font-family:var(--mono);font-size:12.5px;display:flex;gap:16px;flex-wrap:wrap}
+
+  /* architecture flow */
+  .flow{font-family:var(--mono);font-size:13px;background:var(--code-bg);color:var(--code-ink);
+    padding:22px;border-radius:4px;overflow-x:auto;line-height:1.7;white-space:pre}
+  .stack{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:22px}
+  .stack div{border:1px solid var(--line);padding:14px 16px;background:var(--paper-2)}
+  .stack h4{margin:0 0 6px;font-size:14px;font-family:var(--mono);color:var(--signal)}
+  .stack p{margin:0;font-size:14px;color:var(--ink-soft)}
+
+  /* integrations row */
+  .ints{display:flex;flex-wrap:wrap;gap:10px}
+  .int{border:1px solid var(--line);background:var(--paper-2);padding:12px 16px;min-width:150px;flex:1}
+  .int .nm{font-weight:700;font-size:15px}
+  .int .ty{font-family:var(--mono);font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+  .int p{margin:6px 0 0;font-size:13px;color:var(--ink-soft)}
+
+  /* roadmap */
+  .phase{display:grid;grid-template-columns:120px 1fr auto;gap:18px;align-items:start;
+    padding:16px 0;border-top:1px solid var(--line)}
+  .phase:first-of-type{border-top:0}
+  .phase .ph{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700}
+  .phase .ph small{display:block;color:var(--ink-soft);font-weight:400;margin-top:3px}
+  .phase .body strong{font-size:16px}
+  .phase .body p{margin:4px 0 0;color:var(--ink-soft);font-size:14px}
+  .phase .epic{font-family:var(--mono);font-size:12px;color:var(--ink-soft);text-align:right;white-space:nowrap}
+  .phase .epic b{color:var(--ink);font-size:18px;display:block}
+
+  /* loop */
+  .loop{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;counter-reset:step}
+  .step{border:1px solid var(--line);padding:14px 16px;background:var(--paper-2);position:relative}
+  .step::before{counter-increment:step;content:counter(step);font-family:var(--mono);
+    font-size:12px;color:#fff;background:var(--accent);width:22px;height:22px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;margin-bottom:8px}
+  .step b{display:block;font-size:14.5px}
+  .step span{font-size:13px;color:var(--ink-soft)}
+
+  .files{columns:2;column-gap:32px;font-family:var(--mono);font-size:13px;color:var(--ink-soft)}
+  .files div{break-inside:avoid;margin-bottom:4px}
+  .files b{color:var(--ink)}
+
+  footer{padding:36px 0 60px;color:var(--ink-soft);font-size:13px}
+  footer code{background:var(--paper-2);padding:2px 6px;border:1px solid var(--line)}
+
+  @media(max-width:760px){
+    .hero h1{font-size:34px}
+    .stars,.loop{grid-template-columns:1fr}
+    .star{border-right:0;border-bottom:1px solid var(--line)}
+    .star:last-child{border-bottom:0}
+    .stack{grid-template-columns:1fr}
+    .phase{grid-template-columns:1fr;gap:6px}
+    .phase .epic{text-align:left}
+    .files{columns:1}
+    nav.jump{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; plan overview</div>
+    <nav class="jump">
+      <a href="#stars">north-stars</a>
+      <a href="#features">features</a>
+      <a href="#arch">architecture</a>
+      <a href="#integrations">integrations</a>
+      <a href="#roadmap">roadmap</a>
+      <a href="#loop">agent-loop</a>
+      <a href="#docs">docs</a>
+      <a href="design_system.html">design-system</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Ops &amp; incident management &middot; build-ready spec</p>
+    <h1>One place to run on-call, catch incidents, and see who's holding the pager.</h1>
+    <p class="lede">Aegis takes a firing alert, turns it into one owned incident, opens a Jira ticket,
+      and pages the person who's actually on call right now, across Slack and eXpress. Sign in with
+      Google, Slack, or eXpress OIDC. The web UI and chat pages ship in <b>English</b> and
+      <b>Russian</b>. This is the documentation an AI agent team builds from, story by story.</p>
+    <div class="facts">
+      <span class="pill"><b>4</b> MVP features</span>
+      <span class="pill"><b>3</b> integrations</span>
+      <span class="pill"><b>7</b> epics</span>
+      <span class="pill"><b>55</b> stories</span>
+      <span class="pill">locales <b>en + ru</b></span>
+      <span class="pill">stack <b>Go + React</b></span>
+      <span class="pill">runs on <b>docker compose</b></span>
+    </div>
+  </div>
+</div>
+
+<section id="stars">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>The three north stars</h2></div>
+    <p class="sec-sub">Every decision answers to these. They come straight from the IT department's
+      point of view, and the analytics and setup work is measured against them.</p>
+    <div class="stars">
+      <div class="star">
+        <div class="n">EASY TO</div><h3>Set up</h3>
+        <p>One <code>.env</code>, one <code>docker compose up</code>, then a guided web wizard. Clean
+          host to first routed alert in under one working day.</p>
+      </div>
+      <div class="star">
+        <div class="n">EASY TO</div><h3>Use</h3>
+        <p>One screen per job: who's on call, the alert workspace, the incident timeline. Ack from a
+          chat button. L2 hands off to L3 in a single click.</p>
+      </div>
+      <div class="star">
+        <div class="n">EASY TO</div><h3>Analyse</h3>
+        <p>Five questions answered in-product without a spreadsheet: are we faster, what's noisy, is
+          load fair, how's L2 to L3, how are we escalating.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>The four MVP features</h2></div>
+    <p class="sec-sub">Mandatory for the first release. Each has a deep spec and a dedicated epic.</p>
+
+    <div class="feat">
+      <span class="tag">PRD &sect;1</span>
+      <div>
+        <h3>Shifts calendar</h3>
+        <p>Set up rotations per team and get a correct answer to "who's on call right now", including
+          daylight-saving edges and one-off overrides. On-call is materialised so reads are instant.</p>
+        <div class="links"><a href="features/shifts-calendar.md">feature spec</a>
+          <a href="../backlog/epics/EPIC-02-shifts.md">EPIC-02 &middot; 7 stories</a></div>
+      </div>
+    </div>
+
+    <div class="feat">
+      <span class="tag">PRD &sect;2</span>
+      <div>
+        <h3>Incident management</h3>
+        <p>A firing alert is deduped, routed to a team, assigned to its current on-call, gets a Jira
+          ticket created automatically, and pages everyone who needs to know. Full lifecycle with a
+          timeline, acknowledge, and escalation timers.</p>
+        <div class="links"><a href="features/incident-management.md">feature spec</a>
+          <a href="../backlog/epics/EPIC-04-incidents.md">EPIC-04 &middot; 11 stories</a></div>
+      </div>
+    </div>
+
+    <div class="feat">
+      <span class="tag">PRD &sect;3</span>
+      <div>
+        <h3>Alerting workspace</h3>
+        <p>Filter, search, and group across a large alert history without it crawling. Save the views
+          you reopen daily, read inline analytics on the current slice, export to CSV.</p>
+        <div class="links"><a href="features/alerting.md">feature spec</a>
+          <a href="../backlog/epics/EPIC-05-alerting.md">EPIC-05 &middot; 8 stories</a></div>
+      </div>
+    </div>
+
+    <div class="feat">
+      <span class="tag">PRD &sect;4</span>
+      <div>
+        <h3>L2 to L3 transparency</h3>
+        <p>L2 hands an incident to the right L3 on-call in one action: it reassigns, links Jira, and
+          pages them. Both levels see one identical timeline, and every handoff is analysable down to
+          time-to-first-L3-response.</p>
+        <div class="links"><a href="features/l2-l3-transparency.md">feature spec</a>
+          <a href="../backlog/epics/EPIC-06-l2-l3.md">EPIC-06 &middot; 5 stories</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="arch">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Architecture at a glance</h2></div>
+    <p class="sec-sub">The request path stays fast and dumb: validate, store, enqueue, return. All the
+      real work (dedup, routing, ticket creation, paging, escalation) happens in the worker.</p>
+    <div class="flow">monitoring  ->  [ API (Go) ]  ->  validate + store alert + insert job  ->  202
+                     |
+                     v
+                 [ Postgres ]
+                     |
+                     v
+              [ Worker (Go) ]  ->  dedup / group  ->  route to team  ->  create incident
+                                      |                                     |
+                                      v                                     v
+                               assign on-call                       create Jira ticket
+                                      |                                     |
+                                      +------------------+------------------+
+                                                         v
+                                              fan-out: Slack / eXpress
+                                                         |
+                                                  ack  <-+->  escalate (timer)</div>
+    <div class="stack">
+      <div><h4>apps/api</h4><p>Go/Gin. OIDC auth, CRUD, alert intake, callbacks, analytics reads.
+        Returns 202 fast and gets out of the way.</p></div>
+      <div><h4>apps/worker</h4><p>Postgres job poller. Dedup, routing, incident + ticket creation,
+        paging, escalation timers, on-call materialisation.</p></div>
+      <div><h4>apps/web</h4><p>React + TypeScript + Vite, Tailwind, Recharts. Wizard, calendar,
+        alert workspace, incident view, dashboards.</p></div>
+      <div><h4>data</h4><p>PostgreSQL 16 only (JSONB labels with GIN, full-text search, jobs table).
+        golang-migrate. Docker Compose for the MVP.</p></div>
+    </div>
+    <p style="margin-top:18px;font-size:14px;color:var(--ink-soft)">
+      Full detail in <a href="02-architecture.md">02-architecture</a>,
+      <a href="03-data-model.md">03-data-model</a>, and
+      <a href="04-api-spec.md">04-api-spec</a>.</p>
+  </div>
+</section>
+
+<section id="integrations">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Integrations</h2></div>
+    <p class="sec-sub">Each connector implements a shared interface, so the rest of Aegis doesn't care
+      which ones are on. Any subset works; a failing one degrades gracefully. All outbound calls run
+      in the worker with retry and idempotency.</p>
+    <div class="ints">
+      <div class="int"><div class="ty">Ticket</div><div class="nm">Jira</div>
+        <p>Auto-creates and links the incident ticket, syncs status back. REST v2/v3.</p></div>
+      <div class="int"><div class="ty">Chat</div><div class="nm">Slack</div>
+        <p>Block Kit messages, Acknowledge button, signed callbacks. Also OIDC sign-in.</p></div>
+      <div class="int"><div class="ty">Chat</div><div class="nm">eXpress</div>
+        <p>BotX HTTP API, HMAC token, bubbles, <code>/link</code> bootstrap. Also OIDC sign-in.</p></div>
+    </div>
+    <p style="margin-top:18px;font-size:14px;color:var(--ink-soft)">
+      Per-connector specs in <a href="integrations/README.md">docs/integrations</a>. Auth in
+      <a href="09-security.md">09-security</a> (Google + Slack + eXpress OIDC). Stories in
+      <a href="../backlog/epics/EPIC-03-integrations.md">EPIC-03 (5 stories)</a>.</p>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Roadmap</h2></div>
+    <p class="sec-sub">Build a thin vertical slice first (one alert becomes one incident with one
+      connector and you can see who's on call), then thicken it. Each phase ends with something you
+      can demo.</p>
+
+    <div class="phase">
+      <div class="ph">Phase 0<small>foundation</small></div>
+      <div class="body"><strong>It runs</strong>
+        <p>Repo scaffolding, Docker Compose, Postgres + golang-migrate, OIDC auth (Google, Slack,
+          eXpress), RBAC skeleton, health/metrics, en+ru i18n + design-system scaffold, CI gate,
+          webhook stores raw
+          alert + job row.</p></div>
+      <div class="epic"><b>9</b>EPIC-01</div>
+    </div>
+    <div class="phase">
+      <div class="ph">Phase 1<small>shifts</small></div>
+      <div class="body"><strong>Who's on call now, correctly</strong>
+        <p>Teams, schedules, overrides, on-call resolution and materialisation, calendar view. DST
+          and overrides handled.</p></div>
+      <div class="epic"><b>7</b>EPIC-02</div>
+    </div>
+    <div class="phase">
+      <div class="ph">Phase 2<small>the spine</small></div>
+      <div class="body"><strong>Alert to incident to Jira to page</strong>
+        <p>Dedup, routing, incident lifecycle + timeline, Jira provider, the first chat connector end
+          to end with Acknowledge, plus one escalation step.</p></div>
+      <div class="epic"><b>11+5</b>EPIC-04, 03</div>
+    </div>
+    <div class="phase">
+      <div class="ph">Phase 3<small>connectors</small></div>
+      <div class="body"><strong>eXpress paging</strong>
+        <p>eXpress chat connector added, per-connector Test connection, graceful degradation with retry
+          and backoff. Fan-out to Slack and eXpress.</p></div>
+      <div class="epic"><b>&middot;</b>EPIC-03</div>
+    </div>
+    <div class="phase">
+      <div class="ph">Phase 4<small>workspace</small></div>
+      <div class="body"><strong>Make sense of the noise</strong>
+        <p>Indexed alert list, filter, search, group, saved views, inline analytics, streamed CSV
+          export. Fast over large volumes.</p></div>
+      <div class="epic"><b>8</b>EPIC-05</div>
+    </div>
+    <div class="phase">
+      <div class="ph">Phase 5<small>L2 to L3</small></div>
+      <div class="body"><strong>One-action handoff</strong>
+        <p>Handoff to the right L3 on-call, shared identical timeline, reassign and bounce, handoff
+          analytics.</p></div>
+      <div class="epic"><b>5</b>EPIC-06</div>
+    </div>
+    <div class="phase">
+      <div class="ph">Phase 6<small>analyse + polish</small></div>
+      <div class="body"><strong>The five questions on one dashboard</strong>
+        <p>Overview metrics, drill-down, range compare, exports, the full setup wizard with "send test
+          alert", an accessibility pass, and a setup-time check against the target.</p></div>
+      <div class="epic"><b>9</b>EPIC-07</div>
+    </div>
+    <p style="margin-top:20px;font-size:14px;color:var(--ink-soft)">
+      Full phasing with exit criteria in <a href="../backlog/roadmap.md">backlog/roadmap.md</a>.</p>
+  </div>
+</section>
+
+<section id="loop">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>How the agent builds it</h2></div>
+    <p class="sec-sub">This is the loop, not a one-shot. An agent picks the top ready story, ships it
+      behind a small PR, and comes back for the next one. Guardrails and the full contract live in
+      <a href="../CLAUDE.md">CLAUDE.md</a> and <a href="10-agent-loop.md">10-agent-loop</a>.</p>
+    <div class="loop">
+      <div class="step"><b>Sync main</b><span>Pull the actual main before anything else.</span></div>
+      <div class="step"><b>Pick a story</b><span>Top ready story in roadmap order.</span></div>
+      <div class="step"><b>Branch</b><span>New branch off fresh main, one story.</span></div>
+      <div class="step"><b>Plan</b><span>Restate acceptance, list the slice.</span></div>
+      <div class="step"><b>Build</b><span>Vertical slice, end to end.</span></div>
+      <div class="step"><b>Verify</b><span>Lint, types, tests against acceptance.</span></div>
+      <div class="step"><b>Self-review</b><span>Read the diff like a reviewer.</span></div>
+      <div class="step"><b>Open a PR</b><span>Small, with the DoD checklist.</span></div>
+      <div class="step"><b>Mark done</b><span>Flip the story, back to the top.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>The documentation set</h2></div>
+    <p class="sec-sub">Everything an agent needs lives in the repo. Start at the README, then CLAUDE.md
+      for the working contract.</p>
+    <div class="files">
+      <div><b>README.md</b> &middot; entry point + doc map</div>
+      <div><b>CLAUDE.md</b> &middot; agent working contract</div>
+      <div>docs/00-product-brief.md</div>
+      <div>docs/01-prd.md &middot; numbered requirements</div>
+      <div>docs/02-architecture.md</div>
+      <div>docs/03-data-model.md</div>
+      <div>docs/04-api-spec.md</div>
+      <div>docs/07-setup-deployment.md</div>
+      <div>docs/08-analytics.md</div>
+      <div>docs/09-security.md</div>
+      <div>docs/10-agent-loop.md</div>
+      <div>docs/11-localization.md &middot; en + ru i18n</div>
+      <div>docs/12-design-system.md &middot; tokens + components</div>
+      <div>docs/design_system.html &middot; visual design canvas</div>
+      <div>docs/features/ &middot; 4 feature specs</div>
+      <div>docs/integrations/ &middot; 3 connector specs</div>
+      <div>backlog/roadmap.md</div>
+      <div>backlog/epics/ &middot; 7 epics, 55 stories</div>
+      <div>.github/pull_request_template.md</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Lives at <code>~/Projects/aegis</code>. To start: open <code>README.md</code>, then point your
+    agent at <code>CLAUDE.md</code> and the top of <code>backlog/roadmap.md</code>. The agent pulls
+    main, branches, ships the first ready story, and loops.
+  </div>
+</footer>
+
+</body>
+</html>
