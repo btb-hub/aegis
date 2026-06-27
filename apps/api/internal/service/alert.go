@@ -15,12 +15,13 @@ type AlertRepository interface {
 }
 
 type AlertService struct {
-	secret string
-	repo   AlertRepository
+	secret          string
+	fingerprintKeys []string
+	repo            AlertRepository
 }
 
-func NewAlertService(secret string, repo AlertRepository) *AlertService {
-	return &AlertService{secret: secret, repo: repo}
+func NewAlertService(secret string, fingerprintKeys []string, repo AlertRepository) *AlertService {
+	return &AlertService{secret: secret, fingerprintKeys: fingerprintKeys, repo: repo}
 }
 
 func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw json.RawMessage) (uuid.UUID, error) {
@@ -34,7 +35,7 @@ func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw js
 	}
 
 	result, err := s.repo.CreateAlertAndJob(ctx, db.CreateAlertJobInput{
-		Fingerprint: parsed.Fingerprint,
+		Fingerprint: alertparse.FingerprintFromKeys(parsed.Labels, s.fingerprintKeys),
 		Status:      parsed.Status,
 		Severity:    parsed.Severity,
 		Title:       parsed.Title,

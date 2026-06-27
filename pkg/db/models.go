@@ -130,3 +130,60 @@ type OnCallUser struct {
 	DisplayName string    `json:"display_name"`
 	Source      string    `json:"source"`
 }
+
+type RoutingRule struct {
+	ID          uuid.UUID `json:"id"`
+	TeamID      uuid.UUID `json:"team_id"`
+	MatchLabels []byte    `json:"match_labels"`
+	Priority    int32     `json:"priority"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type Incident struct {
+	ID              uuid.UUID  `json:"id"`
+	TeamID          uuid.UUID  `json:"team_id"`
+	AssigneeID      *uuid.UUID `json:"assignee_id"`
+	Status          string     `json:"status"`
+	Severity        string     `json:"severity"`
+	Title           string     `json:"title"`
+	Fingerprint     string     `json:"fingerprint"`
+	JiraIssueKey    *string    `json:"jira_issue_key"`
+	AcknowledgedAt  *time.Time `json:"acknowledged_at"`
+	ResolvedAt      *time.Time `json:"resolved_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
+type TimelineEvent struct {
+	ID         uuid.UUID  `json:"id"`
+	IncidentID uuid.UUID  `json:"incident_id"`
+	Kind       string     `json:"kind"`
+	ActorID    *uuid.UUID `json:"actor_id"`
+	Payload    []byte     `json:"payload"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+type Integration struct {
+	ID        uuid.UUID `json:"id"`
+	Kind      string    `json:"kind"`
+	Name      string    `json:"name"`
+	Config    []byte    `json:"config"`
+	Enabled   bool      `json:"enabled"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type Notification struct {
+	ID            uuid.UUID  `json:"id"`
+	IncidentID    uuid.UUID  `json:"incident_id"`
+	IntegrationID uuid.UUID  `json:"integration_id"`
+	Status        string     `json:"status"`
+	ExternalRef   *string    `json:"external_ref"`
+	SentAt        *time.Time `json:"sent_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+}
+
+type ProcessAlertResult struct {
+	IncidentID uuid.UUID
+	Created    bool
+}

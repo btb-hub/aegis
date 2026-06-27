@@ -33,7 +33,9 @@ func main() {
 	store := db.NewStore(pool)
 	adapter := &storeAdapter{store: store}
 	materialise := processor.NewMaterialiseProcessor(nil, store)
-	worker := processor.NewWorker(nil, adapter, processor.NewAlertProcessor(nil), materialise)
+	alert := processor.NewAlertProcessor(nil, store, cfg.IncidentDedupWindow, cfg.EscalationTimeout, cfg.PublicURL)
+	escalate := processor.NewEscalateProcessor(nil, store, cfg.PublicURL)
+	worker := processor.NewWorker(nil, adapter, alert, materialise, escalate)
 
 	go enqueueNightlyMaterialise(ctx, store)
 

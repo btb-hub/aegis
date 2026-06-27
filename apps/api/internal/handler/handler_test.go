@@ -33,7 +33,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	alerts := service.NewAlertService("secret", &authMockAlertRepo{id: uuid.New()})
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 
 	r := gin.New()

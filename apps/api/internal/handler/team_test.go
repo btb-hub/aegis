@@ -33,7 +33,7 @@ func setupTeamRouter(t *testing.T) *teamTestEnv {
 	cfg := &config.Config{SessionTTL: time.Hour}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	teams := service.NewTeamService(repo)
-	alerts := service.NewAlertService("secret", &authMockAlertRepo{id: uuid.New()})
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 
 	r := gin.New()
