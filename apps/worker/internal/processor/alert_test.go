@@ -73,3 +73,31 @@ func TestWorkerProcessesJob(t *testing.T) {
 	w := NewWorker(nil, store, NewAlertProcessor(nil), noopMaterialise())
 	require.NoError(t, w.RunOnce(context.Background()))
 }
+
+func TestWorkerProcessesMaterialiseJob(t *testing.T) {
+	teamID := uuid.New()
+	store := &mockStore{
+		claim: true,
+		job: Job{
+			ID:      "j1",
+			Kind:    "materialise_oncall",
+			Payload: json.RawMessage(`{"team_id":"` + teamID.String() + `"}`),
+		},
+	}
+	w := NewWorker(nil, store, NewAlertProcessor(nil), NewMaterialiseProcessor(nil, &materialiseMockStore{}))
+	require.NoError(t, w.RunOnce(context.Background()))
+}
+
+type claimErrorStore struct {
+	mockStore
+}
+
+func (m *claimErrorStore) ClaimNextJob(ctx context.Context) (bool, Job, error) {
+	return false, Job{}, errors.New("claim failed")
+}
+
+func TestWorkerClaimError(t *testing.T) {
+	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil), noopMaterialise())
+	err := w.RunOnce(context.Background())
+	require.Error(t, err)
+}
