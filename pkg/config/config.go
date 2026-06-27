@@ -17,23 +17,29 @@ type OIDCProvider struct {
 }
 
 type Config struct {
-	DatabaseURL   string
-	SessionSecret string
-	WebhookSecret string
-	PublicURL     string
-	SessionTTL    time.Duration
-	HTTPAddr      string
-	OIDC          map[string]OIDCProvider
+	DatabaseURL            string
+	SessionSecret          string
+	WebhookSecret          string
+	PublicURL              string
+	SessionTTL             time.Duration
+	HTTPAddr               string
+	AlertFingerprintLabels []string
+	IncidentDedupWindow    time.Duration
+	EscalationTimeout      time.Duration
+	OIDC                   map[string]OIDCProvider
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
-		SessionSecret: os.Getenv("SESSION_SECRET"),
-		WebhookSecret: os.Getenv("WEBHOOK_SECRET"),
-		PublicURL:     strings.TrimRight(os.Getenv("PUBLIC_URL"), "/"),
-		HTTPAddr:      envOr("HTTP_ADDR", ":8080"),
-		SessionTTL:    parseDuration(envOr("SESSION_TTL", "168h")),
+		DatabaseURL:            os.Getenv("DATABASE_URL"),
+		SessionSecret:          os.Getenv("SESSION_SECRET"),
+		WebhookSecret:          os.Getenv("WEBHOOK_SECRET"),
+		PublicURL:              strings.TrimRight(os.Getenv("PUBLIC_URL"), "/"),
+		HTTPAddr:               envOr("HTTP_ADDR", ":8080"),
+		SessionTTL:             parseDuration(envOr("SESSION_TTL", "168h")),
+		AlertFingerprintLabels: parseCSV(envOr("ALERT_FINGERPRINT_LABELS", "alertname,team")),
+		IncidentDedupWindow:    parseDuration(envOr("INCIDENT_DEDUP_WINDOW", "24h")),
+		EscalationTimeout:      parseDuration(envOr("ESCALATION_TIMEOUT", "15m")),
 		OIDC: map[string]OIDCProvider{
 			"google": {
 				ClientID:     os.Getenv("GOOGLE_OIDC_CLIENT_ID"),
@@ -111,6 +117,18 @@ func parseDuration(raw string) time.Duration {
 	return d
 }
 
+func parseCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
 func ParsePort(addr string) (int, error) {
 	addr = strings.TrimPrefix(addr, ":")
 	port, err := strconv.Atoi(addr)
@@ -118,4 +136,8 @@ func ParsePort(addr string) (int, error) {
 		return 0, err
 	}
 	return port, nil
+}
+
+func (c *Config) SlackSigningSecret() string {
+	return os.Getenv("SLACK_SIGNING_SECRET")
 }

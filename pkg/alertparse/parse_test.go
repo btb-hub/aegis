@@ -50,6 +50,15 @@ func TestFingerprintStable(t *testing.T) {
 	require.Equal(t, fp1, fp2)
 }
 
+func TestFingerprintFromKeysSubset(t *testing.T) {
+	labels := map[string]string{"alertname": "HighCPU", "team": "platform", "instance": "host-1"}
+	full := Fingerprint(labels)
+	subset := FingerprintFromKeys(labels, []string{"alertname", "team"})
+	require.NotEqual(t, full, subset)
+	require.Equal(t, subset, FingerprintFromKeys(labels, []string{"alertname", "team"}))
+	require.NotEqual(t, subset, FingerprintFromKeys(labels, []string{"alertname", "instance"}))
+}
+
 func TestValidateWebhookSecret(t *testing.T) {
 	require.True(t, ValidateWebhookSecret("secret", "secret"))
 	require.False(t, ValidateWebhookSecret("wrong", "secret"))

@@ -71,21 +71,35 @@ func Parse(raw json.RawMessage) (*ParsedAlert, error) {
 }
 
 func Fingerprint(labels map[string]string) string {
-	keys := make([]string, 0, len(labels))
-	for k := range labels {
-		keys = append(keys, k)
+	return FingerprintFromKeys(labels, labelKeys(labels))
+}
+
+func FingerprintFromKeys(labels map[string]string, keys []string) string {
+	if len(keys) == 0 {
+		keys = labelKeys(labels)
 	}
 	sort.Strings(keys)
 
 	var b strings.Builder
 	for _, k := range keys {
-		b.WriteString(k)
-		b.WriteByte('=')
-		b.WriteString(labels[k])
-		b.WriteByte('|')
+		if v, ok := labels[k]; ok {
+			b.WriteString(k)
+			b.WriteByte('=')
+			b.WriteString(v)
+			b.WriteByte('|')
+		}
 	}
 	sum := sha256.Sum256([]byte(b.String()))
 	return hex.EncodeToString(sum[:])
+}
+
+func labelKeys(labels map[string]string) []string {
+	keys := make([]string, 0, len(labels))
+	for k := range labels {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func ValidateWebhookSecret(provided, expected string) bool {

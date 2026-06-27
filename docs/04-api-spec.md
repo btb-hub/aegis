@@ -85,6 +85,10 @@ Schedule and override changes enqueue a `materialise_oncall` worker job for the 
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/routing-rules` | List routing rules |
+| POST | `/routing-rules` | Create routing rule (admin) |
+| PATCH | `/routing-rules/{id}` | Update routing rule (admin) |
+| DELETE | `/routing-rules/{id}` | Delete routing rule (admin) |
 | GET | `/incidents` | List with filters |
 | GET | `/incidents/{id}` | Detail + timeline |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |

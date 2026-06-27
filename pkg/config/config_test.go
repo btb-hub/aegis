@@ -72,3 +72,11 @@ func TestEnvOr(t *testing.T) {
 	t.Setenv(key, "value")
 	require.Equal(t, "value", envOr(key, "fallback"))
 }
+
+func TestSlackSigningSecret(t *testing.T) {
+	setRequiredEnv(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	t.Setenv("SLACK_SIGNING_SECRET", "slack-secret")
+	require.Equal(t, "slack-secret", cfg.SlackSigningSecret())
+}

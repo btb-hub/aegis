@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import { AppShell } from './AppShell';
 
@@ -14,7 +14,7 @@ describe('AppShell', () => {
       </I18nextProvider>,
     );
     expect(screen.getByText('content')).toBeInTheDocument();
-    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByText('Shifts')).toBeInTheDocument();
   });
 
   it('renders Russian navigation when locale is ru', async () => {
@@ -26,7 +26,21 @@ describe('AppShell', () => {
         </AppShell>
       </I18nextProvider>,
     );
-    expect(screen.getByText('Главная')).toBeInTheDocument();
+    expect(screen.getByText('Смены')).toBeInTheDocument();
     await i18n.changeLanguage('en');
+  });
+
+  it('calls onNavigate when a nav item is clicked', () => {
+    const onNavigate = vi.fn();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <AppShell currentPage="shifts" onNavigate={onNavigate}>
+          <div>content</div>
+        </AppShell>
+      </I18nextProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Incidents' }));
+    expect(onNavigate).toHaveBeenCalledWith('incidents');
   });
 });

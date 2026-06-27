@@ -27,7 +27,7 @@ func (m *mockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAl
 
 func TestAlertIngestSuccess(t *testing.T) {
 	repo := &mockAlertRepo{}
-	svc := NewAlertService("secret", repo)
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
 	raw := json.RawMessage(`{"status":"firing","labels":{"alertname":"HighCPU"},"annotations":{"summary":"CPU"}}`)
 
 	id, err := svc.Ingest(context.Background(), "secret", raw)
@@ -38,7 +38,7 @@ func TestAlertIngestSuccess(t *testing.T) {
 }
 
 func TestAlertIngestBadSecret(t *testing.T) {
-	svc := NewAlertService("secret", &mockAlertRepo{})
+	svc := NewAlertService("secret", []string{"alertname", "team"}, &mockAlertRepo{})
 	_, err := svc.Ingest(context.Background(), "wrong", json.RawMessage(`{}`))
 	appErr, ok := err.(*apperrors.Error)
 	require.True(t, ok)
@@ -46,7 +46,7 @@ func TestAlertIngestBadSecret(t *testing.T) {
 }
 
 func TestAlertIngestInvalidPayload(t *testing.T) {
-	svc := NewAlertService("secret", &mockAlertRepo{})
+	svc := NewAlertService("secret", []string{"alertname", "team"}, &mockAlertRepo{})
 	_, err := svc.Ingest(context.Background(), "secret", json.RawMessage(`{"status":"nope"}`))
 	appErr, ok := err.(*apperrors.Error)
 	require.True(t, ok)
@@ -55,7 +55,7 @@ func TestAlertIngestInvalidPayload(t *testing.T) {
 
 func TestAlertIngestRepoFailure(t *testing.T) {
 	repo := &failAlertRepo{}
-	svc := NewAlertService("secret", repo)
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
 	_, err := svc.Ingest(context.Background(), "secret", json.RawMessage(`{"status":"firing","labels":{"alertname":"X"}}`))
 	require.Error(t, err)
 }

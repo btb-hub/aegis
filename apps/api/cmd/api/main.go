@@ -39,12 +39,15 @@ func main() {
 
 	store := db.NewStore(pool)
 	auth := service.NewAuthService(cfg, store, store, service.NewOAuthTokenExchanger(cfg))
-	alerts := service.NewAlertService(cfg.WebhookSecret, store)
+	alerts := service.NewAlertService(cfg.WebhookSecret, cfg.AlertFingerprintLabels, store)
 	health := service.NewHealthService(store)
 	teams := service.NewTeamService(store)
 	schedules := service.NewScheduleService(store)
 	overrides := service.NewOverrideService(store)
 	oncall := service.NewOnCallService(store)
+	routingRules := service.NewRoutingService(store)
+	incidents := service.NewIncidentService(store)
+	integrationsSvc := service.NewIntegrationService(store, cfg.PublicURL)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -57,6 +60,10 @@ func main() {
 	handler.NewScheduleHandler(schedules, auth).Register(r)
 	handler.NewOverrideHandler(overrides, auth).Register(r)
 	handler.NewOnCallHandler(oncall, auth).Register(r)
+	handler.NewRoutingHandler(routingRules, auth).Register(r)
+	handler.NewIncidentHandler(incidents, auth).Register(r)
+	handler.NewIntegrationHandler(integrationsSvc, auth).Register(r)
+	handler.NewSlackCallbackHandler(incidents, cfg.SlackSigningSecret()).Register(r)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

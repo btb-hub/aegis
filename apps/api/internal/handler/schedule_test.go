@@ -120,7 +120,7 @@ func setupScheduleRouter(t *testing.T) (*gin.Engine, *scheduleHandlerRepo) {
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	teams := service.NewTeamService(repo)
 	schedules := service.NewScheduleService(repo)
-	alerts := service.NewAlertService("secret", &authMockAlertRepo{id: uuid.New()})
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 
 	r := gin.New()

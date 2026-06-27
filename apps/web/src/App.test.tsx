@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
@@ -14,5 +14,10 @@ describe('App', () => {
     expect(screen.getByText('On-call schedule and overrides')).toBeInTheDocument();
     expect(screen.getByText(/on call now/i)).toBeInTheDocument();
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
+    expect(screen.getByText('Shifts')).toBeInTheDocument();
+    expect(screen.getByText('Incidents')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Incidents'));
+    expect(screen.getByText('Track open incidents, linked alerts, and timeline events')).toBeInTheDocument();
   });
 });
