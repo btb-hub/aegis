@@ -1,28 +1,48 @@
 import { useTranslation } from 'react-i18next';
 import { AppShell } from './components/layout/AppShell';
-import { Button } from './components/ui/Button';
-import { SeverityTag } from './components/ui/SeverityTag';
-import { formatDateTime } from './lib/formatDate';
+import { TeamShiftsPage } from './pages/TeamShiftsPage';
+
+const demoSlots = [
+  {
+    id: 'slot-1',
+    userId: 'user-alice',
+    displayName: 'Alice',
+    startAt: '2026-06-02T09:00:00Z',
+    endAt: '2026-06-09T09:00:00Z',
+    source: 'rotation' as const,
+  },
+  {
+    id: 'slot-2',
+    userId: 'user-bob',
+    displayName: 'Bob',
+    startAt: '2026-06-09T09:00:00Z',
+    endAt: '2026-06-16T09:00:00Z',
+    source: 'rotation' as const,
+  },
+];
+
+const demoOverrides = [
+  {
+    id: 'override-1',
+    userId: 'user-carol',
+    displayName: 'Carol',
+    startAt: '2026-06-12T00:00:00Z',
+    endAt: '2026-06-13T00:00:00Z',
+  },
+];
 
 export function App() {
-  const { t, i18n } = useTranslation();
-  const sampleDate = formatDateTime(new Date('2026-06-26T12:00:00Z'), i18n.language);
+  const { t } = useTranslation();
 
   return (
     <AppShell>
-      <div className="max-w-3xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold">{t('app.title')}</h1>
-          <p className="text-zinc-600">{t('app.tagline')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <SeverityTag severity="P1" />
-          <Button>{t('sample.primary')}</Button>
-        </div>
-        <p className="font-mono text-sm text-zinc-600">
-          {t('sample.date_label')}: {sampleDate}
-        </p>
-      </div>
+      <TeamShiftsPage
+        teamName={t('shifts.demo_team')}
+        onCallUsers={[{ userId: 'user-bob', displayName: 'Bob', email: 'bob@example.com', source: 'rotation' }]}
+        slots={demoSlots}
+        overrides={demoOverrides}
+        month={new Date('2026-06-01T00:00:00Z')}
+      />
     </AppShell>
   );
 }

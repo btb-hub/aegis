@@ -32,7 +32,10 @@ func main() {
 
 	store := db.NewStore(pool)
 	adapter := &storeAdapter{store: store}
-	worker := processor.NewWorker(nil, adapter, processor.NewAlertProcessor(nil))
+	materialise := processor.NewMaterialiseProcessor(nil, store)
+	worker := processor.NewWorker(nil, adapter, processor.NewAlertProcessor(nil), materialise)
+
+	go enqueueNightlyMaterialise(ctx, store)
 
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -81,4 +84,13 @@ func (s *storeAdapter) FailJob(ctx context.Context, id, message string) error {
 		return err
 	}
 	return s.store.FailJob(ctx, uid, message)
+}
+
+func enqueueNightlyMaterialise(ctx context.Context, store *db.Store) {
+	for {
+		now := time.Now().UTC()
+		next := time.Date(now.Year(), now.Month(), now.Day()+1, 2, 0, 0, 0, time.UTC)
+		time.Sleep(time.Until(next))
+		_, _ = store.EnqueueJob(ctx, "materialise_oncall", []byte(`{}`), time.Now())
+	}
 }

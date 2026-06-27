@@ -104,3 +104,29 @@ type ScheduleWithLayers struct {
 	Schedule Schedule        `json:"schedule"`
 	Layers   []ScheduleLayer `json:"layers"`
 }
+
+type Override struct {
+	ID        uuid.UUID `json:"id"`
+	TeamID    uuid.UUID `json:"team_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	StartAt   time.Time `json:"start_at"`
+	EndAt     time.Time `json:"end_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OnCallSlot struct {
+	ID        uuid.UUID `json:"id"`
+	TeamID    uuid.UUID `json:"team_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	StartAt   time.Time `json:"start_at"`
+	EndAt     time.Time `json:"end_at"`
+	Source    string    `json:"source"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OnCallUser struct {
+	UserID      uuid.UUID `json:"user_id"`
+	Email       string    `json:"email"`
+	DisplayName string    `json:"display_name"`
+	Source      string    `json:"source"`
+}

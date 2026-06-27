@@ -108,6 +108,10 @@ func (m *scheduleHandlerRepo) DeleteScheduleForTeam(ctx context.Context, teamID,
 	return nil
 }
 
+func (m *scheduleHandlerRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+	return nil
+}
+
 func setupScheduleRouter(t *testing.T) (*gin.Engine, *scheduleHandlerRepo) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -313,6 +317,31 @@ func TestSchedulesCreateInvalidBody(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestSchedulesDeleteSuccess(t *testing.T) {
+	r, repo := setupScheduleRouter(t)
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID}
+	memberID := uuid.New()
+	repo.memberUsers[teamID] = map[uuid.UUID]struct{}{memberID: {}}
+	adminToken := sessionForRoleOnRepo(t, repo, "admin")
+
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams/"+teamID.String()+"/schedules", bytes.NewReader(scheduleBody(memberID)))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	r.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+
+	var created map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &created))
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/teams/"+teamID.String()+"/schedules/"+created["id"].(string), nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
 }
 
 func TestSchedulesDeleteForbiddenForViewer(t *testing.T) {

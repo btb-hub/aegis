@@ -115,6 +115,10 @@ func (m *scheduleRepoMock) DeleteScheduleForTeam(ctx context.Context, teamID, sc
 	return nil
 }
 
+func (m *scheduleRepoMock) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+	return nil
+}
+
 func validScheduleInput(participants ...uuid.UUID) CreateScheduleInput {
 	return CreateScheduleInput{
 		Name:     "Primary",
@@ -235,6 +239,13 @@ func TestParseParticipantIDsInvalid(t *testing.T) {
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+}
+
+func TestParseParticipantIDsSuccess(t *testing.T) {
+	id := uuid.New()
+	ids, err := ParseParticipantIDs([]string{id.String()})
+	require.NoError(t, err)
+	require.Equal(t, []uuid.UUID{id}, ids)
 }
 
 func TestScheduleJSONHelpers(t *testing.T) {
@@ -456,4 +467,67 @@ func TestMapScheduleErrorNotFound(t *testing.T) {
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, "NOT_FOUND", appErr.Code)
+}
+
+type failingScheduleEnqueueRepo struct {
+	scheduleRepoMock
+	failAfter int
+	calls     int
+}
+
+func (m *failingScheduleEnqueueRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+	m.calls++
+	if m.calls > m.failAfter {
+		return errors.New("enqueue failed")
+	}
+	return nil
+}
+
+type nilSchedulesRepo struct {
+	scheduleRepoMock
+}
+
+func (m *nilSchedulesRepo) ListSchedulesWithLayersByTeam(ctx context.Context, teamID uuid.UUID) ([]db.ScheduleWithLayers, error) {
+	return nil, nil
+}
+
+func TestListSchedulesNilResult(t *testing.T) {
+	repo := &nilSchedulesRepo{scheduleRepoMock: *newScheduleRepoMock()}
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID}
+	svc := NewScheduleService(repo)
+
+	items, err := svc.ListSchedules(context.Background(), teamID)
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
+func TestUpdateScheduleEnqueueFailure(t *testing.T) {
+	repo := &failingScheduleEnqueueRepo{scheduleRepoMock: *newScheduleRepoMock(), failAfter: 1}
+	teamID := uuid.New()
+	userID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID}
+	repo.memberUsers[teamID] = map[uuid.UUID]struct{}{userID: {}}
+	svc := NewScheduleService(repo)
+
+	created, err := svc.CreateSchedule(context.Background(), teamID, validScheduleInput(userID))
+	require.NoError(t, err)
+
+	_, err = svc.UpdateSchedule(context.Background(), teamID, created.Schedule.ID, validScheduleInput(userID))
+	require.Error(t, err)
+}
+
+func TestDeleteScheduleEnqueueFailure(t *testing.T) {
+	repo := &failingScheduleEnqueueRepo{scheduleRepoMock: *newScheduleRepoMock(), failAfter: 1}
+	teamID := uuid.New()
+	userID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID}
+	repo.memberUsers[teamID] = map[uuid.UUID]struct{}{userID: {}}
+	svc := NewScheduleService(repo)
+
+	created, err := svc.CreateSchedule(context.Background(), teamID, validScheduleInput(userID))
+	require.NoError(t, err)
+
+	err = svc.DeleteSchedule(context.Background(), teamID, created.Schedule.ID)
+	require.Error(t, err)
 }
