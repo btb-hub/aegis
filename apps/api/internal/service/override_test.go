@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -125,4 +126,128 @@ func TestOverrideServiceTeamNotFound(t *testing.T) {
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, "NOT_FOUND", appErr.Code)
+}
+
+func TestOverrideServiceListSuccess(t *testing.T) {
+	repo := newOverrideRepoMock()
+	teamID := uuid.New()
+	userID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	overrideID := uuid.New()
+	repo.overrides[overrideID] = db.Override{ID: overrideID, TeamID: teamID, UserID: userID}
+
+	svc := NewOverrideService(repo)
+	items, err := svc.ListOverrides(context.Background(), teamID)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+}
+
+func TestOverrideServiceNilUserID(t *testing.T) {
+	repo := newOverrideRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	svc := NewOverrideService(repo)
+
+	_, err := svc.CreateOverride(context.Background(), teamID, CreateOverrideInput{
+		UserID: uuid.Nil, StartAt: time.Now(), EndAt: time.Now().Add(time.Hour),
+	})
+	require.Error(t, err)
+}
+
+func TestOverrideServiceNotTeamMember(t *testing.T) {
+	repo := newOverrideRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	svc := NewOverrideService(repo)
+
+	_, err := svc.CreateOverride(context.Background(), teamID, CreateOverrideInput{
+		UserID: uuid.New(), StartAt: time.Now(), EndAt: time.Now().Add(time.Hour),
+	})
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+}
+
+func TestOverrideServiceDeleteNotFound(t *testing.T) {
+	repo := newOverrideRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	svc := NewOverrideService(repo)
+
+	err := svc.DeleteOverride(context.Background(), teamID, uuid.New())
+	require.Error(t, err)
+}
+
+func TestOverrideJSON(t *testing.T) {
+	id := uuid.New()
+	teamID := uuid.New()
+	userID := uuid.New()
+	now := time.Now()
+	payload := OverrideJSON(db.Override{ID: id, TeamID: teamID, UserID: userID, StartAt: now, EndAt: now.Add(time.Hour), CreatedAt: now})
+	require.Equal(t, id.String(), payload["id"])
+	require.Equal(t, teamID.String(), payload["team_id"])
+}
+
+type nilOverridesRepo struct {
+	overrideRepoMock
+}
+
+func (m *nilOverridesRepo) ListOverridesByTeam(ctx context.Context, teamID uuid.UUID) ([]db.Override, error) {
+	return nil, nil
+}
+
+func TestOverrideServiceListNilOverrides(t *testing.T) {
+	repo := &nilOverridesRepo{overrideRepoMock: *newOverrideRepoMock()}
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	svc := NewOverrideService(repo)
+
+	items, err := svc.ListOverrides(context.Background(), teamID)
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
+type failingEnqueueRepo struct {
+	overrideRepoMock
+	failAfter int
+	calls     int
+}
+
+func (m *failingEnqueueRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+	m.calls++
+	if m.calls > m.failAfter {
+		return errors.New("enqueue failed")
+	}
+	return nil
+}
+
+func TestOverrideServiceCreateEnqueueFailure(t *testing.T) {
+	repo := &failingEnqueueRepo{overrideRepoMock: *newOverrideRepoMock(), failAfter: 0}
+	teamID := uuid.New()
+	userID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	repo.members[teamID] = map[uuid.UUID]struct{}{userID: {}}
+	svc := NewOverrideService(repo)
+
+	_, err := svc.CreateOverride(context.Background(), teamID, CreateOverrideInput{
+		UserID: userID, StartAt: time.Now(), EndAt: time.Now().Add(time.Hour),
+	})
+	require.Error(t, err)
+}
+
+func TestOverrideServiceDeleteEnqueueFailure(t *testing.T) {
+	repo := &failingEnqueueRepo{overrideRepoMock: *newOverrideRepoMock(), failAfter: 0}
+	teamID := uuid.New()
+	userID := uuid.New()
+	overrideID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	repo.overrides[overrideID] = db.Override{
+		ID: overrideID, TeamID: teamID, UserID: userID,
+		StartAt: time.Now(), EndAt: time.Now().Add(time.Hour), CreatedAt: time.Now(),
+	}
+	svc := NewOverrideService(repo)
+
+	err := svc.DeleteOverride(context.Background(), teamID, overrideID)
+	require.Error(t, err)
 }
