@@ -5,18 +5,42 @@ MVP runs on **Docker Compose** — Postgres, API, worker, web. No Redis.
 ## Prerequisites
 
 - Docker 24+ and Docker Compose v2
-- Go 1.22+ (local dev)
+- Go 1.25+ (local dev)
 - Node 20+ (local web dev)
 
 ## Quick start
 
+### Full stack (Docker)
+
+```bash
+make setup
+# Edit .env — SESSION_SECRET, WEBHOOK_SECRET, and OIDC client IDs/secrets
+make up
+```
+
+Open `http://localhost:3000` (web) and `http://localhost:8080` (API). Stop with `make down`.
+
+Equivalent without Make:
+
 ```bash
 cp deploy/.env.example .env
-# Edit OIDC client IDs/secrets, webhook secret, Jira/Slack/eXpress tokens
 docker compose -f deploy/docker-compose.yml up --build
 ```
 
-Open `http://localhost:3000` (web) and `http://localhost:8080` (API).
+### Native development
+
+Postgres in Docker; API, worker, and web on the host with hot reload:
+
+```bash
+make setup-local
+make dev-db
+make dev-api      # terminal 1
+make dev-worker   # terminal 2
+make dev-web      # terminal 3
+```
+
+Uses [`deploy/.env.local.example`](./deploy/.env.local.example) (`DATABASE_URL` points at `localhost`).
+Vite proxies `/api` and `/auth` to the API on port 8080.
 
 ### Storybook (design system)
 
@@ -82,11 +106,14 @@ Open `http://localhost:6006`. Build static catalog for CI: `npm run build-storyb
 
 ## Migrations
 
+Docker Compose runs migrations automatically on `make up` and `make dev-db`.
+
+To apply migrations manually (requires [golang-migrate](https://github.com/golang-migrate/migrate) CLI):
+
 ```bash
+export DATABASE_URL=postgres://aegis:aegis@localhost:5432/aegis?sslmode=disable
 make migrate-up
 ```
-
-Uses golang-migrate against `db/migrations/`.
 
 ## Setup wizard (Phase 6)
 
