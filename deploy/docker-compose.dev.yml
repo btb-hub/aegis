@@ -1,0 +1,39 @@
+# Postgres + migrations only — for native app development (make dev-api / dev-worker / dev-web).
+# Use deploy/.env.local.example as your .env when running apps on the host.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: aegis
+      POSTGRES_DB: aegis
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../db/migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://aegis:aegis@postgres:5432/aegis?sslmode=disable",
+        "up",
+      ]
+    restart: "no"
+
+volumes:
+  pgdata_dev:

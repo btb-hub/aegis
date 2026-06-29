@@ -1,6 +1,18 @@
-.PHONY: lint type test migrate-up migrate-down tidy
+.PHONY: lint type test tidy migrate-up migrate-down \
+	setup setup-local install deps \
+	up up-detached down logs ps \
+	dev-db dev-db-down dev-api dev-worker dev-web
 
 GO_PKGS := ./pkg/... ./apps/api/... ./apps/worker/...
+
+COMPOSE := docker compose -f deploy/docker-compose.yml
+COMPOSE_DEV := docker compose -f deploy/docker-compose.dev.yml
+
+ifeq ($(OS),Windows_NT)
+LOAD_ENV := powershell -NoProfile -ExecutionPolicy Bypass -File scripts/load-env.ps1
+else
+LOAD_ENV := bash scripts/load-env.sh
+endif
 
 lint:
 	cd pkg && go vet ./...
@@ -38,3 +50,57 @@ migrate-up:
 
 migrate-down:
 	migrate -path db/migrations -database "$${DATABASE_URL}" down 1
+
+setup:
+ifeq ($(OS),Windows_NT)
+	@if not exist .env copy deploy\.env.example .env
+else
+	@test -f .env || cp deploy/.env.example .env
+endif
+	$(MAKE) deps
+
+setup-local:
+ifeq ($(OS),Windows_NT)
+	@if not exist .env copy deploy\.env.local.example .env
+else
+	@test -f .env || cp deploy/.env.local.example .env
+endif
+	$(MAKE) deps
+
+install: setup
+
+deps:
+	cd pkg && go mod download
+	cd apps/api && go mod download
+	cd apps/worker && go mod download
+	cd apps/web && npm install
+
+up:
+	$(COMPOSE) up --build
+
+up-detached:
+	$(COMPOSE) up --build -d
+
+down:
+	$(COMPOSE) down
+
+logs:
+	$(COMPOSE) logs -f
+
+ps:
+	$(COMPOSE) ps
+
+dev-db:
+	$(COMPOSE_DEV) up -d
+
+dev-db-down:
+	$(COMPOSE_DEV) down
+
+dev-api:
+	$(LOAD_ENV) go run ./apps/api/cmd/api
+
+dev-worker:
+	$(LOAD_ENV) go run ./apps/worker/cmd/worker
+
+dev-web:
+	cd apps/web && npm run dev

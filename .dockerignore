@@ -1,0 +1,29 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+
+# Go build artifacts
+bin/
+**/coverage*.out
+**/coverage/
+
+# Node
+**/node_modules/
+apps/web/dist/
+apps/web/coverage/
+apps/web/storybook-static/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docs and backlog (not needed in images)
+docs/
+backlog/
+*.md
+!apps/web/**/*.md

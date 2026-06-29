@@ -40,11 +40,11 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Quick facts
 
-- **Stack:** Go 1.22+ (API + worker), PostgreSQL 16, React + TypeScript (Vite), Storybook. No Redis.
+- **Stack:** Go 1.25+ (API + worker), PostgreSQL 16, React + TypeScript (Vite), Storybook. No Redis.
 - **Auth:** OIDC via Google, Slack, and eXpress.
 - **Locales:** English and Russian (`en`, `ru`).
 - **Coverage:** `make test` enforces ≥90% unit-test coverage on business logic (NFR-5).
-- **Deploy:** Docker Compose for the MVP; one `.env`, one `docker compose up`.
+- **Deploy:** Docker Compose — `make setup && make up`, or native dev with `make dev-db` + `make dev-api`.
 - **Alert intake:** generic webhook endpoint, compatible with Alertmanager / Grafana / Zabbix payloads.
 - **Out:** anything not needed to ship the four MVP features. See `docs/00-product-brief.md` for the
   explicit non-goals.
@@ -110,25 +110,66 @@ not yet wired to the API. Backend endpoints are ready for integration.
 
 ## Run locally
 
-Full setup: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
+Full deployment notes: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
+
+**Prerequisites:** Docker 24+ with Compose v2. For native dev (option 2): Go 1.25+, Node 20+, and GNU Make (or use `scripts/dev.ps1` on Windows).
+
+### Option 1 — Full stack in Docker (recommended)
+
+Runs Postgres, migrations, API, worker, and web in containers.
 
 ```bash
-cp deploy/.env.example .env
-# Set OIDC credentials, WEBHOOK_SECRET, and optional Jira/Slack tokens
-docker compose -f deploy/docker-compose.yml up --build
+make setup          # copy deploy/.env.example → .env, install deps
+# edit .env — at minimum keep SESSION_SECRET and WEBHOOK_SECRET; add OIDC creds to log in
+make up             # build and start all services (foreground)
+# or: make up-detached && make logs
 ```
 
 | Service | URL |
 |---------|-----|
 | Web | http://localhost:3000 |
 | API | http://localhost:8080 |
-| Storybook | `cd apps/web && npm run storybook` → http://localhost:6006 |
+| Health | http://localhost:8080/healthz |
 
-Development gate (lint, typecheck, tests + coverage):
+Stop: `make down`.
+
+### Option 2 — Native apps + Postgres in Docker
+
+Hot reload for Go and Vite while Postgres runs in a container.
 
 ```bash
-make lint type test
+make setup-local    # copy deploy/.env.local.example → .env (localhost DATABASE_URL)
+make dev-db         # Postgres + migrations in Docker (port 5432)
+
+# three terminals:
+make dev-api        # API on :8080
+make dev-worker     # background job worker
+make dev-web        # Vite dev server on :3000 (proxies /api and /auth to :8080)
 ```
+
+Stop Postgres: `make dev-db-down`.
+
+On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up` (see `.\scripts\dev.ps1` for all commands).
+
+### Other commands
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Alias for `make setup` |
+| `make ps` | Show running Compose services |
+| `make migrate-up` | Apply migrations (requires `migrate` CLI + `DATABASE_URL`) |
+| `make lint type test` | CI gate — lint, typecheck, tests + coverage |
+
+Storybook: `cd apps/web && npm run storybook` → http://localhost:6006
+
+### Compose files
+
+| File | Purpose |
+|------|---------|
+| [`deploy/docker-compose.yml`](./deploy/docker-compose.yml) | Full stack (`make up`) |
+| [`deploy/docker-compose.dev.yml`](./deploy/docker-compose.dev.yml) | Postgres only (`make dev-db`) |
+| [`deploy/.env.example`](./deploy/.env.example) | Env template for Docker (`DATABASE_URL` host `postgres`) |
+| [`deploy/.env.local.example`](./deploy/.env.local.example) | Env template for native dev (`DATABASE_URL` host `localhost`) |
 
 ## Repo layout
 
@@ -142,7 +183,7 @@ aegis/
 │   ├── worker/            # Go job poller (alert processing, escalations, on-call materialisation)
 │   └── web/               # React frontend + Storybook
 ├── db/                    # golang-migrate SQL migrations
-├── deploy/                # docker-compose, Dockerfiles, env template
-├── scripts/               # coverage gate and helpers
+├── deploy/                # docker-compose, Dockerfiles, env templates
+├── scripts/               # coverage gate, env helpers for local dev
 └── .github/               # CI, PR template
 ```
