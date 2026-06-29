@@ -45,23 +45,25 @@
 
 ### AEG-019 — eXpress chat provider
 
-- **Status:** Blocked
+- **Status:** Done
 - **Depends on:** AEG-018
 - **PRD:** REQ-INT-04
 - **Acceptance:**
-  - [ ] BotX HTTP client sends bubble with ack action
-  - [ ] `/link` bootstrap documented and API stub for binding huid
-  - [ ] HMAC webhook handler
-  - [ ] Recorded fixture tests
+  - [x] BotX HTTP client sends bubble with ack action
+  - [x] `/link` bootstrap documented and API stub for binding huid
+  - [x] HMAC webhook handler
+  - [x] Recorded fixture tests
+
+**Plan (implemented):** `pkg/integrations/express` BotX client; `POST /callbacks/express/bot` with JWT verification; `/link` codes via `express_link_codes` migration; worker paging includes express huid.
 
 ---
 
 ### AEG-020 — Test connection for integrations
 
-- **Status:** Blocked
+- **Status:** Done
 - **Depends on:** AEG-017, AEG-019
 - **PRD:** REQ-INT-05
 - **Acceptance:**
-  - [ ] `POST /integrations/{id}/test` for each provider
-  - [ ] Clear error messages on failure
-  - [ ] Admin UI button (minimal)
+  - [x] `POST /integrations/{id}/test` for each provider
+  - [x] Clear error messages on failure
+  - [x] Admin UI button (minimal)

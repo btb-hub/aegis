@@ -103,6 +103,13 @@ Schedule and override changes enqueue a `materialise_oncall` worker job for the 
 | GET/PATCH/DELETE | `/integrations/{id}` | CRUD |
 | POST | `/integrations/{id}/test` | Test connection |
 
+## eXpress link (Phase 3)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/users/me/express-link-code` | Generate `/link` code (session) |
+| POST | `/users/me/express-link` | Direct bind `express_user_huid` stub (session) |
+
 ## Callbacks (Phase 2–3)
 
 | Method | Path | Auth | Description |

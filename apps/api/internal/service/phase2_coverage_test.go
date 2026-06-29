@@ -117,6 +117,21 @@ func TestIntegrationServiceTestProviderNotConfigured(t *testing.T) {
 	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
 }
 
+func TestIntegrationServiceTestExpressSuccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
+	}))
+	defer server.Close()
+
+	cfg := mustJSON(map[string]string{
+		"bot_id": "bot", "host": server.URL, "secret_key": "secret",
+	})
+	id := uuid.New()
+	repo := &integrationMockRepo{items: []db.Integration{{ID: id, Kind: "express", Config: cfg, Enabled: true}}}
+	svc := NewIntegrationService(repo, "http://localhost:8080")
+	require.NoError(t, svc.Test(context.Background(), id))
+}
+
 func TestMapIntegrationErrorGeneric(t *testing.T) {
 	err := mapIntegrationError(pgx.ErrTxClosed)
 	require.ErrorIs(t, err, pgx.ErrTxClosed)

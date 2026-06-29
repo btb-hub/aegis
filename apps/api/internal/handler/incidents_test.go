@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -108,6 +109,41 @@ func (m *phase2HandlerRepo) GetUserBySlackID(_ context.Context, slackUserID stri
 	return db.User{}, pgx.ErrNoRows
 }
 
+func (m *phase2HandlerRepo) GetUserByExpressHuid(_ context.Context, expressHuid uuid.UUID) (db.User, error) {
+	for _, user := range m.users {
+		if user.ExpressUserHuid.Valid && uuid.UUID(user.ExpressUserHuid.Bytes) == expressHuid {
+			return user, nil
+		}
+	}
+	return db.User{}, pgx.ErrNoRows
+}
+
+func (m *phase2HandlerRepo) CreateExpressLinkCode(_ context.Context, userID uuid.UUID, _ time.Duration) (string, error) {
+	return "ABC123", nil
+}
+
+func (m *phase2HandlerRepo) RedeemExpressLinkCode(_ context.Context, code string, expressHuid uuid.UUID) (db.User, error) {
+	if code != "ABC123" {
+		return db.User{}, fmt.Errorf("link code invalid or expired")
+	}
+	for id, user := range m.users {
+		user.ExpressUserHuid = db.ExpressHuidToPg(expressHuid)
+		m.users[id] = user
+		return user, nil
+	}
+	return db.User{}, pgx.ErrNoRows
+}
+
+func (m *phase2HandlerRepo) UpdateUserExpressHuid(_ context.Context, userID, expressHuid uuid.UUID) (db.User, error) {
+	user, ok := m.users[userID]
+	if !ok {
+		return db.User{}, pgx.ErrNoRows
+	}
+	user.ExpressUserHuid = db.ExpressHuidToPg(expressHuid)
+	m.users[userID] = user
+	return user, nil
+}
+
 func (m *phase2HandlerRepo) ListRoutingRules(context.Context) ([]db.RoutingRule, error) {
 	items := make([]db.RoutingRule, 0, len(m.rules))
 	for _, rule := range m.rules {
@@ -184,6 +220,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	incidents := service.NewIncidentService(repo)
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
+	expressLinks := service.NewExpressLinkService(repo)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 
@@ -195,6 +232,8 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, "secret").Register(r)
+	NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
+	NewExpressLinkHandler(expressLinks, auth).Register(r)
 	return r, repo
 }
 

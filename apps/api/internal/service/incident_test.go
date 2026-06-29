@@ -62,6 +62,12 @@ func (m *incidentMockRepo) GetUserBySlackID(context.Context, string) (db.User, e
 	}
 	return m.user, nil
 }
+func (m *incidentMockRepo) GetUserByExpressHuid(_ context.Context, expressHuid uuid.UUID) (db.User, error) {
+	if m.user.ID == uuid.Nil || !m.user.ExpressUserHuid.Valid || uuid.UUID(m.user.ExpressUserHuid.Bytes) != expressHuid {
+		return db.User{}, pgx.ErrNoRows
+	}
+	return m.user, nil
+}
 
 func TestIncidentServiceAcknowledge(t *testing.T) {
 	incidentID := uuid.New()
@@ -90,6 +96,19 @@ func TestIncidentServiceAcknowledgeBySlackUser(t *testing.T) {
 		user:     db.User{ID: userID, SlackUserID: strPtr("U123")},
 	})
 	incident, err := svc.AcknowledgeBySlackUser(context.Background(), incidentID, "U123")
+	require.NoError(t, err)
+	require.Equal(t, "acknowledged", incident.Status)
+}
+
+func TestIncidentServiceAcknowledgeByExpressHuid(t *testing.T) {
+	incidentID := uuid.New()
+	userID := uuid.New()
+	huid := uuid.MustParse("6fafda2c-6505-57a5-a088-25ea5d1d0364")
+	svc := NewIncidentService(&incidentMockRepo{
+		incident: db.Incident{ID: incidentID, Status: "open"},
+		user:     db.User{ID: userID, ExpressUserHuid: db.ExpressHuidToPg(huid)},
+	})
+	incident, err := svc.AcknowledgeByExpressHuid(context.Background(), incidentID, huid.String())
 	require.NoError(t, err)
 	require.Equal(t, "acknowledged", incident.Status)
 }

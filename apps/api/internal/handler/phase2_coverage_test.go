@@ -105,6 +105,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	incidents := service.NewIncidentService(repo)
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
+	expressLinks := service.NewExpressLinkService(repo)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 
@@ -116,5 +117,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, "secret").Register(r)
+	NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
+	NewExpressLinkHandler(expressLinks, auth).Register(r)
 	return r
 }

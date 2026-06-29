@@ -21,6 +21,7 @@ type IncidentRepository interface {
 	CancelEscalationJobs(ctx context.Context, incidentID uuid.UUID) error
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	GetUserBySlackID(ctx context.Context, slackUserID string) (db.User, error)
+	GetUserByExpressHuid(ctx context.Context, expressHuid uuid.UUID) (db.User, error)
 }
 
 type IncidentService struct {
@@ -54,6 +55,18 @@ func (s *IncidentService) Acknowledge(ctx context.Context, incidentID, actorID u
 
 func (s *IncidentService) AcknowledgeBySlackUser(ctx context.Context, incidentID uuid.UUID, slackUserID string) (db.Incident, error) {
 	user, err := s.repo.GetUserBySlackID(ctx, slackUserID)
+	if err != nil {
+		return db.Incident{}, mapIncidentError(err)
+	}
+	return s.Acknowledge(ctx, incidentID, user.ID)
+}
+
+func (s *IncidentService) AcknowledgeByExpressHuid(ctx context.Context, incidentID uuid.UUID, expressHuidRaw string) (db.Incident, error) {
+	huid, err := db.ParseExpressHuid(expressHuidRaw)
+	if err != nil {
+		return db.Incident{}, apperrors.Validation("invalid express_user_huid", nil)
+	}
+	user, err := s.repo.GetUserByExpressHuid(ctx, huid)
 	if err != nil {
 		return db.Incident{}, mapIncidentError(err)
 	}
