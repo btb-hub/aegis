@@ -49,6 +49,65 @@ department dashboards to analyse what's happening. The product must be easy to *
 - **Out:** anything not needed to ship the four MVP features. See `docs/00-product-brief.md` for the
   explicit non-goals.
 
+## Implementation status
+
+**Phases 0–2 are implemented** in code. Phase 3 (eXpress connector) is next — see
+[`backlog/roadmap.md`](./backlog/roadmap.md).
+
+| Phase | Exit (summary) | Status |
+|-------|----------------|--------|
+| 0 — Foundation | App runs locally; alert webhook; OIDC; CI green; Storybook | Done |
+| 1 — Shifts & on-call | Teams, rotations, overrides, on-call resolution + calendar UI | Done |
+| 2 — Incident spine | Alert → incident → Jira ticket → Slack page → ack + escalation | Done |
+| 3 — eXpress connector | Slack + eXpress notifications; test connection per provider | Not started |
+| 4 — Alerting workspace | Filters, search, saved views, inline analytics | Not started |
+| 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | Not started |
+| 6 — Analytics & polish | Dashboard, setup wizard | Not started |
+
+### Backend (`apps/api`, `apps/worker`, `pkg/`)
+
+- **Auth & health:** OIDC login (Google, Slack, eXpress), session cookies, RBAC middleware,
+  `/healthz`, `/readyz`, `/metrics`.
+- **Alerts:** webhook ingest, list/detail/export; enqueues `process_alert` worker job.
+- **Shifts:** teams, memberships, schedules, overrides, on-call slots API; `materialise_oncall`
+  worker job (on schedule change + nightly).
+- **Incidents:** routing rules CRUD; dedup by fingerprint; incident lifecycle (open → acknowledged →
+  resolved); timeline events; ack/resolve endpoints.
+- **Integrations:** connector registry; Jira ticket provider; Slack chat provider (Block Kit page +
+  interactive ack callback); integration CRUD; Slack test connection.
+- **Worker jobs:** `process_alert`, `escalate_incident`, `materialise_oncall`.
+
+API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deploy/.env.example`](./deploy/.env.example).
+
+### Database (`db/migrations/`)
+
+| Migration | Schema |
+|-----------|--------|
+| `000001_initial` | users, sessions, jobs, alerts |
+| `000002_teams` | teams, team_members |
+| `000003_schedules` | schedules, on_call_slots |
+| `000004_overrides_oncall` | schedule_overrides |
+| `000005_incidents` | incidents, routing_rules, integrations, timeline, incident_alerts |
+
+### Frontend (`apps/web/`)
+
+- **Design system:** Tailwind tokens, base components, Storybook catalog.
+- **Shifts page:** on-call banner + month calendar (rotations and overrides).
+- **Incidents page:** status filters, list/detail with timeline, alerts, Jira link, ack/resolve
+  actions.
+- **i18n:** English + Russian locale files for all UI strings.
+
+The web app currently renders **demo fixtures** in `App.tsx` — components are built and tested, but
+not yet wired to the API. Backend endpoints are ready for integration.
+
+### Not yet built
+
+- eXpress chat provider and `/callbacks/express/bot` (Phase 3 — AEG-019, AEG-020)
+- Alerting workspace: advanced filters, saved views, CSV export UI (Phase 4)
+- L2 ↔ L3 handoff and bounce (Phase 5)
+- Analytics dashboard and setup wizard (Phase 6)
+- Web ↔ API client layer (follow-up after Phase 2 UI stories)
+
 ## Run locally
 
 Full deployment notes: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
