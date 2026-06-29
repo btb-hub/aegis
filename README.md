@@ -51,15 +51,16 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Implementation status
 
-**Phases 0–3 are implemented** in code. Phase 4 (alerting workspace) is next — see
+**Phases 0–3 are implemented** in code. **Phase 3.5** (web login UI) is next, then Phase 4 — see
 [`backlog/roadmap.md`](./backlog/roadmap.md).
 
 | Phase | Exit (summary) | Status |
 |-------|----------------|--------|
-| 0 — Foundation | App runs locally; alert webhook; OIDC; CI green; Storybook | Done |
+| 0 — Foundation | App runs locally; alert webhook; OIDC API; CI green; Storybook | Done |
 | 1 — Shifts & on-call | Teams, rotations, overrides, on-call resolution + calendar UI | Done |
 | 2 — Incident spine | Alert → incident → Jira ticket → Slack page → ack + escalation | Done |
 | 3 — eXpress connector | Slack + eXpress notifications; test connection per provider | Done |
+| 3.5 — Web auth & session | Login page, app shell session, OIDC callback redirect | Not started |
 | 4 — Alerting workspace | Filters, search, saved views, inline analytics | Not started |
 | 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | Not started |
 | 6 — Analytics & polish | Dashboard, setup wizard | Not started |
@@ -104,10 +105,11 @@ not yet wired to the API. Backend endpoints are ready for integration.
 
 ### Not yet built
 
+- **Web login and session** (Phase 3.5 — [AEG-057](backlog/epics/EPIC-01-foundation.md)–[AEG-059](backlog/epics/EPIC-01-foundation.md)): login page, shell sign-out, OIDC callback redirect
 - Alerting workspace: advanced filters, saved views, CSV export UI (Phase 4)
 - L2 ↔ L3 handoff and bounce (Phase 5)
 - Analytics dashboard and setup wizard (Phase 6)
-- Web ↔ API client layer (follow-up after Phase 2 UI stories)
+- Web ↔ API client layer for shifts/incidents (demo fixtures today; auth UI in Phase 3.5 first)
 
 ## Run locally
 

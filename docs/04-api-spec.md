@@ -9,7 +9,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`) |
-| GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie |
+| GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; **redirects to web app** (Phase 3.5, [AEG-059](../backlog/epics/EPIC-01-foundation.md)) |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user + role + locale |
 | PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`) |

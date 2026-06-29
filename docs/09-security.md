@@ -16,7 +16,7 @@ MVP supports exactly three identity providers:
 
 ### Flow
 
-1. User chooses provider on login page.
+1. User chooses provider on the login page ([`docs/features/web-auth.md`](./features/web-auth.md); Phase 3.5).
 2. `GET /auth/{provider}/login` generates state/nonce, redirects to IdP.
 3. Callback validates state, exchanges code for tokens, fetches userinfo.
 4. Upsert `users` on `(provider, provider_sub)`.

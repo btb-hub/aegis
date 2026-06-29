@@ -55,6 +55,19 @@ features end to end.
 
 → Epic: [EPIC-03 Integrations](./epics/EPIC-03-integrations.md)
 
+## Phase 3.5 — Web auth & session
+
+*Exit: a user signs in from the web UI (Google, Slack, or eXpress); the session persists; API-backed
+pages (integrations, later shifts/incidents) work without typing auth URLs manually.*
+
+**Gate:** Phase 3.5 must be `Done` before picking EPIC-05 UI stories ([AEG-038](./epics/EPIC-05-alerting.md), [AEG-039](./epics/EPIC-05-alerting.md)).
+
+- Login page with OIDC provider buttons (reuses API from [AEG-005](./epics/EPIC-01-foundation.md)).
+- App shell session: `GET /auth/me`, sign out, redirect unsigned users from protected routes.
+- OIDC callback redirects browser back to the web app after login.
+
+→ Epic: [EPIC-01 Foundation](./epics/EPIC-01-foundation.md) ([AEG-057](./epics/EPIC-01-foundation.md)–[AEG-059](./epics/EPIC-01-foundation.md))
+
 ## Phase 4 — Alerting workspace
 
 *Exit: filter, search, group, saved views, inline analytics, CSV export — fast over large volumes.*
