@@ -15,6 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestKind(t *testing.T) {
+	provider := New(Config{BotID: "bot", Host: "http://example.com", SecretKey: "secret"})
+	require.Equal(t, "express", provider.Kind())
+}
+
 func TestTestConnectionUsesCachedToken(t *testing.T) {
 	var tokenCalls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
