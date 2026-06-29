@@ -14,20 +14,28 @@ export function IntegrationsPage() {
   const { t } = useTranslation();
   const [items, setItems] = useState<IntegrationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
 
   const loadIntegrations = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch('/api/v1/integrations', { credentials: 'include' });
+      if (response.status === 401) {
+        setLoadError(t('integrations.sign_in_required'));
+        setItems([]);
+        return;
+      }
       if (!response.ok) {
         throw new Error(t('integrations.load_error'));
       }
       const data = (await response.json()) as { items: IntegrationItem[] };
       setItems(data.items ?? []);
     } catch {
-      setToast({ message: t('integrations.load_error'), variant: 'default' });
+      setLoadError(t('integrations.load_error'));
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -39,11 +47,16 @@ export function IntegrationsPage() {
 
   const testConnection = async (id: string) => {
     setTestingId(id);
+    setToast(null);
     try {
       const response = await fetch(`/api/v1/integrations/${id}/test`, {
         method: 'POST',
         credentials: 'include',
       });
+      if (response.status === 401) {
+        setToast({ message: t('integrations.sign_in_required'), variant: 'default' });
+        return;
+      }
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
         throw new Error(body.message ?? t('integrations.test_failed'));
@@ -64,9 +77,18 @@ export function IntegrationsPage() {
         <p className="mt-1 text-sm text-zinc-600">{t('integrations.page_subtitle')}</p>
       </div>
 
+      {loadError ? (
+        <div
+          role="alert"
+          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          {loadError}
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-zinc-600">{t('integrations.loading')}</p>
-      ) : items.length === 0 ? (
+      ) : loadError ? null : items.length === 0 ? (
         <p className="text-sm text-zinc-600">{t('integrations.empty')}</p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">

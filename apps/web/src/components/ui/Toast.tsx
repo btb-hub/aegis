@@ -14,9 +14,13 @@ export function Toast({ message, variant = 'default' }: ToastProps) {
   return (
     <div
       role="status"
-      className={`fixed right-4 top-4 z-50 rounded-md border px-4 py-3 text-sm shadow-sm ${variantClass[variant]}`}
+      className="pointer-events-none fixed inset-x-4 top-16 z-50 flex justify-end sm:inset-x-auto sm:right-6"
     >
-      {message}
+      <div
+        className={`pointer-events-auto max-w-sm rounded-md border px-4 py-3 text-sm shadow-md ${variantClass[variant]}`}
+      >
+        {message}
+      </div>
     </div>
   );
 }

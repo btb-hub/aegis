@@ -42,6 +42,7 @@
   "integrations.loading": "Загрузка интеграций",
   "integrations.empty": "Интеграции ещё не настроены",
   "integrations.load_error": "Не удалось загрузить интеграции",
+  "integrations.sign_in_required": "Войдите, чтобы просматривать интеграции. Откройте /auth/google/login в этом браузере.",
   "integrations.test_connection": "Проверить подключение",
   "integrations.testing": "Проверка",
   "integrations.test_success": "Подключение успешно",

@@ -1,4 +1,4 @@
-.PHONY: lint type test tidy migrate-up migrate-down \
+.PHONY: lint type test tidy migrate-up migrate-down migrate-docker \
 	setup setup-local install deps \
 	up up-detached down logs ps \
 	dev-db dev-db-down dev-api dev-worker dev-web
@@ -7,6 +7,9 @@ GO_PKGS := ./pkg/... ./apps/api/... ./apps/worker/...
 
 COMPOSE := docker compose -f deploy/docker-compose.yml
 COMPOSE_DEV := docker compose -f deploy/docker-compose.dev.yml
+
+migrate-docker:
+	$(COMPOSE) run --rm migrate
 
 ifeq ($(OS),Windows_NT)
 LOAD_ENV := powershell -NoProfile -ExecutionPolicy Bypass -File scripts/load-env.ps1
@@ -75,10 +78,10 @@ deps:
 	cd apps/worker && go mod download
 	cd apps/web && npm install
 
-up:
+up: migrate-docker
 	$(COMPOSE) up --build
 
-up-detached:
+up-detached: migrate-docker
 	$(COMPOSE) up --build -d
 
 down:

@@ -42,6 +42,7 @@
   "integrations.loading": "Loading integrations",
   "integrations.empty": "No integrations configured yet",
   "integrations.load_error": "Could not load integrations",
+  "integrations.sign_in_required": "Sign in to view integrations. Open /auth/google/login in this browser.",
   "integrations.test_connection": "Test connection",
   "integrations.testing": "Testing",
   "integrations.test_success": "Connection succeeded",
