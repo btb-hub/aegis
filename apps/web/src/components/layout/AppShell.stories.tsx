@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { MemoryRouter } from 'react-router-dom';
 import { SeverityTag } from '../ui/SeverityTag';
 import { Button } from '../ui/Button';
 import { AppShell } from './AppShell';
@@ -10,6 +11,13 @@ const meta: Meta<typeof AppShell> = {
   parameters: {
     layout: 'fullscreen',
   },
+  decorators: [
+    (Story) => (
+      <MemoryRouter>
+        <Story />
+      </MemoryRouter>
+    ),
+  ],
 };
 
 export default meta;

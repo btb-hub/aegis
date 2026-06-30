@@ -89,7 +89,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/Sign in to view integrations/i);
+      expect(screen.getByRole('alert')).toHaveTextContent('Your session expired. Sign in again.');
     });
   });
 
@@ -126,7 +126,7 @@ describe('IntegrationsPage', () => {
     clickTestConnection('Slack');
 
     await waitFor(() => {
-      expect(screen.getByText(/Sign in to view integrations/i)).toBeInTheDocument();
+      expect(screen.getByText('Your session expired. Sign in again.')).toBeInTheDocument();
     });
   });
 

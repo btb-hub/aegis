@@ -19,4 +19,13 @@ describe('Button', () => {
     render(<Button disabled>Go</Button>);
     expect(screen.getByRole('button', { name: 'Go' })).toBeDisabled();
   });
+
+  it('renders as a link when href is provided', () => {
+    render(
+      <Button href="/auth/google/login" variant="secondary">
+        Sign in
+      </Button>,
+    );
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/google/login');
+  });
 });

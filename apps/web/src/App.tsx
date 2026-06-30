@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppShell } from './components/layout/AppShell';
-import type { AppPage } from './components/layout/AppShell';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AppShell, type AppPage } from './components/layout/AppShell';
+import { useAuth } from './context/AuthContext';
 import type { Incident } from './lib/incidentTypes';
 import { IncidentsPage } from './pages/IncidentsPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
+import { LoginPage } from './pages/LoginPage';
 import { TeamShiftsPage } from './pages/TeamShiftsPage';
 
 const demoSlots = [
@@ -70,10 +73,24 @@ const initialIncidents: Incident[] = [
   },
 ];
 
-export function App() {
+function pageFromPath(pathname: string): AppPage {
+  if (pathname.startsWith('/integrations')) {
+    return 'integrations';
+  }
+  if (pathname.startsWith('/incidents')) {
+    return 'incidents';
+  }
+  return 'shifts';
+}
+
+function AppRoutes() {
   const { t } = useTranslation();
-  const [page, setPage] = useState<AppPage>('shifts');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [incidents, setIncidents] = useState(initialIncidents);
+
+  const currentPage = pageFromPath(location.pathname);
 
   const handlers = useMemo(
     () => ({
@@ -126,24 +143,55 @@ export function App() {
   );
 
   return (
-    <AppShell currentPage={page} onNavigate={setPage}>
-      {page === 'shifts' ? (
-        <TeamShiftsPage
-          teamName={t('shifts.demo_team')}
-          onCallUsers={[{ userId: 'user-bob', displayName: 'Bob', email: 'bob@example.com', source: 'rotation' }]}
-          slots={demoSlots}
-          overrides={demoOverrides}
-          month={new Date('2026-06-01T00:00:00Z')}
+    <AppShell
+      currentPage={currentPage}
+      onNavigate={(page) => navigate(`/${page}`)}
+      user={user}
+      onSignOut={signOut}
+    >
+      <Routes>
+        <Route path="/" element={<Navigate to="/shifts" replace />} />
+        <Route
+          path="/shifts"
+          element={
+            <TeamShiftsPage
+              teamName={t('shifts.demo_team')}
+              onCallUsers={[{ userId: 'user-bob', displayName: 'Bob', email: 'bob@example.com', source: 'rotation' }]}
+              slots={demoSlots}
+              overrides={demoOverrides}
+              month={new Date('2026-06-01T00:00:00Z')}
+            />
+          }
         />
-      ) : page === 'integrations' ? (
-        <IntegrationsPage />
-      ) : (
-        <IncidentsPage
-          incidents={incidents}
-          onAcknowledge={handlers.acknowledge}
-          onResolve={handlers.resolve}
+        <Route
+          path="/incidents"
+          element={
+            <IncidentsPage
+              incidents={incidents}
+              onAcknowledge={handlers.acknowledge}
+              onResolve={handlers.resolve}
+            />
+          }
         />
-      )}
+        <Route
+          path="/integrations"
+          element={
+            <ProtectedRoute>
+              <IntegrationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/shifts" replace />} />
+      </Routes>
     </AppShell>
+  );
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/*" element={<AppRoutes />} />
+    </Routes>
   );
 }

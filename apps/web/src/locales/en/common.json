@@ -42,7 +42,7 @@
   "integrations.loading": "Loading integrations",
   "integrations.empty": "No integrations configured yet",
   "integrations.load_error": "Could not load integrations",
-  "integrations.sign_in_required": "Sign in to view integrations. Open /auth/google/login in this browser.",
+  "integrations.sign_in_required": "Your session expired. Sign in again.",
   "integrations.test_connection": "Test connection",
   "integrations.testing": "Testing",
   "integrations.test_success": "Connection succeeded",
@@ -52,5 +52,11 @@
   "integrations.column.name": "Name",
   "integrations.column.kind": "Kind",
   "integrations.column.status": "Status",
-  "integrations.column.actions": "Actions"
+  "integrations.column.actions": "Actions",
+  "auth.login_subtitle": "Sign in to manage integrations and admin settings",
+  "auth.sign_in_google": "Sign in with Google",
+  "auth.sign_in_slack": "Sign in with Slack",
+  "auth.sign_in_express": "Sign in with eXpress",
+  "auth.sign_out": "Sign out",
+  "auth.loading": "Checking session"
 }

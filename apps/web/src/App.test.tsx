@@ -1,17 +1,44 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { describe, expect, it } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+import { AuthProvider } from './context/AuthContext';
 import i18n from './i18n';
 
+function renderApp(initialPath = '/shifts') {
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </MemoryRouter>
+    </I18nextProvider>,
+  );
+}
+
 describe('App', () => {
-  it('renders translated sample content', () => {
-    render(
-      <I18nextProvider i18n={i18n}>
-        <App />
-      </I18nextProvider>,
-    );
-    expect(screen.getByText('On-call schedule and overrides')).toBeInTheDocument();
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders translated sample content', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    } as Response);
+
+    renderApp('/shifts');
+
+    await waitFor(() => {
+      expect(screen.getByText('On-call schedule and overrides')).toBeInTheDocument();
+    });
     expect(screen.getByText(/on call now/i)).toBeInTheDocument();
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     expect(screen.getByText('Shifts')).toBeInTheDocument();
@@ -19,5 +46,17 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Incidents'));
     expect(screen.getByText('Track open incidents, linked alerts, and timeline events')).toBeInTheDocument();
+  });
+
+  it('redirects unsigned users from integrations to login', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    } as Response);
+
+    renderApp('/integrations');
+
+    expect(await screen.findByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument();
   });
 });

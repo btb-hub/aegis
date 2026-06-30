@@ -12,11 +12,12 @@ import (
 const sessionCookie = "aegis_session"
 
 type AuthHandler struct {
-	auth *service.AuthService
+	auth      *service.AuthService
+	publicURL string
 }
 
-func NewAuthHandler(auth *service.AuthService) *AuthHandler {
-	return &AuthHandler{auth: auth}
+func NewAuthHandler(auth *service.AuthService, publicURL string) *AuthHandler {
+	return &AuthHandler{auth: auth, publicURL: publicURL}
 }
 
 func (h *AuthHandler) Register(r gin.IRouter) {
@@ -51,7 +52,15 @@ func (h *AuthHandler) callback(c *gin.Context) {
 		return
 	}
 	c.SetCookie(sessionCookie, token, 0, "/", "", false, true)
-	WriteJSON(c, http.StatusOK, service.UserJSON(user))
+	if c.Query("format") == "json" {
+		WriteJSON(c, http.StatusOK, service.UserJSON(user))
+		return
+	}
+	redirectURL := h.publicURL
+	if redirectURL == "" {
+		redirectURL = "/"
+	}
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func (h *AuthHandler) logout(c *gin.Context) {

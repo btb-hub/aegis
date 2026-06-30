@@ -42,7 +42,7 @@
   "integrations.loading": "Загрузка интеграций",
   "integrations.empty": "Интеграции ещё не настроены",
   "integrations.load_error": "Не удалось загрузить интеграции",
-  "integrations.sign_in_required": "Войдите, чтобы просматривать интеграции. Откройте /auth/google/login в этом браузере.",
+  "integrations.sign_in_required": "Сессия истекла. Войдите снова.",
   "integrations.test_connection": "Проверить подключение",
   "integrations.testing": "Проверка",
   "integrations.test_success": "Подключение успешно",
@@ -52,5 +52,11 @@
   "integrations.column.name": "Название",
   "integrations.column.kind": "Тип",
   "integrations.column.status": "Статус",
-  "integrations.column.actions": "Действия"
+  "integrations.column.actions": "Действия",
+  "auth.login_subtitle": "Войдите, чтобы управлять интеграциями и настройками",
+  "auth.sign_in_google": "Войти через Google",
+  "auth.sign_in_slack": "Войти через Slack",
+  "auth.sign_in_express": "Войти через eXpress",
+  "auth.sign_out": "Выйти",
+  "auth.loading": "Проверка сессии"
 }

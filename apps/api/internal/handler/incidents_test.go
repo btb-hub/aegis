@@ -226,7 +226,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
-	NewAuthHandler(auth).Register(r)
+	NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	NewAlertHandler(alerts).Register(r)
 	NewIncidentHandler(incidents, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)
