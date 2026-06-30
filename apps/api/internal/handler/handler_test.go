@@ -26,6 +26,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 
 	cfg := &config.Config{
 		SessionTTL: time.Hour,
+		PublicURL:  "http://localhost:3000",
 		OIDC: map[string]config.OIDCProvider{
 			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
 		},
@@ -38,7 +39,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
-	NewAuthHandler(auth).Register(r)
+	NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	NewAlertHandler(alerts).Register(r)
 	return r, auth
 }
@@ -133,6 +134,26 @@ func TestAuthMeRequiresSession(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func TestCallbackRedirectSetsCookie(t *testing.T) {
+	r, _ := setupRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: "aegis_oauth_state", Value: "abc"})
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000", w.Header().Get("Location"))
+
+	var session string
+	for _, c := range w.Result().Cookies() {
+		if c.Name == sessionCookie {
+			session = c.Value
+		}
+	}
+	require.NotEmpty(t, session)
+}
+
 func TestAuthCallbackAndMe(t *testing.T) {
 	r, _ := setupRouter(t)
 
@@ -140,7 +161,8 @@ func TestAuthCallbackAndMe(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz", nil)
 	req.AddCookie(&http.Cookie{Name: "aegis_oauth_state", Value: "abc"})
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000", w.Header().Get("Location"))
 
 	cookies := w.Result().Cookies()
 	var session string
@@ -206,6 +228,20 @@ func TestAuthLoginUnknownProvider(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/auth/unknown/login", nil)
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCallbackJSONFormat(t *testing.T) {
+	r, _ := setupRouter(t)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz&format=json", nil)
+	req.AddCookie(&http.Cookie{Name: "aegis_oauth_state", Value: "abc"})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "u@example.com", body["email"])
 }
 
 func TestAuthCallbackBadState(t *testing.T) {

@@ -55,7 +55,7 @@ func main() {
 	r.Use(gin.Recovery(), gin.Logger())
 
 	handler.NewHealthHandler(health).Register(r)
-	handler.NewAuthHandler(auth).Register(r)
+	handler.NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	handler.NewAlertHandler(alerts).Register(r)
 	handler.NewTeamHandler(teams, auth).Register(r)
 	handler.NewScheduleHandler(schedules, auth).Register(r)

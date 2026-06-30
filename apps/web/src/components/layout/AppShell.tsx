@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import type { AuthUser } from '../../lib/authTypes';
+import { Button } from '../ui/Button';
 
 export type AppPage = 'shifts' | 'incidents' | 'integrations';
 
@@ -8,10 +11,13 @@ type AppShellProps = {
   children: ReactNode;
   currentPage?: AppPage;
   onNavigate?: (page: AppPage) => void;
+  user?: AuthUser | null;
+  onSignOut?: () => void | Promise<void>;
 };
 
-export function AppShell({ children, currentPage = 'shifts', onNavigate }: AppShellProps) {
+export function AppShell({ children, currentPage = 'shifts', onNavigate, user, onSignOut }: AppShellProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const navItems: Array<{ id: AppPage; label: string }> = [
     { id: 'shifts', label: t('nav.shifts') },
@@ -52,7 +58,23 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate }: AppSh
         </nav>
       </aside>
       <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex h-14 items-center justify-end border-b border-zinc-200 bg-white px-4">
+        <header className="flex h-14 items-center justify-end gap-4 border-b border-zinc-200 bg-white px-4">
+          {user ? (
+            <div className="flex items-center gap-3 text-sm text-zinc-700">
+              <span>{user.display_name || user.email}</span>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  void (async () => {
+                    await onSignOut?.();
+                    navigate('/login');
+                  })();
+                }}
+              >
+                {t('auth.sign_out')}
+              </Button>
+            </div>
+          ) : null}
           <LanguageSwitcher />
         </header>
         <main className="flex-1 p-6">{children}</main>

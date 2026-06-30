@@ -111,7 +111,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
-	NewAuthHandler(auth).Register(r)
+	NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	NewAlertHandler(alerts).Register(r)
 	NewIncidentHandler(incidents, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)

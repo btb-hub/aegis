@@ -8,6 +8,8 @@ type ButtonProps = {
   disabled?: boolean;
   onClick?: () => void;
   type?: 'button' | 'submit';
+  href?: string;
+  className?: string;
 };
 
 const variantClass: Record<ButtonVariant, string> = {
@@ -16,20 +18,30 @@ const variantClass: Record<ButtonVariant, string> = {
   ghost: 'text-zinc-700 hover:bg-zinc-100',
 };
 
+const baseClass =
+  'inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium disabled:opacity-50';
+
 export function Button({
   variant = 'primary',
   children,
   disabled = false,
   onClick,
   type = 'button',
+  href,
+  className = '',
 }: ButtonProps) {
+  const classes = `${baseClass} ${variantClass[variant]} ${className}`.trim();
+
+  if (href) {
+    return (
+      <a href={href} className={classes}>
+        {children}
+      </a>
+    );
+  }
+
   return (
-    <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium disabled:opacity-50 ${variantClass[variant]}`}
-    >
+    <button type={type} disabled={disabled} onClick={onClick} className={classes}>
       {children}
     </button>
   );

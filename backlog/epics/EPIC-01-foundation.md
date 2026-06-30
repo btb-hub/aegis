@@ -156,7 +156,7 @@
 
 ### AEG-057 — Web login page
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-005, AEG-055, AEG-054
 - **PRD:** REQ-AUTH-01, REQ-I18N-01, REQ-DS-01
 - **Acceptance:**
@@ -172,7 +172,7 @@
 
 ### AEG-058 — Web session and app shell auth
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-057
 - **PRD:** REQ-AUTH-03, REQ-AUTH-04, REQ-I18N-02
 - **Acceptance:**
@@ -188,7 +188,7 @@
 
 ### AEG-059 — OIDC callback redirect to web
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-005, AEG-057
 - **PRD:** REQ-AUTH-01
 - **Acceptance:**

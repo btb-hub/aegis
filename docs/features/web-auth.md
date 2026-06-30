@@ -45,8 +45,9 @@ Demo-only pages (shifts/incidents fixtures) stay public until wired to API in la
 
 ## Callback redirect (AEG-059)
 
-Today the callback returns JSON. For browser login, redirect to `PUBLIC_URL` (or `/`) with `302` after
-setting `aegis_session`. Keeps the OIDC redirect URI unchanged.
+After successful OIDC callback, the API sets `aegis_session` and responds with `302` to `PUBLIC_URL`
+(unless `?format=json` is passed for API clients). Set `PUBLIC_URL` to the web app origin
+(e.g. `http://localhost:3000` with Vite or Docker nginx) so the browser lands signed in.
 
 ## References
 

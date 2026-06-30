@@ -38,7 +38,7 @@ func setupTeamRouter(t *testing.T) *teamTestEnv {
 
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
-	NewAuthHandler(auth).Register(r)
+	NewAuthHandler(auth, "http://localhost:3000").Register(r)
 	NewAlertHandler(alerts).Register(r)
 	NewTeamHandler(teams, auth).Register(r)
 	return &teamTestEnv{router: r, repo: repo, auth: auth}
