@@ -113,6 +113,24 @@ func TestIncidentServiceAcknowledgeByExpressHuid(t *testing.T) {
 	require.Equal(t, "acknowledged", incident.Status)
 }
 
+func TestIncidentServiceAcknowledgeByExpressHuidInvalidHuid(t *testing.T) {
+	svc := NewIncidentService(&incidentMockRepo{
+		incident: db.Incident{ID: uuid.New(), Status: "open"},
+		user:     db.User{ID: uuid.New(), ExpressUserHuid: db.ExpressHuidToPg(uuid.New())},
+	})
+	_, err := svc.AcknowledgeByExpressHuid(context.Background(), uuid.New(), "not-a-uuid")
+	require.Error(t, err)
+}
+
+func TestIncidentServiceAcknowledgeByExpressHuidUserNotFound(t *testing.T) {
+	huid := uuid.MustParse("6fafda2c-6505-57a5-a088-25ea5d1d0364")
+	svc := NewIncidentService(&incidentMockRepo{
+		incident: db.Incident{ID: uuid.New(), Status: "open"},
+	})
+	_, err := svc.AcknowledgeByExpressHuid(context.Background(), uuid.New(), huid.String())
+	require.Error(t, err)
+}
+
 func TestIncidentJSON(t *testing.T) {
 	assignee := uuid.New()
 	key := "OPS-1"
