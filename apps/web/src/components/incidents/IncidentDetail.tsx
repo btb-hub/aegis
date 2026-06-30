@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next';
+import { formatDateTime } from '../../lib/formatDate';
+import type { Incident } from '../../lib/incidentTypes';
+import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
 import { SeverityTag } from '../ui/SeverityTag';
-import type { Incident } from '../../lib/incidentTypes';
+import { StatusTag, alertStatusVariant, incidentStatusVariant } from '../ui/StatusTag';
 
 type IncidentDetailProps = {
   incident: Incident;
@@ -10,7 +13,7 @@ type IncidentDetailProps = {
 };
 
 export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentDetailProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const canAcknowledge = incident.status === 'open';
   const canResolve = incident.status === 'open' || incident.status === 'acknowledged';
 
@@ -18,13 +21,18 @@ export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentD
     <div className="space-y-6 rounded-md border border-zinc-200 bg-white p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <SeverityTag severity="neutral" label={incident.severity} />
+          <div className="flex flex-wrap items-center gap-2">
+            <SeverityTag
+              severity={severityToTag(incident.severity)}
+              label={t(severityLabelKey(incident.severity), { defaultValue: incident.severity })}
+            />
+            <StatusTag
+              variant={incidentStatusVariant(incident.status)}
+              label={t(`incidents.status.${incident.status}`)}
+            />
             <h2 className="text-2xl font-semibold">{incident.title}</h2>
           </div>
-          <p className="text-sm text-zinc-600">
-            {t(`incidents.status.${incident.status}`)} · {incident.id}
-          </p>
+          <p className="text-sm text-zinc-600">{incident.id}</p>
           {incident.jiraIssueKey ? (
             <a
               className="text-sm font-medium text-blue-700 hover:underline"
@@ -57,10 +65,18 @@ export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentD
             {incident.alerts.map((alert) => (
               <li key={alert.id} className="flex items-center justify-between px-4 py-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <SeverityTag severity="neutral" label={alert.severity} />
+                  <SeverityTag
+                    severity={severityToTag(alert.severity)}
+                    label={t(severityLabelKey(alert.severity), { defaultValue: alert.severity })}
+                  />
                   <span>{alert.title}</span>
                 </div>
-                <span className="capitalize text-zinc-600">{alert.status}</span>
+                <StatusTag
+                  variant={alertStatusVariant(alert.status)}
+                  label={t(`incidents.alert_status.${alert.status.toLowerCase()}`, {
+                    defaultValue: alert.status,
+                  })}
+                />
               </li>
             ))}
           </ul>
@@ -75,8 +91,14 @@ export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentD
           {incident.timeline.map((event) => (
             <li key={event.id} className="rounded-md border border-zinc-200 px-4 py-3">
               <div className="flex items-center justify-between gap-4">
-                <span className="font-medium capitalize">{event.kind.replaceAll('_', ' ')}</span>
-                <time className="text-xs text-zinc-500">{new Date(event.createdAt).toLocaleString()}</time>
+                <span className="font-medium">
+                  {t(`incidents.timeline.${event.kind}`, { defaultValue: event.kind })}
+                </span>
+                <time className="text-xs text-zinc-500">
+                  {formatDateTime(new Date(event.createdAt), i18n.language, {
+                    second: '2-digit',
+                  })}
+                </time>
               </div>
             </li>
           ))}

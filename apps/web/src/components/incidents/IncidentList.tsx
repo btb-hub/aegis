@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { SeverityTag } from '../ui/SeverityTag';
 import type { Incident, IncidentStatus } from '../../lib/incidentTypes';
+import { severityLabelKey, severityToTag } from '../../lib/severityTag';
+import { SeverityTag } from '../ui/SeverityTag';
+import { StatusTag, incidentStatusVariant } from '../ui/StatusTag';
 
 type IncidentListProps = {
   incidents: Incident[];
@@ -59,14 +61,18 @@ export function IncidentList({
               >
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <SeverityTag severity="neutral" label={incident.severity} />
+                    <SeverityTag
+                      severity={severityToTag(incident.severity)}
+                      label={t(severityLabelKey(incident.severity), { defaultValue: incident.severity })}
+                    />
                     <span className="font-medium">{incident.title}</span>
                   </div>
                   <p className="text-sm text-zinc-600">{incident.id.slice(0, 8)}</p>
                 </div>
-                <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium capitalize text-zinc-700">
-                  {t(`incidents.status.${incident.status}`)}
-                </span>
+                <StatusTag
+                  variant={incidentStatusVariant(incident.status)}
+                  label={t(`incidents.status.${incident.status}`)}
+                />
               </button>
             </li>
           ))}

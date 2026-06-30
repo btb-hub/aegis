@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
 import { IntegrationsPage } from './IntegrationsPage';
@@ -28,9 +29,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
-    <I18nextProvider i18n={i18n}>
-      <IntegrationsPage />
-    </I18nextProvider>,
+    <MemoryRouter>
+      <I18nextProvider i18n={i18n}>
+        <IntegrationsPage />
+      </I18nextProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -47,6 +50,16 @@ describe('IntegrationsPage', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('shows breadcrumb navigation back to shifts', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ items: [] }));
+
+    renderPage();
+
+    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/shifts');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Integrations');
+    expect(screen.getByRole('heading', { name: 'Integrations', level: 1 })).toBeInTheDocument();
   });
 
   it('shows loading then empty state', async () => {

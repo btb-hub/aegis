@@ -30,7 +30,7 @@ describe('IncidentDetail', () => {
     expect(screen.getByRole('link', { name: 'Open OPS-42 in Jira' })).toBeInTheDocument();
     expect(screen.getByText('Acknowledge')).toBeInTheDocument();
     expect(screen.getByText('Resolve')).toBeInTheDocument();
-    expect(screen.getByText('created')).toBeInTheDocument();
+    expect(screen.getByText('Created')).toBeInTheDocument();
   });
 
   it('calls acknowledge handler', () => {

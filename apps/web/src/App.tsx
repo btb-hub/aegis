@@ -5,39 +5,11 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell, type AppPage } from './components/layout/AppShell';
 import { useAuth } from './context/AuthContext';
 import type { Incident } from './lib/incidentTypes';
+import { buildDemoShiftsForMonth, resolveCurrentOnCall } from './lib/shiftsDemoData';
 import { IncidentsPage } from './pages/IncidentsPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { TeamShiftsPage } from './pages/TeamShiftsPage';
-
-const demoSlots = [
-  {
-    id: 'slot-1',
-    userId: 'user-alice',
-    displayName: 'Alice',
-    startAt: '2026-06-02T09:00:00Z',
-    endAt: '2026-06-09T09:00:00Z',
-    source: 'rotation' as const,
-  },
-  {
-    id: 'slot-2',
-    userId: 'user-bob',
-    displayName: 'Bob',
-    startAt: '2026-06-09T09:00:00Z',
-    endAt: '2026-06-16T09:00:00Z',
-    source: 'rotation' as const,
-  },
-];
-
-const demoOverrides = [
-  {
-    id: 'override-1',
-    userId: 'user-carol',
-    displayName: 'Carol',
-    startAt: '2026-06-12T00:00:00Z',
-    endAt: '2026-06-13T00:00:00Z',
-  },
-];
 
 const initialIncidents: Incident[] = [
   {
@@ -91,6 +63,16 @@ function AppRoutes() {
   const [incidents, setIncidents] = useState(initialIncidents);
 
   const currentPage = pageFromPath(location.pathname);
+
+  const shiftsMonth = useMemo(() => new Date(), []);
+  const { slots: demoSlots, overrides: demoOverrides } = useMemo(
+    () => buildDemoShiftsForMonth(shiftsMonth),
+    [shiftsMonth],
+  );
+  const onCallUsers = useMemo(
+    () => resolveCurrentOnCall(demoSlots, demoOverrides, shiftsMonth),
+    [demoSlots, demoOverrides, shiftsMonth],
+  );
 
   const handlers = useMemo(
     () => ({
@@ -156,10 +138,10 @@ function AppRoutes() {
           element={
             <TeamShiftsPage
               teamName={t('shifts.demo_team')}
-              onCallUsers={[{ userId: 'user-bob', displayName: 'Bob', email: 'bob@example.com', source: 'rotation' }]}
+              onCallUsers={onCallUsers}
               slots={demoSlots}
               overrides={demoOverrides}
-              month={new Date('2026-06-01T00:00:00Z')}
+              month={shiftsMonth}
             />
           }
         />

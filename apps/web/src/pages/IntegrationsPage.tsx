@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../components/ui/Button';
+import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
 import { Toast } from '../components/ui/Toast';
 
 type IntegrationItem = {
@@ -73,6 +74,13 @@ export function IntegrationsPage() {
   return (
     <div className="space-y-6">
       <div>
+        <PageBreadcrumb
+          ariaLabel={t('nav.breadcrumb_label')}
+          items={[
+            { label: t('shifts.demo_team'), href: '/shifts' },
+            { label: t('nav.integrations') },
+          ]}
+        />
         <h1 className="text-2xl font-semibold text-zinc-900">{t('integrations.page_title')}</h1>
         <p className="mt-1 text-sm text-zinc-600">{t('integrations.page_subtitle')}</p>
       </div>
