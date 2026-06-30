@@ -9,8 +9,7 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	intjira "github.com/aegis/aegis/pkg/integrations/jira"
-	intslack "github.com/aegis/aegis/pkg/integrations/slack"
+	"github.com/aegis/aegis/pkg/integrations/loader"
 	"github.com/aegis/aegis/pkg/routing"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -191,11 +190,12 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 		return nil
 	}
 	recipient := integrations.PageRecipient{
-		UserID:      user.ID,
-		Email:       user.Email,
-		DisplayName: user.DisplayName,
-		Locale:      user.Locale,
-		SlackUserID: user.SlackUserID,
+		UserID:          user.ID,
+		Email:           user.Email,
+		DisplayName:     user.DisplayName,
+		Locale:          user.Locale,
+		SlackUserID:     user.SlackUserID,
+		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
 	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
@@ -225,22 +225,7 @@ func (p *AlertProcessor) loadRegistry(ctx context.Context) (*integrations.Regist
 		return nil, err
 	}
 	reg := integrations.NewRegistry()
-	for _, row := range rows {
-		switch row.Kind {
-		case "jira":
-			provider, err := intjira.NewFromJSON(row.Config)
-			if err != nil {
-				continue
-			}
-			reg.RegisterTicket(provider)
-		case "slack":
-			provider, err := intslack.NewFromJSON(row.Config, p.publicURL)
-			if err != nil {
-				continue
-			}
-			reg.RegisterChat(provider)
-		}
-	}
+	loader.RegisterFromRows(reg, rows, p.publicURL)
 	return reg, nil
 }
 

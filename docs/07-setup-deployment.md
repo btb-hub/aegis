@@ -20,6 +20,8 @@ make up
 
 Open `http://localhost:3000` (web) and `http://localhost:8080` (API). Stop with `make down`.
 
+`make up` applies database migrations automatically before starting services (Postgres migrate container + explicit `migrate-docker` step).
+
 Equivalent without Make:
 
 ```bash

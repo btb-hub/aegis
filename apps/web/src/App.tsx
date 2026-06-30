@@ -4,6 +4,7 @@ import { AppShell } from './components/layout/AppShell';
 import type { AppPage } from './components/layout/AppShell';
 import type { Incident } from './lib/incidentTypes';
 import { IncidentsPage } from './pages/IncidentsPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
 import { TeamShiftsPage } from './pages/TeamShiftsPage';
 
 const demoSlots = [
@@ -134,6 +135,8 @@ export function App() {
           overrides={demoOverrides}
           month={new Date('2026-06-01T00:00:00Z')}
         />
+      ) : page === 'integrations' ? (
+        <IntegrationsPage />
       ) : (
         <IncidentsPage
           incidents={incidents}

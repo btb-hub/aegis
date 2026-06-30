@@ -8,7 +8,7 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	intslack "github.com/aegis/aegis/pkg/integrations/slack"
+	"github.com/aegis/aegis/pkg/integrations/loader"
 	"github.com/google/uuid"
 )
 
@@ -77,11 +77,12 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		CreatedAt:   incident.CreatedAt,
 	}
 	recipient := integrations.PageRecipient{
-		UserID:      user.ID,
-		Email:       user.Email,
-		DisplayName: user.DisplayName,
-		Locale:      user.Locale,
-		SlackUserID: user.SlackUserID,
+		UserID:          user.ID,
+		Email:           user.Email,
+		DisplayName:     user.DisplayName,
+		Locale:          user.Locale,
+		SlackUserID:     user.SlackUserID,
+		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
 	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
@@ -111,15 +112,6 @@ func (p *EscalateProcessor) loadRegistry(ctx context.Context) (*integrations.Reg
 		return nil, err
 	}
 	reg := integrations.NewRegistry()
-	for _, row := range rows {
-		if row.Kind != "slack" {
-			continue
-		}
-		provider, err := intslack.NewFromJSON(row.Config, p.publicURL)
-		if err != nil {
-			continue
-		}
-		reg.RegisterChat(provider)
-	}
+	loader.RegisterFromRows(reg, rows, p.publicURL)
 	return reg, nil
 }

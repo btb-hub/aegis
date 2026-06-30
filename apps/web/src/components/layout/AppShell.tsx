@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-export type AppPage = 'shifts' | 'incidents';
+export type AppPage = 'shifts' | 'incidents' | 'integrations';
 
 type AppShellProps = {
   children: ReactNode;
@@ -16,6 +16,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate }: AppSh
   const navItems: Array<{ id: AppPage; label: string }> = [
     { id: 'shifts', label: t('nav.shifts') },
     { id: 'incidents', label: t('nav.incidents') },
+    { id: 'integrations', label: t('nav.integrations') },
   ];
 
   return (

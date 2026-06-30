@@ -1,0 +1,14 @@
+{
+  "sync_id": "dcfa5a7c-7cc4-4c89-b6c0-80325604f9f4",
+  "bot_id": "8dada2c8-67a6-4434-9dec-570d244e78ee",
+  "command": {
+    "body": "/ack_incident",
+    "command_type": "user",
+    "data": {
+      "incident_id": "11111111-1111-1111-1111-111111111111"
+    }
+  },
+  "from": {
+    "user_huid": "6fafda2c-6505-57a5-a088-25ea5d1d0364"
+  }
+}

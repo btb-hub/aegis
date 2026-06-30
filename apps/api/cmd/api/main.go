@@ -48,6 +48,7 @@ func main() {
 	routingRules := service.NewRoutingService(store)
 	incidents := service.NewIncidentService(store)
 	integrationsSvc := service.NewIntegrationService(store, cfg.PublicURL)
+	expressLinks := service.NewExpressLinkService(store)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -64,6 +65,8 @@ func main() {
 	handler.NewIncidentHandler(incidents, auth).Register(r)
 	handler.NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	handler.NewSlackCallbackHandler(incidents, cfg.SlackSigningSecret()).Register(r)
+	handler.NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
+	handler.NewExpressLinkHandler(expressLinks, auth).Register(r)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

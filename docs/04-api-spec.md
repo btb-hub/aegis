@@ -9,7 +9,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`) |
-| GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie |
+| GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; **redirects to web app** (Phase 3.5, [AEG-059](../backlog/epics/EPIC-01-foundation.md)) |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user + role + locale |
 | PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`) |
@@ -102,6 +102,13 @@ Schedule and override changes enqueue a `materialise_oncall` worker job for the 
 | GET/POST | `/integrations` | List/create |
 | GET/PATCH/DELETE | `/integrations/{id}` | CRUD |
 | POST | `/integrations/{id}/test` | Test connection |
+
+## eXpress link (Phase 3)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/users/me/express-link-code` | Generate `/link` code (session) |
+| POST | `/users/me/express-link` | Direct bind `express_user_huid` stub (session) |
 
 ## Callbacks (Phase 2–3)
 

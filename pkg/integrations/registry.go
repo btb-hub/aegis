@@ -20,11 +20,12 @@ type IncidentRef struct {
 }
 
 type PageRecipient struct {
-	UserID      uuid.UUID
-	Email       string
-	DisplayName string
-	Locale      string
-	SlackUserID *string
+	UserID          uuid.UUID
+	Email           string
+	DisplayName     string
+	Locale          string
+	SlackUserID     *string
+	ExpressUserHuid *string
 }
 
 type TicketProvider interface {

@@ -8,8 +8,7 @@ import (
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	intjira "github.com/aegis/aegis/pkg/integrations/jira"
-	intslack "github.com/aegis/aegis/pkg/integrations/slack"
+	"github.com/aegis/aegis/pkg/integrations/loader"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -96,25 +95,13 @@ func (s *IntegrationService) LoadRegistry(ctx context.Context) (*integrations.Re
 
 func (s *IntegrationService) buildRegistry(_ context.Context, items []db.Integration) (*integrations.Registry, error) {
 	reg := integrations.NewRegistry()
+	rows := make([]integrations.IntegrationRow, 0, len(items))
 	for _, item := range items {
-		if !item.Enabled {
-			continue
-		}
-		switch item.Kind {
-		case "jira":
-			provider, err := intjira.NewFromJSON(item.Config)
-			if err != nil {
-				continue
-			}
-			reg.RegisterTicket(provider)
-		case "slack":
-			provider, err := intslack.NewFromJSON(item.Config, s.publicURL)
-			if err != nil {
-				continue
-			}
-			reg.RegisterChat(provider)
-		}
+		rows = append(rows, integrations.IntegrationRow{
+			ID: item.ID, Kind: item.Kind, Name: item.Name, Config: item.Config, Enabled: item.Enabled,
+		})
 	}
+	loader.RegisterFromRows(reg, rows, s.publicURL)
 	return reg, nil
 }
 

@@ -38,9 +38,11 @@ switch ($Command) {
         Install-Deps
     }
     "up" {
+        docker compose -f deploy/docker-compose.yml run --rm migrate
         docker compose -f deploy/docker-compose.yml up --build
     }
     "up-detached" {
+        docker compose -f deploy/docker-compose.yml run --rm migrate
         docker compose -f deploy/docker-compose.yml up --build -d
     }
     "down" {
