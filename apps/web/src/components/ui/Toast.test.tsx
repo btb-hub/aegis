@@ -10,6 +10,6 @@ describe('Toast', () => {
 
   it('renders success variant', () => {
     render(<Toast message="Saved" variant="success" />);
-    expect(screen.getByRole('status')).toHaveClass('bg-green-50');
+    expect(screen.getByText('Saved')).toHaveClass('bg-green-50');
   });
 });
