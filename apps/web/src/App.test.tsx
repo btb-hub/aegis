@@ -51,6 +51,69 @@ describe('App', () => {
     expect(screen.getByText('Track open incidents, linked alerts, and timeline events')).toBeInTheDocument();
   });
 
+  it('navigates to alerts workspace when signed in', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'user-1',
+            email: 'alice@example.com',
+            display_name: 'Alice',
+            role: 'admin',
+            locale: 'en',
+            provider: 'google',
+          }),
+        } as Response;
+      }
+      if (url.includes('/saved-views')) {
+        return { ok: true, status: 200, json: async () => ({ items: [] }) } as Response;
+      }
+      if (url.includes('/alerts')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], total: 0, analytics: { by_severity: {}, by_status: {}, top_labels: [] } }),
+        } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderApp('/shifts');
+    await waitFor(() => {
+      expect(screen.getAllByText('Alice').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByText('Alerts'));
+    expect(await screen.findByText('Search, filter, group, and export alert history')).toBeInTheDocument();
+  });
+
+  it('acknowledges and resolves incidents from the demo list', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    } as Response);
+
+    renderApp('/incidents');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('CPU high on api-1').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
+    await waitFor(() => {
+      expect(screen.getAllByText('Acknowledged').length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+    await waitFor(() => {
+      expect(screen.getAllByText('Resolved').length).toBeGreaterThan(0);
+    });
+  });
+
   it('redirects unsigned users from integrations to login', async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
