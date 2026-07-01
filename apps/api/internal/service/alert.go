@@ -14,6 +14,7 @@ type AlertRepository interface {
 	CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error)
 	ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error)
 	CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error)
+	GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error)
 }
 
 type AlertService struct {
@@ -82,6 +83,32 @@ type AlertListResult struct {
 	Total    int
 	Page     int
 	PageSize int
+}
+
+type AlertGroupResult struct {
+	GroupBy string
+	Groups  []db.AlertGroupBucket
+	Total   int
+}
+
+func (s *AlertService) Group(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) (AlertGroupResult, error) {
+	total, err := s.repo.CountAlerts(ctx, filters)
+	if err != nil {
+		return AlertGroupResult{}, err
+	}
+	groups, err := s.repo.GroupAlerts(ctx, filters, groupBy)
+	if err != nil {
+		return AlertGroupResult{}, err
+	}
+	groupByParam := "severity"
+	if groupBy.LabelKey != "" {
+		groupByParam = "label:" + groupBy.LabelKey
+	}
+	return AlertGroupResult{
+		GroupBy: groupByParam,
+		Groups:  groups,
+		Total:   total,
+	}, nil
 }
 
 func AlertJSON(alert db.Alert) map[string]any {

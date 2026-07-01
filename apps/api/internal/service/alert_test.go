@@ -33,6 +33,15 @@ func (m *mockAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsPar
 	return 1, nil
 }
 
+func (m *mockAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	key := "critical"
+	if groupBy.LabelKey != "" {
+		key = "platform"
+	}
+	sample := db.Alert{ID: m.id, Title: "CPU", Status: "firing", Labels: []byte(`{"team":"platform"}`)}
+	return []db.AlertGroupBucket{{Key: key, Count: 3, Sample: &sample}}, nil
+}
+
 func TestAlertIngestSuccess(t *testing.T) {
 	repo := &mockAlertRepo{}
 	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
@@ -82,6 +91,10 @@ func (f *failAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsPar
 	return 0, errors.New("db down")
 }
 
+func (f *failAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	return nil, errors.New("db down")
+}
+
 func TestAlertList(t *testing.T) {
 	repo := &mockAlertRepo{id: uuid.New()}
 	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
@@ -121,6 +134,48 @@ func TestAlertListDefaultPageSizeWhenUnset(t *testing.T) {
 	result, err := svc.List(context.Background(), db.ListAlertsParams{Limit: 0, Offset: 0})
 	require.NoError(t, err)
 	require.Equal(t, db.DefaultAlertListLimit, result.PageSize)
+}
+
+func TestAlertGroupBySeverity(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
+	result, err := svc.Group(context.Background(), db.ListAlertsParams{}, db.AlertGroupBy{Severity: true})
+	require.NoError(t, err)
+	require.Equal(t, "severity", result.GroupBy)
+	require.Len(t, result.Groups, 1)
+	require.Equal(t, "critical", result.Groups[0].Key)
+	require.Equal(t, 3, result.Groups[0].Count)
+	require.NotNil(t, result.Groups[0].Sample)
+	require.Equal(t, 1, result.Total)
+}
+
+func TestAlertGroupByLabel(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
+	result, err := svc.Group(context.Background(), db.ListAlertsParams{}, db.AlertGroupBy{LabelKey: "team"})
+	require.NoError(t, err)
+	require.Equal(t, "label:team", result.GroupBy)
+	require.Equal(t, "platform", result.Groups[0].Key)
+}
+
+func TestAlertGroupCountError(t *testing.T) {
+	svc := NewAlertService("secret", []string{"alertname", "team"}, &failCountAlertRepo{})
+	_, err := svc.Group(context.Background(), db.ListAlertsParams{}, db.AlertGroupBy{Severity: true})
+	require.Error(t, err)
+}
+
+func TestAlertGroupQueryError(t *testing.T) {
+	svc := NewAlertService("secret", []string{"alertname", "team"}, &failGroupOnlyAlertRepo{})
+	_, err := svc.Group(context.Background(), db.ListAlertsParams{}, db.AlertGroupBy{Severity: true})
+	require.Error(t, err)
+}
+
+type failGroupOnlyAlertRepo struct {
+	mockAlertRepo
+}
+
+func (f *failGroupOnlyAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	return nil, errors.New("group failed")
 }
 
 type failCountAlertRepo struct {

@@ -124,3 +124,84 @@ VALUES
 	require.Len(t, pageTwo, 1)
 	require.NotEqual(t, pageOne[0].ID, pageTwo[0].ID)
 }
+
+func TestGroupAlertsBySeverity(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	require.NoError(t, pool.Ping(ctx))
+
+	_, err = pool.Exec(ctx, `DELETE FROM incident_alerts`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM alerts`)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO alerts (fingerprint, status, severity, title, body, labels, raw_payload, search_tsv, received_at)
+VALUES
+  ('fp-1', 'firing', 'critical', 'CPU high', 'body', '{"team":"platform"}', '{}', to_tsvector('english', 'CPU high'), now() - interval '2 hours'),
+  ('fp-2', 'firing', 'critical', 'Disk full', 'body', '{"team":"data"}', '{}', to_tsvector('english', 'Disk full'), now() - interval '1 hour'),
+  ('fp-3', 'firing', 'warning', 'CPU ok', 'body', '{"team":"platform"}', '{}', to_tsvector('english', 'CPU ok'), now())`)
+	require.NoError(t, err)
+
+	store := NewStore(pool)
+
+	groups, err := store.GroupAlerts(ctx, ListAlertsParams{}, AlertGroupBy{Severity: true})
+	require.NoError(t, err)
+	require.Len(t, groups, 2)
+
+	counts := map[string]int{}
+	for _, g := range groups {
+		counts[g.Key] = g.Count
+		require.NotNil(t, g.Sample)
+	}
+	require.Equal(t, 2, counts["critical"])
+	require.Equal(t, 1, counts["warning"])
+}
+
+func TestGroupAlertsByLabel(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	require.NoError(t, pool.Ping(ctx))
+
+	_, err = pool.Exec(ctx, `DELETE FROM incident_alerts`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM alerts`)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO alerts (fingerprint, status, severity, title, body, labels, raw_payload, search_tsv, received_at)
+VALUES
+  ('fp-1', 'firing', 'critical', 'CPU high', 'body', '{"team":"platform","env":"prod"}', '{}', to_tsvector('english', 'CPU high'), now()),
+  ('fp-2', 'firing', 'warning', 'Disk low', 'body', '{"team":"data","env":"prod"}', '{}', to_tsvector('english', 'Disk low'), now()),
+  ('fp-3', 'firing', 'info', 'CPU ok', 'body', '{"team":"platform","env":"dev"}', '{}', to_tsvector('english', 'CPU ok'), now())`)
+	require.NoError(t, err)
+
+	store := NewStore(pool)
+
+	groups, err := store.GroupAlerts(ctx, ListAlertsParams{LabelFilters: map[string]string{"env": "prod"}}, AlertGroupBy{LabelKey: "team"})
+	require.NoError(t, err)
+	require.Len(t, groups, 2)
+
+	counts := map[string]int{}
+	for _, g := range groups {
+		counts[g.Key] = g.Count
+	}
+	require.Equal(t, 1, counts["platform"])
+	require.Equal(t, 1, counts["data"])
+}

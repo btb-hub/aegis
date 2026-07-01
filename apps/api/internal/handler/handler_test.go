@@ -108,6 +108,15 @@ func (m *authMockAlertRepo) CountAlerts(ctx context.Context, params db.ListAlert
 	return 1, nil
 }
 
+func (m *authMockAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	key := "critical"
+	if groupBy.LabelKey != "" {
+		key = "platform"
+	}
+	sample := db.Alert{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}
+	return []db.AlertGroupBucket{{Key: key, Count: 1, Sample: &sample}}, nil
+}
+
 type emptyTeamRepo struct{}
 
 func (e *emptyTeamRepo) ListTeams(ctx context.Context) ([]db.Team, error) { return nil, nil }

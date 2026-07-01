@@ -37,6 +37,8 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 
 **Implemented (AEG-033):** Filters compose as AND: `severity`, `status`, `team_id` (resolved to `labels.team` via team name), `from`/`to` (RFC3339 on `received_at`), repeatable `label=key:value` for arbitrary labels. Pagination via `page` (default 1) and `page_size` (default 100, max 100). Response includes `total`, `page`, and `page_size`.
 
+**Implemented (AEG-034):** `group_by=severity` or `group_by=label:<key>` returns grouped buckets instead of a flat list. Same filters apply. Response includes `group_by`, `groups` (each with `key`, `count`, and `sample` alert), and `total`.
+
 **Response (list):**
 
 ```json
@@ -56,6 +58,31 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
   "total": 42,
   "page": 1,
   "page_size": 100
+}
+```
+
+**Response (grouped):**
+
+```json
+{
+  "group_by": "severity",
+  "groups": [
+    {
+      "key": "critical",
+      "count": 5,
+      "sample": {
+        "id": "uuid",
+        "fingerprint": "sha256…",
+        "status": "firing",
+        "severity": "critical",
+        "title": "HighCPU",
+        "body": "CPU high on host-1",
+        "labels": {"alertname": "HighCPU", "team": "platform"},
+        "received_at": "2026-06-26T12:00:00Z"
+      }
+    }
+  ],
+  "total": 10
 }
 ```
 

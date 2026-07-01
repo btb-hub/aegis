@@ -21,31 +21,33 @@
 
 ### AEG-033 — Alert list filters and pagination
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-032
 - **PRD:** REQ-ALERT-01
 - **Acceptance:**
   - [x] Filter by severity, status, team, time range, labels
   - [x] Pagination max 100 per page
 
-**Agent plan (2026-06-26):** Extend `ListAlertsParams` and `GET /api/v1/alerts` with `severity`, `status`, `team_id`, `from`/`to`, repeatable `label=key:value`, `page`/`page_size`. Add `CountAlerts` for `total`. Handler resolves `team_id` to `labels.team` via team name. Unit + integration tests.
+**Merged:** PR #9 (`feat/alerting-AEG-033-filters-pagination`). Filters compose as AND; `CountAlerts` drives `total`; `team_id` resolves to `labels.team`.
 
 ---
 
 ### AEG-034 — Alert grouping API
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-03
 - **Acceptance:**
-  - [ ] `group_by=severity` and `group_by=label:key`
-  - [ ] Returns bucket counts
+  - [x] `group_by=severity` and `group_by=label:key`
+  - [x] Returns bucket counts
+
+**Agent plan (2026-06-26):** Parse `group_by` on `GET /api/v1/alerts`; when set, return `groups` with `key`, `count`, and `sample` alert per bucket. Reuse list filters. `GroupAlerts` in db with COUNT + DISTINCT ON sample query. Unit + integration tests; update API spec.
 
 ---
 
 ### AEG-035 — Saved views
 
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-04
 - **Acceptance:**
@@ -56,7 +58,7 @@
 
 ### AEG-036 — Inline analytics on alert slice
 
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-05
 - **Acceptance:**
@@ -66,7 +68,7 @@
 
 ### AEG-037 — CSV export
 
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-06
 - **Acceptance:**
@@ -77,7 +79,7 @@
 
 ### AEG-038 — Alert workspace UI — list and filters
 
-- **Status:** Blocked
+- **Status:** Ready
 - **Depends on:** AEG-033, AEG-034, AEG-054, AEG-055, AEG-056, AEG-058
 - **PRD:** REQ-ALERT-01, REQ-ALERT-03
 - **Acceptance:**
