@@ -52,7 +52,7 @@ describe('App', () => {
   });
 
   it('navigates to alerts workspace when signed in', async () => {
-    vi.mocked(fetch).mockImplementation(async (input: RequestInfo) => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
         return {
