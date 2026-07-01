@@ -25,6 +25,7 @@ func (h *AlertHandler) Register(r gin.IRouter) {
 	api := r.Group("/api/v1")
 	api.Use(middleware.RequireSession(h.auth))
 	api.GET("/alerts", h.listAlerts)
+	api.GET("/alerts/export", h.exportAlerts)
 }
 
 func (h *AlertHandler) webhook(c *gin.Context) {
@@ -91,10 +92,46 @@ func (h *AlertHandler) listAlerts(c *gin.Context) {
 	for _, alert := range result.Items {
 		items = append(items, service.AlertJSON(alert))
 	}
-	WriteJSON(c, http.StatusOK, gin.H{
+	response := gin.H{
 		"items":     items,
 		"total":     result.Total,
 		"page":      parsed.Page,
 		"page_size": parsed.PageSize,
-	})
+	}
+	if parsed.IncludeAnalytics {
+		analytics, err := h.alerts.Analytics(c.Request.Context(), parsed.Params, parsed.AnalyticsLabelKey)
+		if err != nil {
+			WriteError(c, err)
+			return
+		}
+		response["analytics"] = service.AnalyticsJSON(analytics)
+	}
+	WriteJSON(c, http.StatusOK, response)
+}
+
+func (h *AlertHandler) exportAlerts(c *gin.Context) {
+	parsed, err := parseListAlertsQuery(c)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	if parsed.TeamID != nil {
+		team, err := h.teams.GetTeam(c.Request.Context(), *parsed.TeamID)
+		if err != nil {
+			WriteError(c, err)
+			return
+		}
+		parsed.Params.LabelFilters["team"] = team.Name
+	}
+
+	exportParams := parsed.Params
+	exportParams.Limit = 0
+	exportParams.Offset = 0
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", `attachment; filename="alerts.csv"`)
+	if err := h.alerts.ExportCSV(c.Request.Context(), exportParams, c.Writer); err != nil {
+		WriteError(c, err)
+		return
+	}
 }

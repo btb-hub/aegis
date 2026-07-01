@@ -49,6 +49,7 @@ func main() {
 	incidents := service.NewIncidentService(store)
 	integrationsSvc := service.NewIntegrationService(store, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(store)
+	savedViews := service.NewSavedViewService(store)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -64,6 +65,7 @@ func main() {
 	handler.NewRoutingHandler(routingRules, auth).Register(r)
 	handler.NewIncidentHandler(incidents, auth).Register(r)
 	handler.NewIntegrationHandler(integrationsSvc, auth).Register(r)
+	handler.NewSavedViewHandler(savedViews, auth).Register(r)
 	handler.NewSlackCallbackHandler(incidents, cfg.SlackSigningSecret()).Register(r)
 	handler.NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
 	handler.NewExpressLinkHandler(expressLinks, auth).Register(r)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -115,6 +116,18 @@ func (m *authMockAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAler
 	}
 	sample := db.Alert{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}
 	return []db.AlertGroupBucket{{Key: key, Count: 1, Sample: &sample}}, nil
+}
+
+func (m *authMockAlertRepo) AlertAnalytics(ctx context.Context, params db.ListAlertsParams, labelKey string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{
+		BySeverity: map[string]int{"critical": 1},
+		ByStatus:   map[string]int{"firing": 1},
+	}, nil
+}
+
+func (m *authMockAlertRepo) StreamAlertsCSV(ctx context.Context, params db.ListAlertsParams, w io.Writer) error {
+	_, err := w.Write([]byte("id,fingerprint,status,severity,title,body,labels,received_at\n"))
+	return err
 }
 
 type emptyTeamRepo struct{}

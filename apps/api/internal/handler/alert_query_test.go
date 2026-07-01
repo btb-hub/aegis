@@ -148,3 +148,14 @@ func TestParseListAlertsQueryEmptyLabelGroupBy(t *testing.T) {
 	_, err := parseListAlertsQuery(c)
 	require.Error(t, err)
 }
+
+func TestParseListAlertsQueryIncludeAnalytics(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/api/v1/alerts?include_analytics=true&analytics_label_key=team", nil)
+
+	parsed, err := parseListAlertsQuery(c)
+	require.NoError(t, err)
+	require.True(t, parsed.IncludeAnalytics)
+	require.Equal(t, "team", parsed.AnalyticsLabelKey)
+}

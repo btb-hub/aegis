@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"io"
 
 	"github.com/aegis/aegis/pkg/alertparse"
 	"github.com/aegis/aegis/pkg/apperrors"
@@ -15,6 +16,8 @@ type AlertRepository interface {
 	ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error)
 	CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error)
 	GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error)
+	AlertAnalytics(ctx context.Context, params db.ListAlertsParams, labelKey string) (db.AlertAnalytics, error)
+	StreamAlertsCSV(ctx context.Context, params db.ListAlertsParams, w io.Writer) error
 }
 
 type AlertService struct {
@@ -109,6 +112,38 @@ func (s *AlertService) Group(ctx context.Context, filters db.ListAlertsParams, g
 		Groups:  groups,
 		Total:   total,
 	}, nil
+}
+
+func (s *AlertService) Analytics(ctx context.Context, filters db.ListAlertsParams, labelKey string) (db.AlertAnalytics, error) {
+	return s.repo.AlertAnalytics(ctx, filters, labelKey)
+}
+
+func (s *AlertService) ExportCSV(ctx context.Context, filters db.ListAlertsParams, w io.Writer) error {
+	return s.repo.StreamAlertsCSV(ctx, filters, w)
+}
+
+func AnalyticsJSON(analytics db.AlertAnalytics) map[string]any {
+	bySeverity := analytics.BySeverity
+	if bySeverity == nil {
+		bySeverity = map[string]int{}
+	}
+	byStatus := analytics.ByStatus
+	if byStatus == nil {
+		byStatus = map[string]int{}
+	}
+	topLabels := make([]map[string]any, 0, len(analytics.TopLabels))
+	for _, item := range analytics.TopLabels {
+		topLabels = append(topLabels, map[string]any{
+			"key":   item.Key,
+			"value": item.Value,
+			"count": item.Count,
+		})
+	}
+	return map[string]any{
+		"by_severity": bySeverity,
+		"by_status":   byStatus,
+		"top_labels":  topLabels,
+	}
 }
 
 func AlertJSON(alert db.Alert) map[string]any {

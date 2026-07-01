@@ -7,6 +7,7 @@ import { useAuth } from './context/AuthContext';
 import type { Incident } from './lib/incidentTypes';
 import { buildDemoShiftsForMonth, resolveCurrentOnCall } from './lib/shiftsDemoData';
 import { IncidentsPage } from './pages/IncidentsPage';
+import { AlertsPage } from './pages/AlertsPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { TeamShiftsPage } from './pages/TeamShiftsPage';
@@ -48,6 +49,9 @@ const initialIncidents: Incident[] = [
 function pageFromPath(pathname: string): AppPage {
   if (pathname.startsWith('/integrations')) {
     return 'integrations';
+  }
+  if (pathname.startsWith('/alerts')) {
+    return 'alerts';
   }
   if (pathname.startsWith('/incidents')) {
     return 'incidents';
@@ -153,6 +157,14 @@ function AppRoutes() {
               onAcknowledge={handlers.acknowledge}
               onResolve={handlers.resolve}
             />
+          }
+        />
+        <Route
+          path="/alerts"
+          element={
+            <ProtectedRoute>
+              <AlertsPage />
+            </ProtectedRoute>
           }
         />
         <Route
