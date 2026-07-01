@@ -197,3 +197,20 @@ type SavedView struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+type Handoff struct {
+	ID          uuid.UUID  `json:"id"`
+	IncidentID  uuid.UUID  `json:"incident_id"`
+	FromUserID  *uuid.UUID `json:"from_user_id"`
+	ToUserID    *uuid.UUID `json:"to_user_id"`
+	FromTeamID  uuid.UUID  `json:"from_team_id"`
+	ToTeamID    uuid.UUID  `json:"to_team_id"`
+	Reason      *string    `json:"reason"`
+	BouncedAt   *time.Time `json:"bounced_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type HandoffStats struct {
+	Count                 int     `json:"count"`
+	MedianResponseSeconds float64 `json:"median_response_seconds"`
+}

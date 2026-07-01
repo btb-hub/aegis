@@ -16,7 +16,7 @@ type Worker struct {
 	handlers map[string]Handler
 }
 
-func NewWorker(log *slog.Logger, store JobStore, alert *AlertProcessor, materialise *MaterialiseProcessor, escalate *EscalateProcessor) *Worker {
+func NewWorker(log *slog.Logger, store JobStore, alert *AlertProcessor, materialise *MaterialiseProcessor, escalate *EscalateProcessor, handoffNotify *HandoffNotifyProcessor) *Worker {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -27,6 +27,7 @@ func NewWorker(log *slog.Logger, store JobStore, alert *AlertProcessor, material
 			"process_alert":      alert,
 			"materialise_oncall": materialise,
 			"escalate_incident":  escalate,
+			"notify_handoff":     handoffNotify,
 		},
 	}
 }

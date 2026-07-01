@@ -3,58 +3,60 @@
 **Phase:** 5  
 **Exit:** One-action handoff, shared timeline, bounce, analytics feed.
 
+**Plan (AEG-040–044):** Migration `handoffs`; `HandoffService` with handoff/bounce + `notify_handoff` worker job (page L3, Jira assignee); `GET /analytics/handoffs`; incident detail UI with team picker and bounce form. Timeline remains unfiltered by role.
+
 ---
 
 ### AEG-040 — Handoff API and service
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-025, AEG-014
 - **PRD:** REQ-L2L3-01, REQ-L2L3-02
 - **Acceptance:**
-  - [ ] `POST /incidents/{id}/handoff` to L3 team
-  - [ ] Reassigns to L3 on-call, records handoff row
-  - [ ] Pages L3, optional Jira assignee update
+  - [x] `POST /incidents/{id}/handoff` to L3 team
+  - [x] Reassigns to L3 on-call, records handoff row
+  - [x] Pages L3, optional Jira assignee update
 
 ---
 
 ### AEG-041 — Bounce to L2
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-040
 - **PRD:** REQ-L2L3-04
 - **Acceptance:**
-  - [ ] `POST /incidents/{id}/bounce` with required note
-  - [ ] Reassigns to prior L2 owner
+  - [x] `POST /incidents/{id}/bounce` with required note
+  - [x] Reassigns to prior L2 owner
 
 ---
 
 ### AEG-042 — Shared timeline visibility
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-040
 - **PRD:** REQ-L2L3-03
 - **Acceptance:**
-  - [ ] L2 and L3 members see same timeline events
-  - [ ] Test: no hidden events by role
+  - [x] L2 and L3 members see same timeline events
+  - [x] Test: no hidden events by role
 
 ---
 
 ### AEG-043 — Handoff UI
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-040, AEG-041, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-L2L3-01, REQ-L2L3-04
 - **Acceptance:**
-  - [ ] Hand off and bounce buttons on incident detail
-  - [ ] Team picker for L3 target
+  - [x] Hand off and bounce buttons on incident detail
+  - [x] Team picker for L3 target
 
 ---
 
 ### AEG-044 — Handoff analytics events
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-040, AEG-028
 - **PRD:** REQ-L2L3-05
 - **Acceptance:**
-  - [ ] Compute time to first L3 response from handoff
-  - [ ] Exposed via analytics API for EPIC-07
+  - [x] Compute time to first L3 response from handoff
+  - [x] Exposed via analytics API for EPIC-07

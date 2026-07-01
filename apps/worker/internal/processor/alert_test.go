@@ -53,6 +53,31 @@ func noopEscalate() *EscalateProcessor {
 	return NewEscalateProcessor(nil, escalateMockStore{}, "http://localhost:8080")
 }
 
+func noopHandoffNotify() *HandoffNotifyProcessor {
+	return NewHandoffNotifyProcessor(nil, handoffNotifyMockStore{}, "http://localhost:8080")
+}
+
+type handoffNotifyMockStore struct{}
+
+func (handoffNotifyMockStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
+	return db.Incident{}, pgx.ErrNoRows
+}
+func (handoffNotifyMockStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
+	return db.User{}, pgx.ErrNoRows
+}
+func (handoffNotifyMockStore) ListEnabledIntegrations(context.Context) ([]integrations.IntegrationRow, error) {
+	return nil, nil
+}
+func (handoffNotifyMockStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
+}
+func (handoffNotifyMockStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
+	return db.Notification{}, nil
+}
+func (handoffNotifyMockStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
+	return nil
+}
+
 type materialiseStoreStub struct{}
 
 func (materialiseStoreStub) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
@@ -119,7 +144,7 @@ func (m *alertMockStore) ListEnabledIntegrations(context.Context) ([]integration
 }
 
 func TestWorkerNoJob(t *testing.T) {
-	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate())
+	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
 	err := w.RunOnce(context.Background())
 	require.NoError(t, err)
 }
@@ -147,7 +172,7 @@ func TestWorkerProcessesJob(t *testing.T) {
 		job: Job{ID: "j1", Kind: "process_alert", Payload: json.RawMessage(`{"alert_id":"` + alertID.String() + `"}`)},
 	}
 	alertStore := &alertMockStore{linkedIncident: db.Incident{ID: uuid.New()}, alertID: alertID}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -161,7 +186,7 @@ func TestWorkerProcessesMaterialiseJob(t *testing.T) {
 			Payload: json.RawMessage(`{"team_id":"` + teamID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), NewMaterialiseProcessor(nil, &materialiseMockStore{}), noopEscalate())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), NewMaterialiseProcessor(nil, &materialiseMockStore{}), noopEscalate(), noopHandoffNotify())
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -174,7 +199,7 @@ func (m *claimErrorStore) ClaimNextJob(ctx context.Context) (bool, Job, error) {
 }
 
 func TestWorkerClaimError(t *testing.T) {
-	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate())
+	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
 	err := w.RunOnce(context.Background())
 	require.Error(t, err)
 }
@@ -242,6 +267,6 @@ func TestWorkerProcessesEscalateJob(t *testing.T) {
 			Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), NewEscalateProcessor(nil, escalateMockStore{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, ""))
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), NewEscalateProcessor(nil, escalateMockStore{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, ""), noopHandoffNotify())
 	require.NoError(t, w.RunOnce(context.Background()))
 }

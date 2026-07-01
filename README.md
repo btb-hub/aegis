@@ -62,7 +62,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 3 — eXpress connector | Slack + eXpress notifications; test connection per provider | Done |
 | 3.5 — Web auth & session | Login page, app shell session, OIDC callback redirect | Done |
 | 4 — Alerting workspace | Filters, search, saved views, inline analytics | Done |
-| 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | Not started |
+| 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | In review (`feat/l2-l3-phase-5`) |
 | 6 — Analytics & polish | Dashboard, setup wizard | Not started |
 
 ### Backend (`apps/api`, `apps/worker`, `pkg/`)

@@ -119,3 +119,84 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (p *Provider) UpdateAssignee(ctx context.Context, issueKey, assigneeEmail string) error {
+	assigneeEmail = strings.TrimSpace(assigneeEmail)
+	if issueKey == "" || assigneeEmail == "" {
+		return nil
+	}
+
+	accountID, err := p.lookupAccountID(ctx, assigneeEmail)
+	if err != nil {
+		return err
+	}
+	if accountID == "" {
+		return nil
+	}
+
+	body := map[string]any{
+		"fields": map[string]any{
+			"assignee": map[string]string{"accountId": accountID},
+		},
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPut,
+		fmt.Sprintf("%s/rest/api/3/issue/%s", strings.TrimRight(p.cfg.BaseURL, "/"), issueKey),
+		bytes.NewReader(payload),
+	)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("jira update assignee: status %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
+}
+
+func (p *Provider) lookupAccountID(ctx context.Context, email string) (string, error) {
+	url := fmt.Sprintf(
+		"%s/rest/api/3/user/search?query=%s&maxResults=1",
+		strings.TrimRight(p.cfg.BaseURL, "/"),
+		email,
+	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("jira user search: status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var users []struct {
+		AccountID string `json:"accountId"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return "", err
+	}
+	if len(users) == 0 {
+		return "", nil
+	}
+	return users[0].AccountID, nil
+}

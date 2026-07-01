@@ -35,7 +35,8 @@ func main() {
 	materialise := processor.NewMaterialiseProcessor(nil, store)
 	alert := processor.NewAlertProcessor(nil, store, cfg.IncidentDedupWindow, cfg.EscalationTimeout, cfg.PublicURL)
 	escalate := processor.NewEscalateProcessor(nil, store, cfg.PublicURL)
-	worker := processor.NewWorker(nil, adapter, alert, materialise, escalate)
+	handoffNotify := processor.NewHandoffNotifyProcessor(nil, store, cfg.PublicURL)
+	worker := processor.NewWorker(nil, adapter, alert, materialise, escalate, handoffNotify)
 
 	go enqueueNightlyMaterialise(ctx, store)
 

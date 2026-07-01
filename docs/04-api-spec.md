@@ -179,7 +179,18 @@ Schedule and override changes enqueue a `materialise_oncall` worker job for the 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/incidents/{id}/handoff` | Hand to L3 team `{to_team_id, note}` |
-| POST | `/incidents/{id}/bounce` | Bounce to L2 `{note}` |
+| POST | `/incidents/{id}/bounce` | Bounce to L2 `{note}` (note required) |
+
+**Implemented (AEG-040–041):** Handoff reassigns the incident to the target team's current on-call, records a `handoffs` row, appends a timeline event, and enqueues `notify_handoff` (pages L3 via chat connectors; updates Jira assignee when configured). Bounce reassigns to the prior L2 owner from the latest non-bounced handoff.
+
+Handoff body:
+
+```json
+{
+  "to_team_id": "uuid",
+  "note": "optional context for L3"
+}
+```
 
 ## Analytics (Phase 6)
 
@@ -193,6 +204,8 @@ Schedule and override changes enqueue a `materialise_oncall` worker job for the 
 | GET | `/analytics/handoffs` | L2→L3 stats |
 
 Query: `from`, `to`, `compare_previous` (bool).
+
+**Implemented (AEG-044):** `GET /analytics/handoffs?from=&to=` (RFC3339) returns `count` and `median_response_seconds` (handoff to first L3 acknowledge).
 
 ## Saved views (Phase 4)
 

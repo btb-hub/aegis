@@ -103,6 +103,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	cfg := &config.Config{SessionTTL: time.Hour, PublicURL: "http://localhost:8080"}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	incidents := service.NewIncidentService(repo)
+	handoffs := service.NewHandoffService(repo)
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(repo)
@@ -114,7 +115,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	NewAlertHandler(alerts, teams, auth).Register(r)
-	NewIncidentHandler(incidents, auth).Register(r)
+	NewIncidentHandler(incidents, handoffs, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, "secret").Register(r)

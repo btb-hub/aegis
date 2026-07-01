@@ -30,6 +30,7 @@ type phase2HandlerRepo struct {
 	listIncidentsErr  error
 	listIntegrationsErr error
 	alertListErr      error
+	handoffStats      db.HandoffStats
 }
 
 func newPhase2HandlerRepo() *phase2HandlerRepo {
@@ -211,6 +212,61 @@ func (m *phase2HandlerRepo) ListEnabledIntegrations(context.Context) ([]integrat
 	return nil, nil
 }
 
+func (m *phase2HandlerRepo) GetTeam(_ context.Context, id uuid.UUID) (db.Team, error) {
+	team, ok := m.teams[id]
+	if !ok {
+		return db.Team{}, pgx.ErrNoRows
+	}
+	return team, nil
+}
+
+func (m *phase2HandlerRepo) CurrentOnCallUsers(_ context.Context, teamID uuid.UUID, _ time.Time) ([]db.OnCallUser, error) {
+	for userID := range m.memberships[teamID] {
+		user, ok := m.users[userID]
+		if !ok {
+			continue
+		}
+		return []db.OnCallUser{{UserID: user.ID, Email: user.Email, DisplayName: user.DisplayName, Source: "rotation"}}, nil
+	}
+	return nil, nil
+}
+
+func (m *phase2HandlerRepo) HandoffIncident(_ context.Context, input db.HandoffIncidentInput) (db.Incident, db.Handoff, error) {
+	incident, ok := m.incidents[input.IncidentID]
+	if !ok || incident.Status == "resolved" {
+		return db.Incident{}, db.Handoff{}, pgx.ErrNoRows
+	}
+	assignee := input.ToUserID
+	incident.AssigneeID = &assignee
+	m.incidents[input.IncidentID] = incident
+	handoff := db.Handoff{
+		ID:         uuid.New(),
+		IncidentID: input.IncidentID,
+		FromTeamID: incident.TeamID,
+		ToTeamID:   input.ToTeamID,
+		ToUserID:   &input.ToUserID,
+		CreatedAt:  time.Now(),
+	}
+	return incident, handoff, nil
+}
+
+func (m *phase2HandlerRepo) BounceIncident(_ context.Context, input db.BounceIncidentInput) (db.Incident, error) {
+	incident, ok := m.incidents[input.IncidentID]
+	if !ok || incident.Status == "resolved" {
+		return db.Incident{}, pgx.ErrNoRows
+	}
+	l2 := input.ActorID
+	incident.AssigneeID = &l2
+	m.incidents[input.IncidentID] = incident
+	return incident, nil
+}
+
+func (m *phase2HandlerRepo) EnqueueHandoffNotify(context.Context, uuid.UUID) error { return nil }
+
+func (m *phase2HandlerRepo) HandoffStats(context.Context, time.Time, time.Time) (db.HandoffStats, error) {
+	return m.handoffStats, nil
+}
+
 func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -218,6 +274,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	cfg := &config.Config{SessionTTL: time.Hour, PublicURL: "http://localhost:8080"}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	incidents := service.NewIncidentService(repo)
+	handoffs := service.NewHandoffService(repo)
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(repo)
@@ -229,7 +286,8 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	NewAlertHandler(alerts, teams, auth).Register(r)
-	NewIncidentHandler(incidents, auth).Register(r)
+	NewIncidentHandler(incidents, handoffs, auth).Register(r)
+	NewAnalyticsHandler(handoffs, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, "secret").Register(r)

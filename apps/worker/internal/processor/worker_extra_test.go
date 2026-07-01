@@ -27,7 +27,7 @@ func TestWorkerUnknownKind(t *testing.T) {
 		claim: true,
 		job:   Job{ID: "j1", Kind: "unknown", Payload: json.RawMessage(`{}`)},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
 	err := w.RunOnce(context.Background())
 	require.Error(t, err)
 }
@@ -39,7 +39,7 @@ func TestWorkerHandlerFailure(t *testing.T) {
 			job:   Job{ID: "j1", Kind: "process_alert", Payload: json.RawMessage(`{`)},
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
 	err := w.RunOnce(context.Background())
 	require.Error(t, err)
 }

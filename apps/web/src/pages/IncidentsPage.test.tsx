@@ -23,7 +23,14 @@ describe('IncidentsPage', () => {
   it('renders list and detail together', () => {
     render(
       <I18nextProvider i18n={i18n}>
-        <IncidentsPage incidents={incidents} onAcknowledge={vi.fn()} onResolve={vi.fn()} />
+        <IncidentsPage
+          incidents={incidents}
+          handoffTeams={[{ id: 'team-l3', name: 'L3' }]}
+          onAcknowledge={vi.fn()}
+          onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
+        />
       </I18nextProvider>,
     );
 
@@ -44,8 +51,11 @@ describe('IncidentsPage', () => {
               status: 'resolved',
             },
           ]}
+          handoffTeams={[{ id: 'team-l3', name: 'L3' }]}
           onAcknowledge={vi.fn()}
           onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
         />
       </I18nextProvider>,
     );
@@ -58,7 +68,14 @@ describe('IncidentsPage', () => {
   it('shows a prompt when no incident is selected', () => {
     render(
       <I18nextProvider i18n={i18n}>
-        <IncidentsPage incidents={[]} onAcknowledge={vi.fn()} onResolve={vi.fn()} />
+        <IncidentsPage
+          incidents={[]}
+          handoffTeams={[]}
+          onAcknowledge={vi.fn()}
+          onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
+        />
       </I18nextProvider>,
     );
 
