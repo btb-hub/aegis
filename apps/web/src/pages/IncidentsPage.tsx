@@ -1,16 +1,26 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IncidentDetail } from '../components/incidents/IncidentDetail';
+import { IncidentDetail, type HandoffTeamOption } from '../components/incidents/IncidentDetail';
 import { IncidentList } from '../components/incidents/IncidentList';
 import type { Incident, IncidentStatus } from '../lib/incidentTypes';
 
 type IncidentsPageProps = {
   incidents: Incident[];
+  handoffTeams: HandoffTeamOption[];
   onAcknowledge: (incidentId: string) => void;
   onResolve: (incidentId: string) => void;
+  onHandoff: (incidentId: string, toTeamId: string, note: string) => void;
+  onBounce: (incidentId: string, note: string) => void;
 };
 
-export function IncidentsPage({ incidents, onAcknowledge, onResolve }: IncidentsPageProps) {
+export function IncidentsPage({
+  incidents,
+  handoffTeams,
+  onAcknowledge,
+  onResolve,
+  onHandoff,
+  onBounce,
+}: IncidentsPageProps) {
   const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<IncidentStatus | 'all'>('all');
   const [selectedId, setSelectedId] = useState<string | undefined>(incidents[0]?.id);
@@ -38,8 +48,12 @@ export function IncidentsPage({ incidents, onAcknowledge, onResolve }: Incidents
         {selectedIncident ? (
           <IncidentDetail
             incident={selectedIncident}
+            teams={handoffTeams}
+            canBounce={selectedIncident.timeline.some((event) => event.kind === 'handoff')}
             onAcknowledge={onAcknowledge}
             onResolve={onResolve}
+            onHandoff={onHandoff}
+            onBounce={onBounce}
           />
         ) : (
           <p className="rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">

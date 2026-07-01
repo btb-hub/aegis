@@ -2,20 +2,23 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type IncidentHandler struct {
 	incidents *service.IncidentService
+	handoffs  *service.HandoffService
 	auth      *service.AuthService
 }
 
-func NewIncidentHandler(incidents *service.IncidentService, auth *service.AuthService) *IncidentHandler {
-	return &IncidentHandler{incidents: incidents, auth: auth}
+func NewIncidentHandler(incidents *service.IncidentService, handoffs *service.HandoffService, auth *service.AuthService) *IncidentHandler {
+	return &IncidentHandler{incidents: incidents, handoffs: handoffs, auth: auth}
 }
 
 func (h *IncidentHandler) Register(r gin.IRouter) {
@@ -27,6 +30,8 @@ func (h *IncidentHandler) Register(r gin.IRouter) {
 	api.GET("/incidents/:id/timeline", h.listTimeline)
 	api.POST("/incidents/:id/acknowledge", h.acknowledge)
 	api.POST("/incidents/:id/resolve", h.resolve)
+	api.POST("/incidents/:id/handoff", h.handoff)
+	api.POST("/incidents/:id/bounce", h.bounce)
 }
 
 func (h *IncidentHandler) listIncidents(c *gin.Context) {
@@ -122,6 +127,64 @@ func (h *IncidentHandler) resolve(c *gin.Context) {
 		return
 	}
 	incident, err := h.incidents.Resolve(c.Request.Context(), incidentID, user.ID)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, service.IncidentJSON(incident))
+}
+
+func (h *IncidentHandler) handoff(c *gin.Context) {
+	incidentID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	user, ok := middleware.UserFromContext(c)
+	if !ok {
+		WriteError(c, apperrors.Unauthorized("missing session"))
+		return
+	}
+	var body struct {
+		ToTeamID string `json:"to_team_id"`
+		Note     string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	toTeamID, err := uuid.Parse(strings.TrimSpace(body.ToTeamID))
+	if err != nil {
+		WriteError(c, apperrors.Validation("to_team_id must be a valid UUID", nil))
+		return
+	}
+	incident, err := h.handoffs.Handoff(c.Request.Context(), incidentID, user.ID, toTeamID, body.Note)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, service.IncidentJSON(incident))
+}
+
+func (h *IncidentHandler) bounce(c *gin.Context) {
+	incidentID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	user, ok := middleware.UserFromContext(c)
+	if !ok {
+		WriteError(c, apperrors.Unauthorized("missing session"))
+		return
+	}
+	var body struct {
+		Note string `json:"note"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	incident, err := h.handoffs.Bounce(c.Request.Context(), incidentID, user.ID, body.Note)
 	if err != nil {
 		WriteError(c, err)
 		return

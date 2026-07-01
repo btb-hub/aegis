@@ -1,21 +1,47 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '../../lib/formatDate';
 import type { Incident } from '../../lib/incidentTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { SeverityTag } from '../ui/SeverityTag';
 import { StatusTag, alertStatusVariant, incidentStatusVariant } from '../ui/StatusTag';
 
-type IncidentDetailProps = {
-  incident: Incident;
-  onAcknowledge: (incidentId: string) => void;
-  onResolve: (incidentId: string) => void;
+export type HandoffTeamOption = {
+  id: string;
+  name: string;
 };
 
-export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentDetailProps) {
+type IncidentDetailProps = {
+  incident: Incident;
+  teams: HandoffTeamOption[];
+  canBounce: boolean;
+  onAcknowledge: (incidentId: string) => void;
+  onResolve: (incidentId: string) => void;
+  onHandoff: (incidentId: string, toTeamId: string, note: string) => void;
+  onBounce: (incidentId: string, note: string) => void;
+};
+
+export function IncidentDetail({
+  incident,
+  teams,
+  canBounce,
+  onAcknowledge,
+  onResolve,
+  onHandoff,
+  onBounce,
+}: IncidentDetailProps) {
   const { t, i18n } = useTranslation();
+  const [showHandoff, setShowHandoff] = useState(false);
+  const [showBounce, setShowBounce] = useState(false);
+  const [targetTeamId, setTargetTeamId] = useState(teams[0]?.id ?? '');
+  const [handoffNote, setHandoffNote] = useState('');
+  const [bounceNote, setBounceNote] = useState('');
+
   const canAcknowledge = incident.status === 'open';
   const canResolve = incident.status === 'open' || incident.status === 'acknowledged';
+  const canHandoff = incident.status !== 'resolved' && teams.length > 0;
 
   return (
     <div className="space-y-6 rounded-md border border-zinc-200 bg-white p-6">
@@ -42,7 +68,7 @@ export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentD
             </a>
           ) : null}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {canAcknowledge ? (
             <Button onClick={() => onAcknowledge(incident.id)}>{t('incidents.acknowledge')}</Button>
           ) : null}
@@ -51,8 +77,73 @@ export function IncidentDetail({ incident, onAcknowledge, onResolve }: IncidentD
               {t('incidents.resolve')}
             </Button>
           ) : null}
+          {canHandoff ? (
+            <Button variant="secondary" onClick={() => setShowHandoff((open) => !open)}>
+              {t('incidents.handoff')}
+            </Button>
+          ) : null}
+          {canBounce && incident.status !== 'resolved' ? (
+            <Button variant="secondary" onClick={() => setShowBounce((open) => !open)}>
+              {t('incidents.bounce')}
+            </Button>
+          ) : null}
         </div>
       </div>
+
+      {showHandoff ? (
+        <section className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+          <h3 className="text-sm font-semibold">{t('incidents.handoff_heading')}</h3>
+          <label className="block space-y-1 text-sm">
+            <span>{t('incidents.handoff_team_label')}</span>
+            <select
+              aria-label={t('incidents.handoff_team_label')}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2"
+              value={targetTeamId}
+              onChange={(event) => setTargetTeamId(event.target.value)}
+            >
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label={t('incidents.handoff_note_label')}
+            value={handoffNote}
+            onChange={setHandoffNote}
+          />
+          <Button
+            onClick={() => {
+              onHandoff(incident.id, targetTeamId, handoffNote);
+              setShowHandoff(false);
+              setHandoffNote('');
+            }}
+          >
+            {t('incidents.handoff_submit')}
+          </Button>
+        </section>
+      ) : null}
+
+      {showBounce ? (
+        <section className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+          <h3 className="text-sm font-semibold">{t('incidents.bounce_heading')}</h3>
+          <Input
+            label={t('incidents.bounce_note_label')}
+            value={bounceNote}
+            onChange={setBounceNote}
+          />
+          <Button
+            onClick={() => {
+              onBounce(incident.id, bounceNote);
+              setShowBounce(false);
+              setBounceNote('');
+            }}
+          >
+            {t('incidents.bounce_submit')}
+          </Button>
+        </section>
+      ) : null}
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">

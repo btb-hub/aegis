@@ -34,6 +34,10 @@ type TicketProvider interface {
 	TestConnection(ctx context.Context) error
 }
 
+type AssigneeUpdater interface {
+	UpdateAssignee(ctx context.Context, issueKey, assigneeEmail string) error
+}
+
 type ChatProvider interface {
 	Kind() string
 	SendPage(ctx context.Context, incident IncidentRef, recipient PageRecipient) (messageRef string, err error)

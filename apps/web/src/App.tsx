@@ -59,6 +59,11 @@ function pageFromPath(pathname: string): AppPage {
   return 'shifts';
 }
 
+const handoffTeams = [
+  { id: 'team-platform-l3', name: 'Platform L3' },
+  { id: 'team-data-l3', name: 'Data L3' },
+];
+
 function AppRoutes() {
   const { t } = useTranslation();
   const location = useLocation();
@@ -124,6 +129,46 @@ function AppRoutes() {
           ),
         );
       },
+      handoff: (incidentId: string, toTeamId: string, note: string) => {
+        setIncidents((current) =>
+          current.map((incident) =>
+            incident.id === incidentId && incident.status !== 'resolved'
+              ? {
+                  ...incident,
+                  timeline: [
+                    ...incident.timeline,
+                    {
+                      id: `event-handoff-${incidentId}`,
+                      kind: 'handoff',
+                      payload: { to_team_id: toTeamId, note },
+                      createdAt: new Date().toISOString(),
+                    },
+                  ],
+                }
+              : incident,
+          ),
+        );
+      },
+      bounce: (incidentId: string, note: string) => {
+        setIncidents((current) =>
+          current.map((incident) =>
+            incident.id === incidentId && incident.status !== 'resolved'
+              ? {
+                  ...incident,
+                  timeline: [
+                    ...incident.timeline,
+                    {
+                      id: `event-bounce-${incidentId}`,
+                      kind: 'bounced',
+                      payload: { note },
+                      createdAt: new Date().toISOString(),
+                    },
+                  ],
+                }
+              : incident,
+          ),
+        );
+      },
     }),
     [],
   );
@@ -154,8 +199,11 @@ function AppRoutes() {
           element={
             <IncidentsPage
               incidents={incidents}
+              handoffTeams={handoffTeams}
               onAcknowledge={handlers.acknowledge}
               onResolve={handlers.resolve}
+              onHandoff={handlers.handoff}
+              onBounce={handlers.bounce}
             />
           }
         />
