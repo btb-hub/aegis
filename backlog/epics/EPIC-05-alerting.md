@@ -7,13 +7,15 @@
 
 ### AEG-032 — Alert list indexes and search
 
-- **Status:** Blocked
+- **Status:** In Progress
 - **Depends on:** AEG-007
 - **PRD:** REQ-ALERT-02, REQ-ALERT-07, NFR-2
 - **Acceptance:**
   - [ ] GIN on `labels`, `search_tsv` on alerts
   - [ ] `GET /alerts?q=` full-text search
   - [ ] Benchmark or test asserting p95 target at 10k seed rows
+
+**Agent plan (2026-06-30):** Migration 000006 backfills `search_tsv` and adds `received_at DESC` index (GIN indexes from 000001). Implement `GET /api/v1/alerts?q=` with session auth, `ListAlerts` in store/service, integration test for NFR-2 p95 at 10k rows when `DATABASE_URL` is set.
 
 ---
 

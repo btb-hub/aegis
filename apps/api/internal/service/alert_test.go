@@ -25,6 +25,10 @@ func (m *mockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAl
 	return db.CreateAlertJobResult{AlertID: m.id, JobID: uuid.New()}, nil
 }
 
+func (m *mockAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error) {
+	return []db.Alert{{ID: m.id, Title: "CPU", Status: "firing", Labels: []byte(`{"team":"platform"}`)}}, nil
+}
+
 func TestAlertIngestSuccess(t *testing.T) {
 	repo := &mockAlertRepo{}
 	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
@@ -64,4 +68,43 @@ type failAlertRepo struct{}
 
 func (f *failAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error) {
 	return db.CreateAlertJobResult{}, errors.New("db down")
+}
+
+func (f *failAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error) {
+	return nil, errors.New("db down")
+}
+
+func TestAlertList(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
+	alerts, err := svc.List(context.Background(), "cpu")
+	require.NoError(t, err)
+	require.Len(t, alerts, 1)
+	require.Equal(t, "CPU", alerts[0].Title)
+}
+
+func TestAlertJSON(t *testing.T) {
+	body := "high usage"
+	alert := db.Alert{
+		ID:       uuid.New(),
+		Status:   "firing",
+		Severity: "critical",
+		Title:    "CPU",
+		Body:     &body,
+		Labels:   []byte(`{"team":"platform"}`),
+	}
+	out := AlertJSON(alert)
+	require.Equal(t, "CPU", out["title"])
+	require.Equal(t, "high usage", out["body"])
+	labels, ok := out["labels"].(map[string]string)
+	require.True(t, ok)
+	require.Equal(t, "platform", labels["team"])
+}
+
+func TestAlertJSONEmptyLabels(t *testing.T) {
+	alert := db.Alert{ID: uuid.New(), Labels: []byte(`invalid`)}
+	out := AlertJSON(alert)
+	labels, ok := out["labels"].(map[string]string)
+	require.True(t, ok)
+	require.Empty(t, labels)
 }

@@ -40,7 +40,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, cfg.PublicURL).Register(r)
-	NewAlertHandler(alerts).Register(r)
+	NewAlertHandler(alerts, auth).Register(r)
 	return r, auth
 }
 
@@ -97,6 +97,10 @@ type authMockAlertRepo struct{ id uuid.UUID }
 
 func (m *authMockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error) {
 	return db.CreateAlertJobResult{AlertID: m.id, JobID: uuid.New()}, nil
+}
+
+func (m *authMockAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error) {
+	return []db.Alert{{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}}, nil
 }
 
 func TestHealthz(t *testing.T) {
