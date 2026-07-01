@@ -21,10 +21,13 @@ function renderApp(initialPath = '/shifts') {
 describe('App', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-10T12:00:00Z'));
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('renders translated sample content', async () => {

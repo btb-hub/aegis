@@ -38,8 +38,19 @@ describe('resolveCurrentOnCall', () => {
   it('returns empty when no slot or override covers the instant', () => {
     const month = new Date('2026-06-01T00:00:00Z');
     const { slots, overrides } = buildDemoShiftsForMonth(month);
-    const at = new Date('2026-06-01T00:00:00Z');
+    const at = new Date('2026-07-15T12:00:00Z');
 
     expect(resolveCurrentOnCall(slots, overrides, at)).toEqual([]);
+  });
+
+  it('covers the first day of the month from rotation start', () => {
+    const month = new Date('2026-07-01T00:00:00Z');
+    const { slots, overrides } = buildDemoShiftsForMonth(month);
+    const at = new Date('2026-07-01T12:00:00Z');
+
+    const users = resolveCurrentOnCall(slots, overrides, at);
+
+    expect(users).toHaveLength(1);
+    expect(users[0]?.displayName).toBe('Alice');
   });
 });

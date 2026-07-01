@@ -29,7 +29,7 @@ export function buildDemoShiftsForMonth(month: Date = new Date()): {
   const first = startOfMonthUTC(month);
   const slots: CalendarSlot[] = [];
 
-  let weekStart = addDaysUTC(first, 1);
+  let weekStart = first;
   for (let rotIndex = 0; rotIndex < 6; rotIndex += 1) {
     const weekEnd = addDaysUTC(weekStart, 7);
     const user = ROTATION[rotIndex % ROTATION.length];
