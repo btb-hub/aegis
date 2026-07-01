@@ -15,7 +15,7 @@
   - [ ] `GET /alerts?q=` full-text search
   - [ ] Benchmark or test asserting p95 target at 10k seed rows
 
-**Agent plan (2026-06-30):** Migration 000006 backfills `search_tsv` and adds `received_at DESC` index (GIN indexes from 000001). Implement `GET /api/v1/alerts?q=` with session auth, `ListAlerts` in store/service, integration test for NFR-2 p95 at 10k rows when `DATABASE_URL` is set.
+**Agent plan (2026-06-30):** Migration 000007 backfills `search_tsv` and adds `received_at DESC` index (GIN indexes from 000001). Implement `GET /api/v1/alerts?q=` with session auth, `ListAlerts` in store/service, integration test for NFR-2 p95 at 10k rows when `DATABASE_URL` is set.
 
 ---
 
