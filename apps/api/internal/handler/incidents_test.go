@@ -31,6 +31,8 @@ type phase2HandlerRepo struct {
 	listIntegrationsErr error
 	alertListErr      error
 	handoffStats      db.HandoffStats
+	handoffStatsErr   error
+	bounceFails       bool
 }
 
 func newPhase2HandlerRepo() *phase2HandlerRepo {
@@ -251,6 +253,9 @@ func (m *phase2HandlerRepo) HandoffIncident(_ context.Context, input db.HandoffI
 }
 
 func (m *phase2HandlerRepo) BounceIncident(_ context.Context, input db.BounceIncidentInput) (db.Incident, error) {
+	if m.bounceFails {
+		return db.Incident{}, pgx.ErrNoRows
+	}
 	incident, ok := m.incidents[input.IncidentID]
 	if !ok || incident.Status == "resolved" {
 		return db.Incident{}, pgx.ErrNoRows
@@ -264,6 +269,9 @@ func (m *phase2HandlerRepo) BounceIncident(_ context.Context, input db.BounceInc
 func (m *phase2HandlerRepo) EnqueueHandoffNotify(context.Context, uuid.UUID) error { return nil }
 
 func (m *phase2HandlerRepo) HandoffStats(context.Context, time.Time, time.Time) (db.HandoffStats, error) {
+	if m.handoffStatsErr != nil {
+		return db.HandoffStats{}, m.handoffStatsErr
+	}
 	return m.handoffStats, nil
 }
 
