@@ -27,11 +27,32 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/alerts/webhook` | webhook secret header | Ingest alert; `202` + `{id}` |
-| GET | `/alerts` | session | List with filters, pagination |
+| GET | `/alerts` | session | List alerts; supports `q` full-text search on title/body (Phase 4, AEG-032) |
 | GET | `/alerts/{id}` | session | Detail |
 | GET | `/alerts/export` | session | CSV stream |
 
 Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (search), `group_by`, `page`, `page_size`.
+
+**Implemented (AEG-032):** `GET /alerts?q=` runs full-text search against `search_tsv` (title + body). Results are ordered by `received_at` descending and capped at 100 rows until pagination ships in AEG-033.
+
+**Response (list):**
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "fingerprint": "sha256…",
+      "status": "firing",
+      "severity": "critical",
+      "title": "HighCPU",
+      "body": "CPU high on host-1",
+      "labels": {"alertname": "HighCPU", "team": "platform"},
+      "received_at": "2026-06-26T12:00:00Z"
+    }
+  ]
+}
+```
 
 ## Teams & shifts (Phase 1)
 

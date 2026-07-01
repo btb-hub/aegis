@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"io"
 	"net/http"
 	"strings"
 
@@ -98,33 +97,6 @@ func (h *AuthHandler) patchMe(c *gin.Context) {
 		return
 	}
 	WriteJSON(c, http.StatusOK, service.UserJSON(user))
-}
-
-type AlertHandler struct {
-	alerts *service.AlertService
-}
-
-func NewAlertHandler(alerts *service.AlertService) *AlertHandler {
-	return &AlertHandler{alerts: alerts}
-}
-
-func (h *AlertHandler) Register(r gin.IRouter) {
-	r.POST("/api/v1/alerts/webhook", h.webhook)
-}
-
-func (h *AlertHandler) webhook(c *gin.Context) {
-	secret := c.GetHeader("X-Aegis-Webhook-Secret")
-	raw, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		WriteError(c, service.ErrInvalidBody())
-		return
-	}
-	id, err := h.alerts.Ingest(c.Request.Context(), secret, raw)
-	if err != nil {
-		WriteError(c, err)
-		return
-	}
-	WriteJSON(c, http.StatusAccepted, gin.H{"id": id.String(), "status": "accepted"})
 }
 
 func SessionToken(c *gin.Context) string {

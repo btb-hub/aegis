@@ -12,6 +12,7 @@ import (
 
 type AlertRepository interface {
 	CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error)
+	ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error)
 }
 
 type AlertService struct {
@@ -48,4 +49,29 @@ func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw js
 		return uuid.Nil, err
 	}
 	return result.AlertID, nil
+}
+
+func (s *AlertService) List(ctx context.Context, query string) ([]db.Alert, error) {
+	return s.repo.ListAlerts(ctx, db.ListAlertsParams{Query: query})
+}
+
+func AlertJSON(alert db.Alert) map[string]any {
+	var labels map[string]string
+	_ = json.Unmarshal(alert.Labels, &labels)
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	out := map[string]any{
+		"id":          alert.ID.String(),
+		"fingerprint": alert.Fingerprint,
+		"status":      alert.Status,
+		"severity":    alert.Severity,
+		"title":       alert.Title,
+		"labels":      labels,
+		"received_at": alert.ReceivedAt,
+	}
+	if alert.Body != nil {
+		out["body"] = *alert.Body
+	}
+	return out
 }

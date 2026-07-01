@@ -114,7 +114,7 @@ func setupShiftsRouter(t *testing.T) *shiftsTestEnv {
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, "http://localhost:3000").Register(r)
-	NewAlertHandler(alerts).Register(r)
+	NewAlertHandler(alerts, auth).Register(r)
 	NewOverrideHandler(overrides, auth).Register(r)
 	NewOnCallHandler(oncall, auth).Register(r)
 	return &shiftsTestEnv{router: r, repo: repo}
