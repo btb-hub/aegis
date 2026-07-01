@@ -51,7 +51,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Implementation status
 
-**Phases 0–3.5 are implemented** in code. **Phase 4** (alerting workspace) is next — see
+**Phases 0–3.5 are implemented** in code. **Phase 4** (alerting workspace) is in progress — see
 [`backlog/roadmap.md`](./backlog/roadmap.md).
 
 | Phase | Exit (summary) | Status |
@@ -61,7 +61,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 2 — Incident spine | Alert → incident → Jira ticket → Slack page → ack + escalation | Done |
 | 3 — eXpress connector | Slack + eXpress notifications; test connection per provider | Done |
 | 3.5 — Web auth & session | Login page, app shell session, OIDC callback redirect | Done |
-| 4 — Alerting workspace | Filters, search, saved views, inline analytics | Not started |
+| 4 — Alerting workspace | Filters, search, saved views, inline analytics | In progress (AEG-032 done) |
 | 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | Not started |
 | 6 — Analytics & polish | Dashboard, setup wizard | Not started |
 
@@ -69,7 +69,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 - **Auth & health:** OIDC login (Google, Slack, eXpress), session cookies, RBAC middleware,
   `/healthz`, `/readyz`, `/metrics`.
-- **Alerts:** webhook ingest, list/detail/export; enqueues `process_alert` worker job.
+- **Alerts:** webhook ingest, list with search/filters/pagination; enqueues `process_alert` worker job.
 - **Shifts:** teams, memberships, schedules, overrides, on-call slots API; `materialise_oncall`
   worker job (on schedule change + nightly).
 - **Incidents:** routing rules CRUD; dedup by fingerprint; incident lifecycle (open → acknowledged →

@@ -64,3 +64,63 @@ FROM generate_series(1, 10000) AS g`)
 	t.Logf("list alerts search p95 over %d iterations: %s", iterations, p95)
 	require.Less(t, p95, 500*time.Millisecond, "NFR-2: alert list search p95 must stay under 500ms at 10k rows")
 }
+
+func TestListAlertsFilters(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	require.NoError(t, pool.Ping(ctx))
+
+	_, err = pool.Exec(ctx, `DELETE FROM incident_alerts`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM alerts`)
+	require.NoError(t, err)
+
+	_, err = pool.Exec(ctx, `
+INSERT INTO alerts (fingerprint, status, severity, title, body, labels, raw_payload, search_tsv, received_at)
+VALUES
+  ('fp-1', 'firing', 'critical', 'CPU high', 'body', '{"team":"platform","env":"prod"}', '{}', to_tsvector('english', 'CPU high body'), now() - interval '2 hours'),
+  ('fp-2', 'resolved', 'warning', 'Disk low', 'body', '{"team":"data","env":"prod"}', '{}', to_tsvector('english', 'Disk low body'), now() - interval '1 hour'),
+  ('fp-3', 'firing', 'info', 'CPU ok', 'body', '{"team":"platform","env":"dev"}', '{}', to_tsvector('english', 'CPU ok body'), now())`)
+	require.NoError(t, err)
+
+	store := NewStore(pool)
+
+	severityCount, err := store.CountAlerts(ctx, ListAlertsParams{Severity: "critical"})
+	require.NoError(t, err)
+	require.Equal(t, 1, severityCount)
+
+	statusAlerts, err := store.ListAlerts(ctx, ListAlertsParams{Status: "firing", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, statusAlerts, 2)
+
+	labelAlerts, err := store.ListAlerts(ctx, ListAlertsParams{
+		LabelFilters: map[string]string{"team": "platform", "env": "prod"},
+		Limit:        10,
+	})
+	require.NoError(t, err)
+	require.Len(t, labelAlerts, 1)
+	require.Equal(t, "CPU high", labelAlerts[0].Title)
+
+	from := time.Now().Add(-90 * time.Minute)
+	to := time.Now()
+	rangeCount, err := store.CountAlerts(ctx, ListAlertsParams{From: &from, To: &to})
+	require.NoError(t, err)
+	require.Equal(t, 2, rangeCount)
+
+	pageOne, err := store.ListAlerts(ctx, ListAlertsParams{Limit: 1, Offset: 0})
+	require.NoError(t, err)
+	require.Len(t, pageOne, 1)
+
+	pageTwo, err := store.ListAlerts(ctx, ListAlertsParams{Limit: 1, Offset: 1})
+	require.NoError(t, err)
+	require.Len(t, pageTwo, 1)
+	require.NotEqual(t, pageOne[0].ID, pageTwo[0].ID)
+}

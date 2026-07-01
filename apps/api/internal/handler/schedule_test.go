@@ -126,7 +126,7 @@ func setupScheduleRouter(t *testing.T) (*gin.Engine, *scheduleHandlerRepo) {
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, "http://localhost:3000").Register(r)
-	NewAlertHandler(alerts, auth).Register(r)
+	NewAlertHandler(alerts, teams, auth).Register(r)
 	NewTeamHandler(teams, auth).Register(r)
 	NewScheduleHandler(schedules, auth).Register(r)
 	return r, repo

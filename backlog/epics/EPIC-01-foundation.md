@@ -156,15 +156,15 @@
 
 ### AEG-057 — Web login page
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-005, AEG-055, AEG-054
 - **PRD:** REQ-AUTH-01, REQ-I18N-01, REQ-DS-01
 - **Acceptance:**
-  - [ ] Dedicated login route (e.g. `/login`) reachable when unsigned
-  - [ ] Buttons: Sign in with Google, Slack, eXpress — each links to `GET /auth/{provider}/login` on the same origin
-  - [ ] Copy in `en` and `ru`; uses design-system `Button` components
-  - [ ] Storybook story for login page (default + `ru` decorator)
-  - [ ] Unsigned access to API-backed app routes redirects to login (integrations, future admin pages)
+  - [x] Dedicated login route (e.g. `/login`) reachable when unsigned
+  - [x] Buttons: Sign in with Google, Slack, eXpress — each links to `GET /auth/{provider}/login` on the same origin
+  - [x] Copy in `en` and `ru`; uses design-system `Button` components
+  - [x] Storybook story for login page (default + `ru` decorator)
+  - [x] Unsigned access to API-backed app routes redirects to login (integrations, future admin pages)
 
 **Plan:** `LoginPage` in `apps/web`; provider list from config or static three providers; `react-router` or conditional render in `App` for `/login`.
 
@@ -172,15 +172,15 @@
 
 ### AEG-058 — Web session and app shell auth
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-057
 - **PRD:** REQ-AUTH-03, REQ-AUTH-04, REQ-I18N-02
 - **Acceptance:**
-  - [ ] On app load, `GET /auth/me` with credentials; expose user + role in React context (or lightweight store)
-  - [ ] App shell header shows signed-in display name (or email) and **Sign out** when session exists
-  - [ ] Sign out calls `POST /auth/logout` and returns user to login
-  - [ ] Integrations page loads data when signed in (remove manual `/auth/.../login` workaround)
-  - [ ] Vitest tests for session provider and signed-out redirect
+  - [x] On app load, `GET /auth/me` with credentials; expose user + role in React context (or lightweight store)
+  - [x] App shell header shows signed-in display name (or email) and **Sign out** when session exists
+  - [x] Sign out calls `POST /auth/logout` and returns user to login
+  - [x] Integrations page loads data when signed in (remove manual `/auth/.../login` workaround)
+  - [x] Vitest tests for session provider and signed-out redirect
 
 **Plan:** `AuthProvider` + `useAuth`; wire `IntegrationsPage` to session; header auth block in `AppShell`.
 
@@ -188,14 +188,14 @@
 
 ### AEG-059 — OIDC callback redirect to web
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-005, AEG-057
 - **PRD:** REQ-AUTH-01
 - **Acceptance:**
-  - [ ] After successful OIDC callback, API responds with `302` redirect to `PUBLIC_URL` (or `/`) instead of JSON body
-  - [ ] Session cookie still set on redirect; user lands in app signed in
-  - [ ] Documented in [`docs/04-api-spec.md`](../../docs/04-api-spec.md) and [`docs/features/web-auth.md`](../../docs/features/web-auth.md)
-  - [ ] API test: callback sets cookie and redirect location
+  - [x] After successful OIDC callback, API responds with `302` redirect to `PUBLIC_URL` (or `/`) instead of JSON body
+  - [x] Session cookie still set on redirect; user lands in app signed in
+  - [x] Documented in [`docs/04-api-spec.md`](../../docs/04-api-spec.md) and [`docs/features/web-auth.md`](../../docs/features/web-auth.md)
+  - [x] API test: callback sets cookie and redirect location
 
 **Plan:** Change `AuthHandler.callback` to redirect; use `PUBLIC_URL` from config; keep JSON path only if needed for API clients (optional query `?format=json`).
 

@@ -56,7 +56,7 @@ func main() {
 
 	handler.NewHealthHandler(health).Register(r)
 	handler.NewAuthHandler(auth, cfg.PublicURL).Register(r)
-	handler.NewAlertHandler(alerts, auth).Register(r)
+	handler.NewAlertHandler(alerts, teams, auth).Register(r)
 	handler.NewTeamHandler(teams, auth).Register(r)
 	handler.NewScheduleHandler(schedules, auth).Register(r)
 	handler.NewOverrideHandler(overrides, auth).Register(r)

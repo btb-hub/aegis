@@ -29,6 +29,10 @@ func (m *mockAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsPara
 	return []db.Alert{{ID: m.id, Title: "CPU", Status: "firing", Labels: []byte(`{"team":"platform"}`)}}, nil
 }
 
+func (m *mockAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error) {
+	return 1, nil
+}
+
 func TestAlertIngestSuccess(t *testing.T) {
 	repo := &mockAlertRepo{}
 	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
@@ -74,13 +78,65 @@ func (f *failAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsPara
 	return nil, errors.New("db down")
 }
 
+func (f *failAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error) {
+	return 0, errors.New("db down")
+}
+
 func TestAlertList(t *testing.T) {
 	repo := &mockAlertRepo{id: uuid.New()}
 	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
-	alerts, err := svc.List(context.Background(), "cpu")
+	result, err := svc.List(context.Background(), db.ListAlertsParams{Query: "cpu"})
 	require.NoError(t, err)
-	require.Len(t, alerts, 1)
-	require.Equal(t, "CPU", alerts[0].Title)
+	require.Len(t, result.Items, 1)
+	require.Equal(t, "CPU", result.Items[0].Title)
+	require.Equal(t, 1, result.Total)
+	require.Equal(t, 1, result.Page)
+	require.Equal(t, 100, result.PageSize)
+}
+
+func TestAlertListCountError(t *testing.T) {
+	svc := NewAlertService("secret", []string{"alertname", "team"}, &failCountAlertRepo{})
+	_, err := svc.List(context.Background(), db.ListAlertsParams{})
+	require.Error(t, err)
+}
+
+func TestAlertListQueryError(t *testing.T) {
+	svc := NewAlertService("secret", []string{"alertname", "team"}, &failListOnlyAlertRepo{})
+	_, err := svc.List(context.Background(), db.ListAlertsParams{})
+	require.Error(t, err)
+}
+
+func TestAlertListPageFromOffset(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
+	result, err := svc.List(context.Background(), db.ListAlertsParams{Limit: 25, Offset: 50})
+	require.NoError(t, err)
+	require.Equal(t, 3, result.Page)
+	require.Equal(t, 25, result.PageSize)
+}
+
+func TestAlertListDefaultPageSizeWhenUnset(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
+	result, err := svc.List(context.Background(), db.ListAlertsParams{Limit: 0, Offset: 0})
+	require.NoError(t, err)
+	require.Equal(t, db.DefaultAlertListLimit, result.PageSize)
+}
+
+type failCountAlertRepo struct {
+	mockAlertRepo
+}
+
+func (f *failCountAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error) {
+	return 0, errors.New("count failed")
+}
+
+type failListOnlyAlertRepo struct {
+	mockAlertRepo
+}
+
+func (f *failListOnlyAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error) {
+	return nil, errors.New("list failed")
 }
 
 func TestAlertJSON(t *testing.T) {

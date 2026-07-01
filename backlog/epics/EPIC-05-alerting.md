@@ -7,26 +7,28 @@
 
 ### AEG-032 — Alert list indexes and search
 
-- **Status:** In Progress
+- **Status:** Done
 - **Depends on:** AEG-007
 - **PRD:** REQ-ALERT-02, REQ-ALERT-07, NFR-2
 - **Acceptance:**
-  - [ ] GIN on `labels`, `search_tsv` on alerts
-  - [ ] `GET /alerts?q=` full-text search
-  - [ ] Benchmark or test asserting p95 target at 10k seed rows
+  - [x] GIN on `labels`, `search_tsv` on alerts
+  - [x] `GET /alerts?q=` full-text search
+  - [x] Benchmark or test asserting p95 target at 10k seed rows
 
-**Agent plan (2026-06-30):** Migration 000007 backfills `search_tsv` and adds `received_at DESC` index (GIN indexes from 000001). Implement `GET /api/v1/alerts?q=` with session auth, `ListAlerts` in store/service, integration test for NFR-2 p95 at 10k rows when `DATABASE_URL` is set.
+**Merged:** PR #7 (`feat/alerting-AEG-032-search-indexes`). Migration 000007 backfills `search_tsv` and adds `received_at DESC` index (GIN indexes from 000001).
 
 ---
 
 ### AEG-033 — Alert list filters and pagination
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-032
 - **PRD:** REQ-ALERT-01
 - **Acceptance:**
-  - [ ] Filter by severity, status, team, time range, labels
-  - [ ] Pagination max 100 per page
+  - [x] Filter by severity, status, team, time range, labels
+  - [x] Pagination max 100 per page
+
+**Agent plan (2026-06-26):** Extend `ListAlertsParams` and `GET /api/v1/alerts` with `severity`, `status`, `team_id`, `from`/`to`, repeatable `label=key:value`, `page`/`page_size`. Add `CountAlerts` for `total`. Handler resolves `team_id` to `labels.team` via team name. Unit + integration tests.
 
 ---
 

@@ -11,11 +11,12 @@ import (
 
 type AlertHandler struct {
 	alerts *service.AlertService
+	teams  *service.TeamService
 	auth   *service.AuthService
 }
 
-func NewAlertHandler(alerts *service.AlertService, auth *service.AuthService) *AlertHandler {
-	return &AlertHandler{alerts: alerts, auth: auth}
+func NewAlertHandler(alerts *service.AlertService, teams *service.TeamService, auth *service.AuthService) *AlertHandler {
+	return &AlertHandler{alerts: alerts, teams: teams, auth: auth}
 }
 
 func (h *AlertHandler) Register(r gin.IRouter) {
@@ -42,14 +43,33 @@ func (h *AlertHandler) webhook(c *gin.Context) {
 }
 
 func (h *AlertHandler) listAlerts(c *gin.Context) {
-	alerts, err := h.alerts.List(c.Request.Context(), c.Query("q"))
+	parsed, err := parseListAlertsQuery(c)
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	items := make([]map[string]any, 0, len(alerts))
-	for _, alert := range alerts {
+	if parsed.TeamID != nil {
+		team, err := h.teams.GetTeam(c.Request.Context(), *parsed.TeamID)
+		if err != nil {
+			WriteError(c, err)
+			return
+		}
+		parsed.Params.LabelFilters["team"] = team.Name
+	}
+
+	result, err := h.alerts.List(c.Request.Context(), parsed.Params)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	items := make([]map[string]any, 0, len(result.Items))
+	for _, alert := range result.Items {
 		items = append(items, service.AlertJSON(alert))
 	}
-	WriteJSON(c, http.StatusOK, gin.H{"items": items})
+	WriteJSON(c, http.StatusOK, gin.H{
+		"items":     items,
+		"total":     result.Total,
+		"page":      parsed.Page,
+		"page_size": parsed.PageSize,
+	})
 }

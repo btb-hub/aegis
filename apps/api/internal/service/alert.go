@@ -13,6 +13,7 @@ import (
 type AlertRepository interface {
 	CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error)
 	ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error)
+	CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error)
 }
 
 type AlertService struct {
@@ -51,8 +52,36 @@ func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw js
 	return result.AlertID, nil
 }
 
-func (s *AlertService) List(ctx context.Context, query string) ([]db.Alert, error) {
-	return s.repo.ListAlerts(ctx, db.ListAlertsParams{Query: query})
+func (s *AlertService) List(ctx context.Context, params db.ListAlertsParams) (AlertListResult, error) {
+	total, err := s.repo.CountAlerts(ctx, params)
+	if err != nil {
+		return AlertListResult{}, err
+	}
+	alerts, err := s.repo.ListAlerts(ctx, params)
+	if err != nil {
+		return AlertListResult{}, err
+	}
+	limit := params.Limit
+	if limit <= 0 {
+		limit = db.DefaultAlertListLimit
+	}
+	page := 1
+	if limit > 0 && params.Offset > 0 {
+		page = params.Offset/limit + 1
+	}
+	return AlertListResult{
+		Items:    alerts,
+		Total:    total,
+		Page:     page,
+		PageSize: limit,
+	}, nil
+}
+
+type AlertListResult struct {
+	Items    []db.Alert
+	Total    int
+	Page     int
+	PageSize int
 }
 
 func AlertJSON(alert db.Alert) map[string]any {

@@ -107,6 +107,7 @@ func setupShiftsRouter(t *testing.T) *shiftsTestEnv {
 	cfg := &config.Config{SessionTTL: time.Hour}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	overrides := service.NewOverrideService(repo)
+	teams := service.NewTeamService(repo)
 	oncall := service.NewOnCallService(repo)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
@@ -114,7 +115,7 @@ func setupShiftsRouter(t *testing.T) *shiftsTestEnv {
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, "http://localhost:3000").Register(r)
-	NewAlertHandler(alerts, auth).Register(r)
+	NewAlertHandler(alerts, teams, auth).Register(r)
 	NewOverrideHandler(overrides, auth).Register(r)
 	NewOnCallHandler(oncall, auth).Register(r)
 	return &shiftsTestEnv{router: r, repo: repo}
