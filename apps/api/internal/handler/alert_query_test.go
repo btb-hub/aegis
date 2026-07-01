@@ -108,3 +108,43 @@ func TestParseListAlertsQuerySkipsEmptyLabel(t *testing.T) {
 	require.Equal(t, "prod", parsed.Params.LabelFilters["env"])
 	require.Len(t, parsed.Params.LabelFilters, 1)
 }
+
+func TestParseListAlertsQueryGroupBySeverity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/api/v1/alerts?group_by=severity", nil)
+
+	parsed, err := parseListAlertsQuery(c)
+	require.NoError(t, err)
+	require.NotNil(t, parsed.GroupBy)
+	require.True(t, parsed.GroupBy.Severity)
+}
+
+func TestParseListAlertsQueryGroupByLabel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/api/v1/alerts?group_by=label:team", nil)
+
+	parsed, err := parseListAlertsQuery(c)
+	require.NoError(t, err)
+	require.NotNil(t, parsed.GroupBy)
+	require.Equal(t, "team", parsed.GroupBy.LabelKey)
+}
+
+func TestParseListAlertsQueryInvalidGroupBy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/api/v1/alerts?group_by=status", nil)
+
+	_, err := parseListAlertsQuery(c)
+	require.Error(t, err)
+}
+
+func TestParseListAlertsQueryEmptyLabelGroupBy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/api/v1/alerts?group_by=label:", nil)
+
+	_, err := parseListAlertsQuery(c)
+	require.Error(t, err)
+}

@@ -16,6 +16,7 @@ type parsedListAlertsQuery struct {
 	TeamID   *uuid.UUID
 	Page     int
 	PageSize int
+	GroupBy  *db.AlertGroupBy
 }
 
 func parseListAlertsQuery(c *gin.Context) (parsedListAlertsQuery, error) {
@@ -85,10 +86,27 @@ func parseListAlertsQuery(c *gin.Context) (parsedListAlertsQuery, error) {
 		teamID = &id
 	}
 
+	var groupBy *db.AlertGroupBy
+	if raw := strings.TrimSpace(c.Query("group_by")); raw != "" {
+		switch {
+		case raw == "severity":
+			groupBy = &db.AlertGroupBy{Severity: true}
+		case strings.HasPrefix(raw, "label:"):
+			key := strings.TrimSpace(strings.TrimPrefix(raw, "label:"))
+			if key == "" {
+				return parsedListAlertsQuery{}, apperrors.Validation("group_by label key must not be empty", nil)
+			}
+			groupBy = &db.AlertGroupBy{LabelKey: key}
+		default:
+			return parsedListAlertsQuery{}, apperrors.Validation("group_by must be severity or label:key", map[string]any{"group_by": raw})
+		}
+	}
+
 	return parsedListAlertsQuery{
 		Params:   params,
 		TeamID:   teamID,
 		Page:     page,
 		PageSize: pageSize,
+		GroupBy:  groupBy,
 	}, nil
 }

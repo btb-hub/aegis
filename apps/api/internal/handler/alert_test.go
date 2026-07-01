@@ -163,6 +163,10 @@ func (f *failListAlertRepo) CountAlerts(context.Context, db.ListAlertsParams) (i
 	return 0, errListAlerts
 }
 
+func (f *failListAlertRepo) GroupAlerts(context.Context, db.ListAlertsParams, db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	return nil, errListAlerts
+}
+
 type teamFilterAlertRepo struct {
 	last db.ListAlertsParams
 }
@@ -176,6 +180,10 @@ func (r *teamFilterAlertRepo) ListAlerts(_ context.Context, params db.ListAlerts
 }
 func (r *teamFilterAlertRepo) CountAlerts(context.Context, db.ListAlertsParams) (int, error) {
 	return 1, nil
+}
+
+func (r *teamFilterAlertRepo) GroupAlerts(context.Context, db.ListAlertsParams, db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	return nil, nil
 }
 
 type teamLookupRepo struct {
@@ -210,3 +218,89 @@ var errListAlerts = &listAlertsError{}
 type listAlertsError struct{}
 
 func (e *listAlertsError) Error() string { return "list failed" }
+
+func TestListAlertsGroupBySeverity(t *testing.T) {
+	r, auth := setupRouter(t)
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?group_by=severity", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "severity", body["group_by"])
+	require.EqualValues(t, 1, body["total"])
+	groups, ok := body["groups"].([]any)
+	require.True(t, ok)
+	require.Len(t, groups, 1)
+	group := groups[0].(map[string]any)
+	require.Equal(t, "critical", group["key"])
+	require.EqualValues(t, 1, group["count"])
+	_, hasSample := group["sample"]
+	require.True(t, hasSample)
+}
+
+func TestListAlertsGroupByLabel(t *testing.T) {
+	r, auth := setupRouter(t)
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?group_by=label:team", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "label:team", body["group_by"])
+	groups := body["groups"].([]any)
+	group := groups[0].(map[string]any)
+	require.Equal(t, "platform", group["key"])
+}
+
+func TestListAlertsInvalidGroupBy(t *testing.T) {
+	r, auth := setupRouter(t)
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?group_by=label:", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestListAlertsGroupRepoError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{SessionTTL: time.Hour}
+	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	sessions := &authMockSessions{byHash: map[string]db.Session{}}
+	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
+	teams := service.NewTeamService(&emptyTeamRepo{})
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &failGroupAlertRepo{})
+
+	r := gin.New()
+	NewAlertHandler(alerts, teams, auth).Register(r)
+
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?group_by=severity", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+type failGroupAlertRepo struct {
+	authMockAlertRepo
+}
+
+func (f *failGroupAlertRepo) GroupAlerts(context.Context, db.ListAlertsParams, db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
+	return nil, errListAlerts
+}

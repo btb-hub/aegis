@@ -57,6 +57,31 @@ func (h *AlertHandler) listAlerts(c *gin.Context) {
 		parsed.Params.LabelFilters["team"] = team.Name
 	}
 
+	if parsed.GroupBy != nil {
+		result, err := h.alerts.Group(c.Request.Context(), parsed.Params, *parsed.GroupBy)
+		if err != nil {
+			WriteError(c, err)
+			return
+		}
+		groups := make([]map[string]any, 0, len(result.Groups))
+		for _, bucket := range result.Groups {
+			entry := map[string]any{
+				"key":   bucket.Key,
+				"count": bucket.Count,
+			}
+			if bucket.Sample != nil {
+				entry["sample"] = service.AlertJSON(*bucket.Sample)
+			}
+			groups = append(groups, entry)
+		}
+		WriteJSON(c, http.StatusOK, gin.H{
+			"group_by": result.GroupBy,
+			"groups":   groups,
+			"total":    result.Total,
+		})
+		return
+	}
+
 	result, err := h.alerts.List(c.Request.Context(), parsed.Params)
 	if err != nil {
 		WriteError(c, err)
