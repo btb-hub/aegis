@@ -16,7 +16,7 @@ export function TeamShiftsPage({
   onCallUsers,
   slots,
   overrides,
-  month = new Date('2026-06-01T00:00:00Z'),
+  month = new Date(),
 }: TeamShiftsPageProps) {
   const { t } = useTranslation();
 
