@@ -33,7 +33,9 @@ OpenAPI schema generated from code in `apps/api` (future story).
 
 Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (search), `group_by`, `page`, `page_size`.
 
-**Implemented (AEG-032):** `GET /alerts?q=` runs full-text search against `search_tsv` (title + body). Results are ordered by `received_at` descending and capped at 100 rows until pagination ships in AEG-033.
+**Implemented (AEG-032):** `GET /alerts?q=` runs full-text search against `search_tsv` (title + body). Results are ordered by `received_at` descending.
+
+**Implemented (AEG-033):** Filters compose as AND: `severity`, `status`, `team_id` (resolved to `labels.team` via team name), `from`/`to` (RFC3339 on `received_at`), repeatable `label=key:value` for arbitrary labels. Pagination via `page` (default 1) and `page_size` (default 100, max 100). Response includes `total`, `page`, and `page_size`.
 
 **Response (list):**
 
@@ -50,7 +52,10 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
       "labels": {"alertname": "HighCPU", "team": "platform"},
       "received_at": "2026-06-26T12:00:00Z"
     }
-  ]
+  ],
+  "total": 42,
+  "page": 1,
+  "page_size": 100
 }
 ```
 

@@ -35,12 +35,13 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
+	teams := service.NewTeamService(&emptyTeamRepo{})
 	health := service.NewHealthService(nil)
 
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, cfg.PublicURL).Register(r)
-	NewAlertHandler(alerts, auth).Register(r)
+	NewAlertHandler(alerts, teams, auth).Register(r)
 	return r, auth
 }
 
@@ -101,6 +102,37 @@ func (m *authMockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.Crea
 
 func (m *authMockAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error) {
 	return []db.Alert{{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}}, nil
+}
+
+func (m *authMockAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error) {
+	return 1, nil
+}
+
+type emptyTeamRepo struct{}
+
+func (e *emptyTeamRepo) ListTeams(ctx context.Context) ([]db.Team, error) { return nil, nil }
+func (e *emptyTeamRepo) GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error) {
+	return db.Team{}, pgx.ErrNoRows
+}
+func (e *emptyTeamRepo) CreateTeam(ctx context.Context, name, description string) (db.Team, error) {
+	return db.Team{}, nil
+}
+func (e *emptyTeamRepo) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string) (db.Team, error) {
+	return db.Team{}, nil
+}
+func (e *emptyTeamRepo) DeleteTeam(ctx context.Context, id uuid.UUID) error { return nil }
+func (e *emptyTeamRepo) ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]db.TeamMember, error) {
+	return nil, nil
+}
+func (e *emptyTeamRepo) AddTeamMember(ctx context.Context, teamID, userID uuid.UUID, teamRole string) (db.TeamMembership, error) {
+	return db.TeamMembership{}, nil
+}
+func (e *emptyTeamRepo) UpdateTeamMemberRole(ctx context.Context, teamID, userID uuid.UUID, teamRole string) (db.TeamMembership, error) {
+	return db.TeamMembership{}, nil
+}
+func (e *emptyTeamRepo) RemoveTeamMember(ctx context.Context, teamID, userID uuid.UUID) error { return nil }
+func (e *emptyTeamRepo) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
+	return db.User{}, pgx.ErrNoRows
 }
 
 func TestHealthz(t *testing.T) {
