@@ -39,6 +39,10 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 
 **Implemented (AEG-034):** `group_by=severity` or `group_by=label:<key>` returns grouped buckets instead of a flat list. Same filters apply. Response includes `group_by`, `groups` (each with `key`, `count`, and `sample` alert), and `total`.
 
+**Implemented (AEG-036):** `include_analytics=true` adds an `analytics` object to the list response with `by_severity`, `by_status`, and `top_labels` (driven by optional `analytics_label_key`).
+
+**Implemented (AEG-037):** `GET /alerts/export` streams CSV with the same filter query params as list (no pagination). Response is `text/csv` with `Content-Disposition: attachment`.
+
 **Response (list):**
 
 ```json
@@ -196,6 +200,18 @@ Query: `from`, `to`, `compare_previous` (bool).
 |--------|------|-------------|
 | GET/POST | `/saved-views` | List/create |
 | GET/PATCH/DELETE | `/saved-views/{id}` | CRUD |
+
+**Implemented (AEG-035):** Saved views store a `filter` JSON object (same fields as alert list query params). `shared=true` makes the view visible to all authenticated users. Only the owner can update or delete.
+
+Create body:
+
+```json
+{
+  "name": "Critical platform",
+  "filter": {"severity": "critical", "label_key": "team", "label_value": "platform"},
+  "shared": false
+}
+```
 
 ## Webhook payload (alert intake)
 

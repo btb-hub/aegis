@@ -2,8 +2,10 @@ package db
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 )
@@ -235,4 +237,154 @@ SELECT id, fingerprint, status, severity, title, body, labels, raw_payload, rece
 		alerts = append(alerts, alert)
 	}
 	return alerts, rows.Err()
+}
+
+const alertExportBatchSize = 500
+
+type AlertAnalytics struct {
+	BySeverity map[string]int
+	ByStatus   map[string]int
+	TopLabels  []LabelCount
+}
+
+type LabelCount struct {
+	Key   string
+	Value string
+	Count int
+}
+
+func (s *Store) AlertAnalytics(ctx context.Context, params ListAlertsParams, labelKey string) (AlertAnalytics, error) {
+	from := alertListFromClause(params)
+
+	severitySQL := fmt.Sprintf(
+		"SELECT severity, COUNT(*)::int %s GROUP BY severity ORDER BY COUNT(*) DESC",
+		from.sql,
+	)
+	severityRows, err := s.pool.Query(ctx, severitySQL, from.args...)
+	if err != nil {
+		return AlertAnalytics{}, err
+	}
+	defer severityRows.Close()
+
+	bySeverity := map[string]int{}
+	for severityRows.Next() {
+		var key string
+		var count int
+		if err := severityRows.Scan(&key, &count); err != nil {
+			return AlertAnalytics{}, err
+		}
+		bySeverity[key] = count
+	}
+	if err := severityRows.Err(); err != nil {
+		return AlertAnalytics{}, err
+	}
+
+	statusSQL := fmt.Sprintf(
+		"SELECT status, COUNT(*)::int %s GROUP BY status",
+		from.sql,
+	)
+	statusRows, err := s.pool.Query(ctx, statusSQL, from.args...)
+	if err != nil {
+		return AlertAnalytics{}, err
+	}
+	defer statusRows.Close()
+
+	byStatus := map[string]int{}
+	for statusRows.Next() {
+		var key string
+		var count int
+		if err := statusRows.Scan(&key, &count); err != nil {
+			return AlertAnalytics{}, err
+		}
+		byStatus[key] = count
+	}
+	if err := statusRows.Err(); err != nil {
+		return AlertAnalytics{}, err
+	}
+
+	topLabels := []LabelCount{}
+	if labelKey != "" {
+		args := append(append([]any{}, from.args...), labelKey)
+		labelPos := len(from.args) + 1
+		labelSQL := fmt.Sprintf(`
+SELECT $%d::text AS label_key, COALESCE(labels->>$%d, '') AS label_value, COUNT(*)::int AS label_count
+%s AND labels ? $%d
+GROUP BY label_value
+ORDER BY label_count DESC
+LIMIT 10`, labelPos, labelPos, from.sql, labelPos)
+		labelRows, err := s.pool.Query(ctx, labelSQL, args...)
+		if err != nil {
+			return AlertAnalytics{}, err
+		}
+		defer labelRows.Close()
+
+		for labelRows.Next() {
+			var item LabelCount
+			if err := labelRows.Scan(&item.Key, &item.Value, &item.Count); err != nil {
+				return AlertAnalytics{}, err
+			}
+			topLabels = append(topLabels, item)
+		}
+		if err := labelRows.Err(); err != nil {
+			return AlertAnalytics{}, err
+		}
+	}
+
+	return AlertAnalytics{
+		BySeverity: bySeverity,
+		ByStatus:   byStatus,
+		TopLabels:  topLabels,
+	}, nil
+}
+
+func (s *Store) StreamAlertsCSV(ctx context.Context, params ListAlertsParams, w io.Writer) error {
+	writer := csv.NewWriter(w)
+	if err := writer.Write([]string{"id", "fingerprint", "status", "severity", "title", "body", "labels", "received_at"}); err != nil {
+		return err
+	}
+
+	params = normalizeListAlertsParams(params)
+	params.Limit = alertExportBatchSize
+	params.Offset = 0
+
+	for {
+		alerts, err := s.ListAlerts(ctx, params)
+		if err != nil {
+			return err
+		}
+		if len(alerts) == 0 {
+			break
+		}
+		for _, alert := range alerts {
+			var labels map[string]string
+			_ = json.Unmarshal(alert.Labels, &labels)
+			labelsJSON, _ := json.Marshal(labels)
+			body := ""
+			if alert.Body != nil {
+				body = *alert.Body
+			}
+			if err := writer.Write([]string{
+				alert.ID.String(),
+				alert.Fingerprint,
+				alert.Status,
+				alert.Severity,
+				alert.Title,
+				body,
+				string(labelsJSON),
+				alert.ReceivedAt.Format(time.RFC3339),
+			}); err != nil {
+				return err
+			}
+		}
+		writer.Flush()
+		if err := writer.Error(); err != nil {
+			return err
+		}
+		if len(alerts) < alertExportBatchSize {
+			break
+		}
+		params.Offset += alertExportBatchSize
+	}
+	writer.Flush()
+	return writer.Error()
 }

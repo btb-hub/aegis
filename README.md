@@ -61,7 +61,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 2 — Incident spine | Alert → incident → Jira ticket → Slack page → ack + escalation | Done |
 | 3 — eXpress connector | Slack + eXpress notifications; test connection per provider | Done |
 | 3.5 — Web auth & session | Login page, app shell session, OIDC callback redirect | Done |
-| 4 — Alerting workspace | Filters, search, saved views, inline analytics | In progress (AEG-033 done) |
+| 4 — Alerting workspace | Filters, search, saved views, inline analytics | Done |
 | 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | Not started |
 | 6 — Analytics & polish | Dashboard, setup wizard | Not started |
 
@@ -69,7 +69,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 - **Auth & health:** OIDC login (Google, Slack, eXpress), session cookies, RBAC middleware,
   `/healthz`, `/readyz`, `/metrics`.
-- **Alerts:** webhook ingest, list with search/filters/pagination/grouping; enqueues `process_alert` worker job.
+- **Alerts:** webhook ingest, list with search/filters/pagination/grouping/analytics; saved views CRUD; CSV export; enqueues `process_alert` worker job.
 - **Shifts:** teams, memberships, schedules, overrides, on-call slots API; `materialise_oncall`
   worker job (on schedule change + nightly).
 - **Incidents:** routing rules CRUD; dedup by fingerprint; incident lifecycle (open → acknowledged →
@@ -90,6 +90,8 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000004_overrides_oncall` | schedule_overrides |
 | `000005_incidents` | incidents, routing_rules, integrations, timeline, incident_alerts |
 | `000006_express_link_codes` | express_link_codes for `/link` bootstrap |
+| `000007_alert_search_indexes` | alert search backfill + `received_at` index |
+| `000008_saved_views` | saved_views for alert workspace |
 
 ### Frontend (`apps/web/`)
 
@@ -98,7 +100,8 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 - **Incidents page:** status filters, list/detail with timeline, alerts, Jira link, ack/resolve
   actions.
 - **Integrations page:** list connectors and test connection (admin); requires sign-in.
-- **Web auth:** login page (`/login`), session in app shell, protected `/integrations`, OIDC callback redirect.
+- **Alerts page:** filter bar, paginated table, group-by, inline analytics, saved views, CSV export; requires sign-in.
+- **Web auth:** login page (`/login`), session in app shell, protected `/integrations` and `/alerts`, OIDC callback redirect.
 - **i18n:** English + Russian locale files for all UI strings.
 
 The web app currently renders **demo fixtures** in `App.tsx` — components are built and tested, but
@@ -106,7 +109,6 @@ not yet wired to the API. Backend endpoints are ready for integration.
 
 ### Not yet built
 
-- Alerting workspace: advanced filters, saved views, CSV export UI (Phase 4)
 - L2 ↔ L3 handoff and bounce (Phase 5)
 - Analytics dashboard and setup wizard (Phase 6)
 - Web ↔ API client layer for shifts/incidents (demo fixtures today)

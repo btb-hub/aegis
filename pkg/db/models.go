@@ -187,3 +187,13 @@ type ProcessAlertResult struct {
 	IncidentID uuid.UUID
 	Created    bool
 }
+
+type SavedView struct {
+	ID        uuid.UUID `json:"id"`
+	OwnerID   uuid.UUID `json:"owner_id"`
+	Name      string    `json:"name"`
+	Filter    []byte    `json:"filter"`
+	Shared    bool      `json:"shared"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

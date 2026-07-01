@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"bytes"
+	"io"
 	"testing"
 
 	"github.com/aegis/aegis/pkg/apperrors"
@@ -40,6 +42,18 @@ func (m *mockAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAlertsPa
 	}
 	sample := db.Alert{ID: m.id, Title: "CPU", Status: "firing", Labels: []byte(`{"team":"platform"}`)}
 	return []db.AlertGroupBucket{{Key: key, Count: 3, Sample: &sample}}, nil
+}
+
+func (m *mockAlertRepo) AlertAnalytics(ctx context.Context, params db.ListAlertsParams, labelKey string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{
+		BySeverity: map[string]int{"critical": 1},
+		ByStatus:   map[string]int{"firing": 1},
+	}, nil
+}
+
+func (m *mockAlertRepo) StreamAlertsCSV(ctx context.Context, params db.ListAlertsParams, w io.Writer) error {
+	_, err := w.Write([]byte("id,fingerprint,status,severity,title,body,labels,received_at\n"))
+	return err
 }
 
 func TestAlertIngestSuccess(t *testing.T) {
@@ -93,6 +107,14 @@ func (f *failAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsPar
 
 func (f *failAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAlertsParams, groupBy db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
 	return nil, errors.New("db down")
+}
+
+func (f *failAlertRepo) AlertAnalytics(ctx context.Context, params db.ListAlertsParams, labelKey string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{}, errors.New("db down")
+}
+
+func (f *failAlertRepo) StreamAlertsCSV(ctx context.Context, params db.ListAlertsParams, w io.Writer) error {
+	return errors.New("db down")
 }
 
 func TestAlertList(t *testing.T) {
@@ -218,4 +240,32 @@ func TestAlertJSONEmptyLabels(t *testing.T) {
 	labels, ok := out["labels"].(map[string]string)
 	require.True(t, ok)
 	require.Empty(t, labels)
+}
+
+func TestAlertAnalytics(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname"}, repo)
+	analytics, err := svc.Analytics(context.Background(), db.ListAlertsParams{}, "team")
+	require.NoError(t, err)
+	require.Equal(t, 1, analytics.BySeverity["critical"])
+}
+
+func TestAlertExportCSV(t *testing.T) {
+	repo := &mockAlertRepo{id: uuid.New()}
+	svc := NewAlertService("secret", []string{"alertname"}, repo)
+	var buf bytes.Buffer
+	require.NoError(t, svc.ExportCSV(context.Background(), db.ListAlertsParams{}, &buf))
+	require.Contains(t, buf.String(), "id,fingerprint")
+}
+
+func TestAnalyticsJSON(t *testing.T) {
+	out := AnalyticsJSON(db.AlertAnalytics{
+		BySeverity: map[string]int{"critical": 2},
+		ByStatus:   map[string]int{"firing": 2},
+		TopLabels:  []db.LabelCount{{Key: "team", Value: "platform", Count: 2}},
+	})
+	require.EqualValues(t, 2, out["by_severity"].(map[string]int)["critical"])
+	top := out["top_labels"].([]map[string]any)
+	require.Len(t, top, 1)
+	require.Equal(t, "platform", top[0]["value"])
 }

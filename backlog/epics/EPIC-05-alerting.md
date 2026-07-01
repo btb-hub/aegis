@@ -34,64 +34,70 @@
 
 ### AEG-034 — Alert grouping API
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-03
 - **Acceptance:**
   - [x] `group_by=severity` and `group_by=label:key`
   - [x] Returns bucket counts
 
-**Agent plan (2026-06-26):** Parse `group_by` on `GET /api/v1/alerts`; when set, return `groups` with `key`, `count`, and `sample` alert per bucket. Reuse list filters. `GroupAlerts` in db with COUNT + DISTINCT ON sample query. Unit + integration tests; update API spec.
+**Merged:** PR #10 (`feat/alerting-AEG-034-grouping-api`).
 
 ---
 
 ### AEG-035 — Saved views
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-04
 - **Acceptance:**
-  - [ ] CRUD saved views with filter JSON
-  - [ ] Optional team share flag
+  - [x] CRUD saved views with filter JSON
+  - [x] Optional team share flag
+
+**Agent plan (2026-06-26):** Migration `000008_saved_views`; CRUD `/api/v1/saved-views`; owner-only update/delete; `shared` visible to all users.
 
 ---
 
 ### AEG-036 — Inline analytics on alert slice
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-05
 - **Acceptance:**
-  - [ ] Endpoint or embed in list response: severity counts, top labels
+  - [x] Endpoint or embed in list response: severity counts, top labels
+
+**Agent plan (2026-06-26):** `include_analytics=true` on list returns `by_severity`, `by_status`, `top_labels` for current filter slice.
 
 ---
 
 ### AEG-037 — CSV export
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-06
 - **Acceptance:**
-  - [ ] Streamed CSV with current filters
-  - [ ] Does not load full result in memory
+  - [x] Streamed CSV with current filters
+  - [x] Does not load full result in memory
+
+**Agent plan (2026-06-26):** `GET /alerts/export` reuses list filters; `StreamAlertsCSV` batches 500 rows per query.
 
 ---
 
 ### AEG-038 — Alert workspace UI — list and filters
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-033, AEG-034, AEG-054, AEG-055, AEG-056, AEG-058
 - **PRD:** REQ-ALERT-01, REQ-ALERT-03
 - **Acceptance:**
-  - [ ] Filter bar, paginated table, group-by toggle
+  - [x] Filter bar, paginated table, group-by toggle
 
 ---
 
 ### AEG-039 — Alert workspace UI — saved views and export
 
-- **Status:** Blocked
+- **Status:** In Review
 - **Depends on:** AEG-035, AEG-037, AEG-038
 - **PRD:** REQ-ALERT-04, REQ-ALERT-06
 - **Acceptance:**
-  - [ ] Save/load views
-  - [ ] Export button triggers download
+  - [x] Save/load views
+  - [x] Export button triggers download

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -167,6 +168,14 @@ func (f *failListAlertRepo) GroupAlerts(context.Context, db.ListAlertsParams, db
 	return nil, errListAlerts
 }
 
+func (f *failListAlertRepo) AlertAnalytics(context.Context, db.ListAlertsParams, string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{}, errListAlerts
+}
+
+func (f *failListAlertRepo) StreamAlertsCSV(context.Context, db.ListAlertsParams, io.Writer) error {
+	return errListAlerts
+}
+
 type teamFilterAlertRepo struct {
 	last db.ListAlertsParams
 }
@@ -184,6 +193,15 @@ func (r *teamFilterAlertRepo) CountAlerts(context.Context, db.ListAlertsParams) 
 
 func (r *teamFilterAlertRepo) GroupAlerts(context.Context, db.ListAlertsParams, db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
 	return nil, nil
+}
+
+func (r *teamFilterAlertRepo) AlertAnalytics(context.Context, db.ListAlertsParams, string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{}, nil
+}
+
+func (r *teamFilterAlertRepo) StreamAlertsCSV(_ context.Context, _ db.ListAlertsParams, w io.Writer) error {
+	_, err := w.Write([]byte("id,fingerprint,status,severity,title,body,labels,received_at\n"))
+	return err
 }
 
 type teamLookupRepo struct {
@@ -303,4 +321,109 @@ type failGroupAlertRepo struct {
 
 func (f *failGroupAlertRepo) GroupAlerts(context.Context, db.ListAlertsParams, db.AlertGroupBy) ([]db.AlertGroupBucket, error) {
 	return nil, errListAlerts
+}
+
+func (f *failGroupAlertRepo) AlertAnalytics(context.Context, db.ListAlertsParams, string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{}, errListAlerts
+}
+
+func (f *failGroupAlertRepo) StreamAlertsCSV(context.Context, db.ListAlertsParams, io.Writer) error {
+	return errListAlerts
+}
+
+func TestListAlertsWithAnalytics(t *testing.T) {
+	r, auth := setupRouter(t)
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?include_analytics=true", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	analytics, ok := body["analytics"].(map[string]any)
+	require.True(t, ok)
+	bySeverity, ok := analytics["by_severity"].(map[string]any)
+	require.True(t, ok)
+	require.EqualValues(t, 1, bySeverity["critical"])
+}
+
+func TestExportAlertsCSV(t *testing.T) {
+	r, auth := setupRouter(t)
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts/export", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Header().Get("Content-Type"), "text/csv")
+	require.Contains(t, w.Body.String(), "id,fingerprint")
+}
+
+func TestExportAlertsRequiresSession(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts/export", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestExportAlertsWithTeamFilter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	teamID := uuid.New()
+	alertRepo := &teamFilterAlertRepo{}
+	teamRepo := &teamLookupRepo{team: db.Team{ID: teamID, Name: "Platform"}}
+	cfg := &config.Config{SessionTTL: time.Hour}
+	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	sessions := &authMockSessions{byHash: map[string]db.Session{}}
+	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
+	teams := service.NewTeamService(teamRepo)
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, alertRepo)
+
+	r := gin.New()
+	NewAlertHandler(alerts, teams, auth).Register(r)
+
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts/export?team_id="+teamID.String(), nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestListAlertsAnalyticsError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{SessionTTL: time.Hour}
+	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	sessions := &authMockSessions{byHash: map[string]db.Session{}}
+	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
+	teams := service.NewTeamService(&emptyTeamRepo{})
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &failAnalyticsAlertRepo{})
+
+	r := gin.New()
+	NewAlertHandler(alerts, teams, auth).Register(r)
+
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts?include_analytics=true", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+type failAnalyticsAlertRepo struct {
+	authMockAlertRepo
+}
+
+func (f *failAnalyticsAlertRepo) AlertAnalytics(context.Context, db.ListAlertsParams, string) (db.AlertAnalytics, error) {
+	return db.AlertAnalytics{}, errListAlerts
 }

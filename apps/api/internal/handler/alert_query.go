@@ -12,11 +12,13 @@ import (
 )
 
 type parsedListAlertsQuery struct {
-	Params   db.ListAlertsParams
-	TeamID   *uuid.UUID
-	Page     int
-	PageSize int
-	GroupBy  *db.AlertGroupBy
+	Params            db.ListAlertsParams
+	TeamID            *uuid.UUID
+	Page              int
+	PageSize          int
+	GroupBy           *db.AlertGroupBy
+	IncludeAnalytics  bool
+	AnalyticsLabelKey string
 }
 
 func parseListAlertsQuery(c *gin.Context) (parsedListAlertsQuery, error) {
@@ -102,11 +104,19 @@ func parseListAlertsQuery(c *gin.Context) (parsedListAlertsQuery, error) {
 		}
 	}
 
+	includeAnalytics := false
+	if raw := strings.TrimSpace(c.Query("include_analytics")); raw == "1" || strings.EqualFold(raw, "true") {
+		includeAnalytics = true
+	}
+	analyticsLabelKey := strings.TrimSpace(c.Query("analytics_label_key"))
+
 	return parsedListAlertsQuery{
-		Params:   params,
-		TeamID:   teamID,
-		Page:     page,
-		PageSize: pageSize,
-		GroupBy:  groupBy,
+		Params:            params,
+		TeamID:            teamID,
+		Page:              page,
+		PageSize:          pageSize,
+		GroupBy:           groupBy,
+		IncludeAnalytics:  includeAnalytics,
+		AnalyticsLabelKey: analyticsLabelKey,
 	}, nil
 }
