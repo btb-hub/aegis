@@ -3,6 +3,8 @@
 **Phase:** 4  
 **Exit:** Fast filter, search, group, saved views, export.
 
+**Merged:** PR #11 (`feat/alerting-phase-4-complete`, AEG-035–039).
+
 ---
 
 ### AEG-032 — Alert list indexes and search
@@ -90,10 +92,6 @@
 - **PRD:** REQ-ALERT-01, REQ-ALERT-03
 - **Acceptance:**
   - [x] Filter bar, paginated table, group-by toggle
-
----
-
-**Merged:** PR #11 (`feat/alerting-phase-4-complete`, AEG-035–039).
 
 ---
 

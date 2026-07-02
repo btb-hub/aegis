@@ -3,6 +3,8 @@
 **Phase:** 6  
 **Exit:** Five dashboard questions, setup wizard, a11y pass.
 
+**Merged:** PR #13 (`feat/analytics-AEG-045-mtta-mttr-api`, AEG-045–053).
+
 ---
 
 ### AEG-045 — MTTA and MTTR API
@@ -13,8 +15,6 @@
 - **Acceptance:**
   - [x] `/analytics/mtta` and `/analytics/mttr` time series
   - [x] `compare_previous` returns prior period
-
-**Merged:** branch `feat/analytics-AEG-045-mtta-mttr-api` (Phase 6).
 
 ---
 

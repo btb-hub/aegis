@@ -51,8 +51,8 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Implementation status
 
-**Phases 0–3.5 are implemented** in code. **Phase 4** (alerting workspace) is in progress — see
-[`backlog/roadmap.md`](./backlog/roadmap.md).
+**MVP phases 0–6 are complete** on `main`. See [`backlog/roadmap.md`](./backlog/roadmap.md) for
+phase goals; post-MVP work is listed there under *Later*.
 
 | Phase | Exit (summary) | Status |
 |-------|----------------|--------|
@@ -61,9 +61,9 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 2 — Incident spine | Alert → incident → Jira ticket → Slack page → ack + escalation | Done |
 | 3 — eXpress connector | Slack + eXpress notifications; test connection per provider | Done |
 | 3.5 — Web auth & session | Login page, app shell session, OIDC callback redirect | Done |
-| 4 — Alerting workspace | Filters, search, saved views, inline analytics | Done |
-| 5 — L2 ↔ L3 | Handoff, shared timeline, bounce | In review (`feat/l2-l3-phase-5`) |
-| 6 — Analytics & polish | Dashboard, setup wizard | Not started |
+| 4 — Alerting workspace | Filters, search, saved views, inline analytics, CSV export | Done (PR #11) |
+| 5 — L2 ↔ L3 | Handoff, shared timeline, bounce, handoff analytics | Done (PR #12) |
+| 6 — Analytics & polish | Dashboard, setup wizard, a11y pass | Done (PR #13) |
 
 ### Backend (`apps/api`, `apps/worker`, `pkg/`)
 
@@ -76,7 +76,9 @@ department dashboards to analyse what's happening. The product must be easy to *
   resolved); timeline events; ack/resolve endpoints.
 - **Integrations:** connector registry; Jira ticket provider; Slack + eXpress chat providers;
   interactive ack callbacks; integration CRUD; test connection per provider; eXpress `/link` bootstrap.
-- **Worker jobs:** `process_alert`, `escalate_incident`, `materialise_oncall`.
+- **L2 ↔ L3:** handoff and bounce APIs; shared incident timeline; `notify_handoff` worker job.
+- **Analytics:** MTTA/MTTR, noise, on-call load, handoffs, overview aggregation; setup test-alert endpoint.
+- **Worker jobs:** `process_alert`, `escalate_incident`, `materialise_oncall`, `notify_handoff`.
 
 API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deploy/.env.example`](./deploy/.env.example).
 
@@ -92,26 +94,32 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000006_express_link_codes` | express_link_codes for `/link` bootstrap |
 | `000007_alert_search_indexes` | alert search backfill + `received_at` index |
 | `000008_saved_views` | saved_views for alert workspace |
+| `000009_handoffs` | handoffs for L2→L3 tracking and analytics |
 
 ### Frontend (`apps/web/`)
 
 - **Design system:** Tailwind tokens, base components, Storybook catalog.
 - **Shifts page:** on-call banner + month calendar (rotations and overrides).
-- **Incidents page:** status filters, list/detail with timeline, alerts, Jira link, ack/resolve
-  actions.
-- **Integrations page:** list connectors and test connection (admin); requires sign-in.
-- **Alerts page:** filter bar, paginated table, group-by, inline analytics, saved views, CSV export; requires sign-in.
-- **Web auth:** login page (`/login`), session in app shell, protected `/integrations` and `/alerts`, OIDC callback redirect.
+- **Incidents page:** status filters, list/detail with timeline, alerts, Jira link, ack/resolve,
+  handoff and bounce (demo state in `App.tsx` today).
+- **Integrations page:** list connectors and test connection (admin); API-backed; requires sign-in.
+- **Alerts page:** filter bar, paginated table, group-by, inline analytics, saved views, CSV export;
+  API-backed; requires sign-in.
+- **Dashboard page:** five north-star widgets (MTTA, MTTR, noise, on-call load, handoffs,
+  escalation); compare-to-previous; drill-down links; API-backed.
+- **Setup wizard:** multi-step guided setup (health, auth, integrations, test alert); progress in
+  localStorage; API-backed.
+- **Web auth:** login page (`/login`), session in app shell, protected routes, OIDC callback redirect.
 - **i18n:** English + Russian locale files for all UI strings.
 
-The web app currently renders **demo fixtures** in `App.tsx` — components are built and tested, but
-not yet wired to the API. Backend endpoints are ready for integration.
+**Shifts** and **incidents** pages still use **demo fixtures** in `App.tsx` — UI and handlers are
+built and tested; backend endpoints exist for a future API wiring pass.
 
-### Not yet built
+### Not yet built (post-MVP)
 
-- L2 ↔ L3 handoff and bounce (Phase 5)
-- Analytics dashboard and setup wizard (Phase 6)
-- Web ↔ API client layer for shifts/incidents (demo fixtures today)
+See [`backlog/roadmap.md`](./backlog/roadmap.md) *Later*: Mattermost/Telegram, mobile push,
+phone/SMS paging, status pages, runbook automation, multi-tenant SaaS, self-hosted IdP, Helm/K8s
+deploy, and related items.
 
 ## Run locally
 
