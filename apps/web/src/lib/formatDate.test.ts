@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDateTime, formatNumber } from './formatDate';
+import { formatDateTime, formatNumber, formatShortDate } from './formatDate';
 
 describe('formatDateTime', () => {
   it('formats in English', () => {
@@ -16,5 +16,11 @@ describe('formatDateTime', () => {
 describe('formatNumber', () => {
   it('uses locale grouping', () => {
     expect(formatNumber(1200, 'en')).toContain('1');
+  });
+});
+
+describe('formatShortDate', () => {
+  it('formats month and day', () => {
+    expect(formatShortDate('2026-06-15T00:00:00Z', 'en')).toMatch(/Jun/);
   });
 });

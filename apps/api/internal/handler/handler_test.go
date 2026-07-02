@@ -95,9 +95,15 @@ func (m *authMockOIDC) Exchange(ctx context.Context, provider, code string) (*se
 	return &service.OIDCUserInfo{Sub: "sub", Email: "u@example.com", DisplayName: "User"}, nil
 }
 
-type authMockAlertRepo struct{ id uuid.UUID }
+type authMockAlertRepo struct {
+	id        uuid.UUID
+	ingestErr error
+}
 
 func (m *authMockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error) {
+	if m.ingestErr != nil {
+		return db.CreateAlertJobResult{}, m.ingestErr
+	}
 	return db.CreateAlertJobResult{AlertID: m.id, JobID: uuid.New()}, nil
 }
 

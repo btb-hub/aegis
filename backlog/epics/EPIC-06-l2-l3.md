@@ -7,9 +7,13 @@
 
 ---
 
+**Merged:** PR #12 (`feat/l2-l3-phase-5`, AEG-040–044).
+
+---
+
 ### AEG-040 — Handoff API and service
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-025, AEG-014
 - **PRD:** REQ-L2L3-01, REQ-L2L3-02
 - **Acceptance:**
@@ -21,7 +25,7 @@
 
 ### AEG-041 — Bounce to L2
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-040
 - **PRD:** REQ-L2L3-04
 - **Acceptance:**
@@ -32,7 +36,7 @@
 
 ### AEG-042 — Shared timeline visibility
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-040
 - **PRD:** REQ-L2L3-03
 - **Acceptance:**
@@ -43,7 +47,7 @@
 
 ### AEG-043 — Handoff UI
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-040, AEG-041, AEG-054, AEG-055, AEG-056
 - **PRD:** REQ-L2L3-01, REQ-L2L3-04
 - **Acceptance:**
@@ -54,7 +58,7 @@
 
 ### AEG-044 — Handoff analytics events
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-040, AEG-028
 - **PRD:** REQ-L2L3-05
 - **Acceptance:**

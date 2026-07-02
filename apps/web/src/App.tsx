@@ -10,6 +10,8 @@ import { IncidentsPage } from './pages/IncidentsPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
 import { LoginPage } from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { SetupWizardPage } from './pages/SetupWizardPage';
 import { TeamShiftsPage } from './pages/TeamShiftsPage';
 
 const initialIncidents: Incident[] = [
@@ -47,6 +49,12 @@ const initialIncidents: Incident[] = [
 ];
 
 function pageFromPath(pathname: string): AppPage {
+  if (pathname.startsWith('/setup')) {
+    return 'setup';
+  }
+  if (pathname.startsWith('/dashboard')) {
+    return 'dashboard';
+  }
   if (pathname.startsWith('/integrations')) {
     return 'integrations';
   }
@@ -220,6 +228,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <IntegrationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/setup"
+          element={
+            <ProtectedRoute>
+              <SetupWizardPage />
             </ProtectedRoute>
           }
         />

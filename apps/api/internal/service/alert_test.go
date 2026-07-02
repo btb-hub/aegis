@@ -68,6 +68,14 @@ func TestAlertIngestSuccess(t *testing.T) {
 	require.Equal(t, "CPU", repo.last.Title)
 }
 
+func TestSendTestAlert(t *testing.T) {
+	repo := &mockAlertRepo{}
+	svc := NewAlertService("secret", []string{"alertname", "team"}, repo)
+	id, err := svc.SendTestAlert(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, repo.id, id)
+}
+
 func TestAlertIngestBadSecret(t *testing.T) {
 	svc := NewAlertService("secret", []string{"alertname", "team"}, &mockAlertRepo{})
 	_, err := svc.Ingest(context.Background(), "wrong", json.RawMessage(`{}`))

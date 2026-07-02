@@ -214,3 +214,43 @@ type HandoffStats struct {
 	Count                 int     `json:"count"`
 	MedianResponseSeconds float64 `json:"median_response_seconds"`
 }
+
+type MetricBucket struct {
+	BucketStart time.Time `json:"bucket_start"`
+	MeanSeconds float64   `json:"mean_seconds"`
+	Count       int       `json:"count"`
+}
+
+type MetricTimeSeries struct {
+	MeanSeconds float64        `json:"mean_seconds"`
+	Count       int            `json:"count"`
+	Series      []MetricBucket `json:"series"`
+}
+
+type NoiseItem struct {
+	Fingerprint string `json:"fingerprint"`
+	Title       string `json:"title"`
+	Count       int    `json:"count"`
+}
+
+type NoiseStats struct {
+	Items []NoiseItem `json:"items"`
+}
+
+type OnCallLoadItem struct {
+	UserID      uuid.UUID `json:"user_id"`
+	DisplayName string    `json:"display_name"`
+	Email       string    `json:"email"`
+	PageCount   int       `json:"page_count"`
+}
+
+type OnCallLoadStats struct {
+	Items []OnCallLoadItem `json:"items"`
+}
+
+type EscalationStats struct {
+	TotalIncidents        int     `json:"total_incidents"`
+	EscalatedCount        int     `json:"escalated_count"`
+	EscalatedPercent      float64 `json:"escalated_percent"`
+	MeanSecondsToEscalate float64 `json:"mean_seconds_to_escalate"`
+}

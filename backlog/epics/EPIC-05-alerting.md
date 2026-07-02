@@ -47,20 +47,20 @@
 
 ### AEG-035 — Saved views
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-04
 - **Acceptance:**
   - [x] CRUD saved views with filter JSON
   - [x] Optional team share flag
 
-**Agent plan (2026-06-26):** Migration `000008_saved_views`; CRUD `/api/v1/saved-views`; owner-only update/delete; `shared` visible to all users.
+**Merged:** PR #11 (`feat/alerting-phase-4-complete`). Migration `000008_saved_views`; CRUD `/api/v1/saved-views`; owner-only update/delete; `shared` visible to all users.
 
 ---
 
 ### AEG-036 — Inline analytics on alert slice
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-05
 - **Acceptance:**
@@ -72,7 +72,7 @@
 
 ### AEG-037 — CSV export
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-033
 - **PRD:** REQ-ALERT-06
 - **Acceptance:**
@@ -85,7 +85,7 @@
 
 ### AEG-038 — Alert workspace UI — list and filters
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-033, AEG-034, AEG-054, AEG-055, AEG-056, AEG-058
 - **PRD:** REQ-ALERT-01, REQ-ALERT-03
 - **Acceptance:**
@@ -93,9 +93,13 @@
 
 ---
 
+**Merged:** PR #11 (`feat/alerting-phase-4-complete`, AEG-035–039).
+
+---
+
 ### AEG-039 — Alert workspace UI — saved views and export
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-035, AEG-037, AEG-038
 - **PRD:** REQ-ALERT-04, REQ-ALERT-06
 - **Acceptance:**
