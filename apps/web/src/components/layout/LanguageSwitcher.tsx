@@ -3,7 +3,7 @@ import i18n, { persistLocale } from '../../i18n';
 import { Button } from '../ui/Button';
 
 export function LanguageSwitcher() {
-  const { i18n: i18next } = useTranslation();
+  const { t, i18n: i18next } = useTranslation();
   const current = i18next.language.startsWith('ru') ? 'ru' : 'en';
 
   const setLocale = (locale: 'en' | 'ru') => {
@@ -13,12 +13,12 @@ export function LanguageSwitcher() {
   };
 
   return (
-    <div className="flex gap-2" role="group" aria-label="Language">
+    <div className="flex gap-2" role="group" aria-label={t('language.switcher_label')}>
       <Button variant={current === 'en' ? 'primary' : 'ghost'} onClick={() => setLocale('en')}>
-        English
+        {t('language.en')}
       </Button>
       <Button variant={current === 'ru' ? 'primary' : 'ghost'} onClick={() => setLocale('ru')}>
-        Русский
+        {t('language.ru')}
       </Button>
     </div>
   );

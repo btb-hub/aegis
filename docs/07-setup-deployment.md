@@ -119,13 +119,15 @@ make migrate-up
 
 ## Setup wizard (Phase 6)
 
-1. Confirm public URL and health
-2. Test OIDC login (any provider)
-3. Configure Jira, Slack, eXpress — run test connection each
-4. Create first team + schedule
-5. **Send test alert** — posts sample payload to webhook
+Route: `/setup` in the web app (multi-step wizard; progress in `localStorage`).
 
-Target: complete wizard in < 1 working day (NFR-1).
+1. **Health** — `GET /healthz` on the API (≈ 2 min)
+2. **OIDC** — sign in via `/login` and confirm `GET /auth/me` (≈ 30–60 min with IdP app registration)
+3. **Integrations** — save + test Jira, Slack, eXpress via `/api/v1/integrations` (≈ 2–4 h depending on credentials)
+4. **Test alert** — `POST /api/v1/setup/test-alert` from the wizard (≈ 5 min)
+5. **Dashboard** — open `/dashboard` and confirm the five widgets load
+
+Target: **≤ 1 working day** for an engineer with IdP and connector credentials ready (NFR-1). Without pre-provisioned credentials, allow half a day for OAuth app setup and token issuance.
 
 ## Production notes (MVP)
 

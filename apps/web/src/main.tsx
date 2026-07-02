@@ -9,6 +9,9 @@ import i18n, { resolveLocale } from './i18n';
 
 void i18n.changeLanguage(resolveLocale());
 document.documentElement.lang = i18n.language.startsWith('ru') ? 'ru' : 'en';
+i18n.on('languageChanged', (lng) => {
+  document.documentElement.lang = lng.startsWith('ru') ? 'ru' : 'en';
+});
 
 const root = document.getElementById('root');
 if (root) {

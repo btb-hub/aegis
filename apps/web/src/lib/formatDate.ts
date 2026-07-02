@@ -16,3 +16,8 @@ export function formatDateTime(
 export function formatNumber(value: number, locale: string): string {
   return new Intl.NumberFormat(locale).format(value);
 }
+
+export function formatShortDate(value: string | Date, locale = 'en'): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(date);
+}

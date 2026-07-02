@@ -56,6 +56,17 @@ func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw js
 	return result.AlertID, nil
 }
 
+func (s *AlertService) SendTestAlert(ctx context.Context) (uuid.UUID, error) {
+	raw := json.RawMessage(`{
+  "status": "firing",
+  "severity": "warning",
+  "title": "Aegis setup test alert",
+  "annotations": {"summary": "Sent from the setup wizard"},
+  "labels": {"alertname": "AegisSetupTest", "team": "platform"}
+}`)
+	return s.Ingest(ctx, s.secret, raw)
+}
+
 func (s *AlertService) List(ctx context.Context, params db.ListAlertsParams) (AlertListResult, error) {
 	total, err := s.repo.CountAlerts(ctx, params)
 	if err != nil {

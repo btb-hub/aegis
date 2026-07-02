@@ -19,7 +19,7 @@ const variantClass: Record<ButtonVariant, string> = {
 };
 
 const baseClass =
-  'inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium disabled:opacity-50';
+  'inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 export function Button({
   variant = 'primary',

@@ -207,6 +207,14 @@ Query: `from`, `to`, `compare_previous` (bool).
 
 **Implemented (AEG-044):** `GET /analytics/handoffs?from=&to=` (RFC3339) returns `count` and `median_response_seconds` (handoff to first L3 acknowledge).
 
+**Implemented (AEG-045):** `GET /analytics/mtta` and `GET /analytics/mttr` return daily `series` buckets plus period `mean_seconds` and `count`. `compare_previous=true` adds a `previous` object for the prior range of equal length.
+
+**Implemented (AEG-046):** `GET /analytics/noise?from=&to=&limit=` returns top alert fingerprints by volume. `GET /analytics/on-call-load?from=&to=` returns page counts per on-call user (from `paged` / `escalated` timeline events).
+
+**Implemented (AEG-048):** `GET /analytics/overview?from=&to=&compare_previous=` aggregates MTTA, MTTR, noise, on-call load, handoffs, and escalation stats in one response.
+
+**Implemented (AEG-052):** `POST /setup/test-alert` (admin) posts a sample alert through the webhook ingest path and returns `{id, status}`.
+
 ## Saved views (Phase 4)
 
 | Method | Path | Description |

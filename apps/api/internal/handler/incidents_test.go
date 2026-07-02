@@ -32,6 +32,17 @@ type phase2HandlerRepo struct {
 	alertListErr      error
 	handoffStats      db.HandoffStats
 	handoffStatsErr   error
+	mttaSeries        db.MetricTimeSeries
+	mttaSeriesErr     error
+	mttrSeries        db.MetricTimeSeries
+	mttrSeriesErr     error
+	noiseStats        db.NoiseStats
+	noiseErr          error
+	onCallLoad        db.OnCallLoadStats
+	onCallLoadErr     error
+	escalationStats   db.EscalationStats
+	escalationErr     error
+	alertRepo         *authMockAlertRepo
 	bounceFails       bool
 }
 
@@ -275,6 +286,41 @@ func (m *phase2HandlerRepo) HandoffStats(context.Context, time.Time, time.Time) 
 	return m.handoffStats, nil
 }
 
+func (m *phase2HandlerRepo) MTTASeries(context.Context, time.Time, time.Time) (db.MetricTimeSeries, error) {
+	if m.mttaSeriesErr != nil {
+		return db.MetricTimeSeries{}, m.mttaSeriesErr
+	}
+	return m.mttaSeries, nil
+}
+
+func (m *phase2HandlerRepo) MTTRSeries(context.Context, time.Time, time.Time) (db.MetricTimeSeries, error) {
+	if m.mttrSeriesErr != nil {
+		return db.MetricTimeSeries{}, m.mttrSeriesErr
+	}
+	return m.mttrSeries, nil
+}
+
+func (m *phase2HandlerRepo) TopNoise(context.Context, time.Time, time.Time, int) (db.NoiseStats, error) {
+	if m.noiseErr != nil {
+		return db.NoiseStats{}, m.noiseErr
+	}
+	return m.noiseStats, nil
+}
+
+func (m *phase2HandlerRepo) OnCallLoad(context.Context, time.Time, time.Time) (db.OnCallLoadStats, error) {
+	if m.onCallLoadErr != nil {
+		return db.OnCallLoadStats{}, m.onCallLoadErr
+	}
+	return m.onCallLoad, nil
+}
+
+func (m *phase2HandlerRepo) EscalationStats(context.Context, time.Time, time.Time) (db.EscalationStats, error) {
+	if m.escalationErr != nil {
+		return db.EscalationStats{}, m.escalationErr
+	}
+	return m.escalationStats, nil
+}
+
 func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -283,11 +329,14 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	incidents := service.NewIncidentService(repo)
 	handoffs := service.NewHandoffService(repo)
+	analytics := service.NewAnalyticsService(repo)
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(repo)
 	teams := service.NewTeamService(&emptyTeamRepo{})
-	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
+	alertsRepo := &authMockAlertRepo{id: uuid.New()}
+	repo.alertRepo = alertsRepo
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, alertsRepo)
 	health := service.NewHealthService(nil)
 
 	r := gin.New()
@@ -295,7 +344,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	NewAlertHandler(alerts, teams, auth).Register(r)
 	NewIncidentHandler(incidents, handoffs, auth).Register(r)
-	NewAnalyticsHandler(handoffs, auth).Register(r)
+	NewAnalyticsHandler(analytics, alerts, handoffs, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, "secret").Register(r)
