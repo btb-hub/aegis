@@ -12,7 +12,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`). Pass `?format=json` for JSON user body instead. |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user profile (see below) |
-| PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`) |
+| PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`, `display_name`: non-empty string) |
 
 `GET /auth/me` response includes `id`, `email`, `display_name`, `role`, `locale`, `provider` (primary sign-in provider), optional `avatar_url`, `slack_user_id`, `express_user_huid`, and `identities[]` (`provider`, `provider_sub`, `linked_at`). OIDC login links providers by email when the identity is new; profile fields are backfilled only when empty.
 
