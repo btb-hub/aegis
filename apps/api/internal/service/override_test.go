@@ -78,7 +78,7 @@ func (m *overrideRepoMock) DeleteOverrideForTeam(ctx context.Context, teamID, ov
 	return nil
 }
 
-func (m *overrideRepoMock) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+func (m *overrideRepoMock) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
 	m.enqueued = append(m.enqueued, teamID)
 	return nil
 }
@@ -208,22 +208,22 @@ func TestOverrideServiceListNilOverrides(t *testing.T) {
 	require.Empty(t, items)
 }
 
-type failingEnqueueRepo struct {
+type failingMaterialiseRepo struct {
 	overrideRepoMock
 	failAfter int
 	calls     int
 }
 
-func (m *failingEnqueueRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+func (m *failingMaterialiseRepo) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
 	m.calls++
 	if m.calls > m.failAfter {
-		return errors.New("enqueue failed")
+		return errors.New("materialise failed")
 	}
 	return nil
 }
 
-func TestOverrideServiceCreateEnqueueFailure(t *testing.T) {
-	repo := &failingEnqueueRepo{overrideRepoMock: *newOverrideRepoMock(), failAfter: 0}
+func TestOverrideServiceCreateMaterialiseFailure(t *testing.T) {
+	repo := &failingMaterialiseRepo{overrideRepoMock: *newOverrideRepoMock(), failAfter: 0}
 	teamID := uuid.New()
 	userID := uuid.New()
 	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
@@ -236,8 +236,8 @@ func TestOverrideServiceCreateEnqueueFailure(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestOverrideServiceDeleteEnqueueFailure(t *testing.T) {
-	repo := &failingEnqueueRepo{overrideRepoMock: *newOverrideRepoMock(), failAfter: 0}
+func TestOverrideServiceDeleteMaterialiseFailure(t *testing.T) {
+	repo := &failingMaterialiseRepo{overrideRepoMock: *newOverrideRepoMock(), failAfter: 0}
 	teamID := uuid.New()
 	userID := uuid.New()
 	overrideID := uuid.New()

@@ -91,6 +91,18 @@ export function TeamShiftsRoute() {
     }
   }, [teamId, month, t]);
 
+  const refreshCalendar = useCallback(async () => {
+    const range = monthRangeUTC(month);
+    const [current, calendar] = await Promise.all([
+      fetchCurrentOnCall(teamId),
+      fetchOnCallCalendar(teamId, range.from, range.to),
+    ]);
+    setOnCallUsers(mapApiToOnCallUsers(current));
+    const mapped = mapApiCalendarSlots(calendar, memberNameMap(members));
+    setSlots(mapped.slots);
+    setCalendarOverrides(mapped.overrides);
+  }, [members, month, teamId]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -112,15 +124,22 @@ export function TeamShiftsRoute() {
           participants: payload.participants,
         },
       };
-      if (primarySchedule) {
-        await updateSchedule(teamId, primarySchedule.id, body);
-      } else {
-        await createSchedule(teamId, body);
-      }
+      const saved = primarySchedule
+        ? await updateSchedule(teamId, primarySchedule.id, body)
+        : await createSchedule(teamId, body);
+      setSchedules((current) => {
+        const index = current.findIndex((schedule) => schedule.id === saved.id);
+        if (index >= 0) {
+          const next = [...current];
+          next[index] = saved;
+          return next;
+        }
+        return [...current, saved];
+      });
       setToast({ message: t('schedule.saved'), variant: 'success' });
-      await load();
+      await refreshCalendar();
     },
-    [load, primarySchedule, t, teamId],
+    [primarySchedule, refreshCalendar, t, teamId],
   );
 
   const addOverride = useCallback(
@@ -131,18 +150,22 @@ export function TeamShiftsRoute() {
         end_at: payload.endAt,
       });
       setToast({ message: t('override.saved'), variant: 'success' });
-      await load();
+      await refreshCalendar();
+      const teamOverrides = await fetchTeamOverrides(teamId);
+      setOverrides(teamOverrides);
     },
-    [load, t, teamId],
+    [refreshCalendar, t, teamId],
   );
 
   const removeOverride = useCallback(
     async (overrideId: string) => {
       await deleteOverride(teamId, overrideId);
       setToast({ message: t('override.deleted'), variant: 'success' });
-      await load();
+      await refreshCalendar();
+      const teamOverrides = await fetchTeamOverrides(teamId);
+      setOverrides(teamOverrides);
     },
-    [load, t, teamId],
+    [refreshCalendar, t, teamId],
   );
 
   if (loading) {

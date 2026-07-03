@@ -82,7 +82,7 @@ func (m *shiftsHandlerRepo) DeleteOverrideForTeam(ctx context.Context, teamID, o
 	return nil
 }
 
-func (m *shiftsHandlerRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+func (m *shiftsHandlerRepo) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
 	m.enqueued = append(m.enqueued, teamID)
 	return nil
 }

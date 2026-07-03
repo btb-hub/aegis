@@ -115,7 +115,7 @@ func (m *scheduleRepoMock) DeleteScheduleForTeam(ctx context.Context, teamID, sc
 	return nil
 }
 
-func (m *scheduleRepoMock) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+func (m *scheduleRepoMock) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
 	return nil
 }
 
@@ -469,16 +469,16 @@ func TestMapScheduleErrorNotFound(t *testing.T) {
 	require.Equal(t, "NOT_FOUND", appErr.Code)
 }
 
-type failingScheduleEnqueueRepo struct {
+type failingScheduleMaterialiseRepo struct {
 	scheduleRepoMock
 	failAfter int
 	calls     int
 }
 
-func (m *failingScheduleEnqueueRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+func (m *failingScheduleMaterialiseRepo) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
 	m.calls++
 	if m.calls > m.failAfter {
-		return errors.New("enqueue failed")
+		return errors.New("materialise failed")
 	}
 	return nil
 }
@@ -502,8 +502,8 @@ func TestListSchedulesNilResult(t *testing.T) {
 	require.Empty(t, items)
 }
 
-func TestUpdateScheduleEnqueueFailure(t *testing.T) {
-	repo := &failingScheduleEnqueueRepo{scheduleRepoMock: *newScheduleRepoMock(), failAfter: 1}
+func TestUpdateScheduleMaterialiseFailure(t *testing.T) {
+	repo := &failingScheduleMaterialiseRepo{scheduleRepoMock: *newScheduleRepoMock(), failAfter: 1}
 	teamID := uuid.New()
 	userID := uuid.New()
 	repo.teams[teamID] = db.Team{ID: teamID}
@@ -517,8 +517,8 @@ func TestUpdateScheduleEnqueueFailure(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestDeleteScheduleEnqueueFailure(t *testing.T) {
-	repo := &failingScheduleEnqueueRepo{scheduleRepoMock: *newScheduleRepoMock(), failAfter: 1}
+func TestDeleteScheduleMaterialiseFailure(t *testing.T) {
+	repo := &failingScheduleMaterialiseRepo{scheduleRepoMock: *newScheduleRepoMock(), failAfter: 1}
 	teamID := uuid.New()
 	userID := uuid.New()
 	repo.teams[teamID] = db.Team{ID: teamID}

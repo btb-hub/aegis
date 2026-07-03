@@ -176,7 +176,7 @@ Create/update schedule body:
 
 Create override body: `{"user_id": "uuid", "start_at": "RFC3339", "end_at": "RFC3339"}`. `user_id` must be a team member; `end_at` must be after `start_at`.
 
-Schedule and override changes enqueue a `materialise_oncall` worker job for the team. The worker also runs a nightly job for all teams with schedules.
+Schedule and override changes materialise on-call slots synchronously for the team. The worker also runs a nightly `materialise_oncall` job for all teams with schedules.
 
 | GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
 
