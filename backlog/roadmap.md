@@ -8,7 +8,7 @@ a phase's "exit" before moving on. Epics and their stories are in [`epics/`](./e
 **Phases 0–6 are complete** on `main` (latest: [PR #13](https://github.com/btb-hub/aegis/pull/13),
 Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 
-**Phases 0–7 are complete** on branch `feat/dev-auth-AEG-060-local-login` (Phase 7 pending merge).
+**Phases 0–7 are complete** on `main` ([PR #15](https://github.com/btb-hub/aegis/pull/15), Phase 7).
 
 | Phase | Epic | Merged |
 |-------|------|--------|
@@ -18,7 +18,7 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 | 4 | [EPIC-05](./epics/EPIC-05-alerting.md) | PR #11 |
 | 5 | [EPIC-06](./epics/EPIC-06-l2-l3.md) | PR #12 |
 | 6 | [EPIC-07](./epics/EPIC-07-analytics-setup.md) | PR #13 |
-| 7 | [EPIC-08](./epics/EPIC-08-dev-auth.md) | (pending) |
+| 7 | [EPIC-08](./epics/EPIC-08-dev-auth.md) | PR #15 |
 | 8 | [EPIC-09](./epics/EPIC-09-teams-users-shifts.md) | — |
 
 ## Guiding order
@@ -112,7 +112,7 @@ handoff analytics work.*
 
 → Epic: [EPIC-07 Analytics & Setup](./epics/EPIC-07-analytics-setup.md)
 
-## Phase 7 — Local dev auth *(Done — this branch)*
+## Phase 7 — Local dev auth *(Done — PR #15)*
 
 *Exit: protected pages work on localhost without OIDC app registration; production auth unchanged.*
 
@@ -123,7 +123,7 @@ handoff analytics work.*
 
 **Next story:** none on Phase 7 — see Phase 8 below.
 
-## Phase 8 — Teams, users & shifts setup *(Next)*
+## Phase 8 — Teams, users & shifts setup *(Next — this branch)*
 
 *Exit: admin creates a team, adds SSO-like users, defines a rotation and overrides in the UI; shifts
 calendar shows live on-call data; local dev can seed realistic users without OIDC.*
@@ -140,7 +140,7 @@ userinfo is still stubbed; there is no user directory API or dev seeds.
 
 → Epic: [EPIC-09 Teams, users & shifts setup](./epics/EPIC-09-teams-users-shifts.md)
 
-**Next story:** [AEG-064](./epics/EPIC-09-teams-users-shifts.md) (OIDC userinfo and profile fields).
+**Next story:** [AEG-065](./epics/EPIC-09-teams-users-shifts.md) (users list API) or [AEG-071](./epics/EPIC-09-teams-users-shifts.md) (account page).
 
 ## Later (post-MVP, not now)
 
