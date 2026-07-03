@@ -98,3 +98,5 @@
   - [x] Storybook stories for OnCallBanner, ShiftsCalendar, TeamShiftsPage (en/ru)
 
 **Plan:** `OnCallBanner`, `ShiftsCalendar`, `TeamShiftsPage` with i18n; Vitest coverage for banner + calendar.
+
+**Post-MVP (EPIC-09):** Presentational components from AEG-015 are wired to live APIs and admin schedule/override UI in [AEG-068](../EPIC-09-teams-users-shifts.md)–[AEG-069](../EPIC-09-teams-users-shifts.md); demo fixtures removed from the `/shifts` route.

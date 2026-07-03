@@ -196,6 +196,10 @@ Requires `DATABASE_URL` and `PUBLIC_URL` pointing at localhost (same guard as de
 Slack (with `slack_user_id` + avatar), eXpress (with `express_user_huid` + avatar), and a dev
 admin row (`dev@localhost`).
 
+**Typical local on-call flow:** `make seed-dev` → sign in (dev or OIDC) → **Setup** wizard or **Teams**
+→ create a team and members → open **Shifts** → create a weekly schedule and optional overrides.
+The calendar reads `GET /teams/{id}/on-call/*`; no demo fixtures on the production route.
+
 On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up` (see `.\scripts\dev.ps1` for all commands).
 
 ### Other commands

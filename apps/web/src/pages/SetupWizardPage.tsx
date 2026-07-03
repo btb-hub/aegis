@@ -15,7 +15,7 @@ type IntegrationItem = {
   enabled: boolean;
 };
 
-const STEP_COUNT = 5;
+const STEP_COUNT = 6;
 
 export function SetupWizardPage() {
   const { t } = useTranslation();
@@ -41,12 +41,18 @@ export function SetupWizardPage() {
     () => [
       t('setup.steps.welcome'),
       t('setup.steps.auth'),
+      t('setup.steps.team'),
       t('setup.steps.integrations'),
       t('setup.steps.test_alert'),
       t('setup.steps.done'),
     ],
     [t],
   );
+
+  const [teamName, setTeamName] = useState('');
+  const [teamDescription, setTeamDescription] = useState('');
+  const [createdTeamId, setCreatedTeamId] = useState<string | null>(null);
+  const [creatingTeam, setCreatingTeam] = useState(false);
 
   useEffect(() => {
     saveSetupWizardState({ step, completed: step >= STEP_COUNT - 1 });
@@ -140,6 +146,34 @@ export function SetupWizardPage() {
     }
   };
 
+  const createTeam = async () => {
+    if (!teamName.trim()) {
+      return;
+    }
+    setCreatingTeam(true);
+    setToast(null);
+    try {
+      const response = await fetch('/api/v1/teams', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: teamName.trim(), description: teamDescription.trim() }),
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { message?: string };
+        throw new Error(body.message ?? t('setup.team.create_failed'));
+      }
+      const data = (await response.json()) as { id: string; name: string };
+      setCreatedTeamId(data.id);
+      setToast({ message: t('setup.team.created', { name: data.name }), variant: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('setup.team.create_failed');
+      setToast({ message, variant: 'default' });
+    } finally {
+      setCreatingTeam(false);
+    }
+  };
+
   const integrationByKind = (kind: string) => integrations.find((item) => item.kind === kind);
 
   return (
@@ -201,10 +235,32 @@ export function SetupWizardPage() {
             <Link className="text-sm text-accent hover:underline" to="/login">
               {t('setup.auth.open_login')}
             </Link>
+            {user ? (
+              <Link className="block text-sm text-accent hover:underline" to="/account">
+                {t('setup.team.review_account')}
+              </Link>
+            ) : null}
           </div>
         ) : null}
 
         {step === 2 ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-zinc-900">{t('setup.team.title')}</h2>
+            <p className="text-sm text-zinc-600">{t('setup.team.body')}</p>
+            <Input label={t('setup.team.name_label')} value={teamName} onChange={setTeamName} />
+            <Input label={t('setup.team.description_label')} value={teamDescription} onChange={setTeamDescription} />
+            <Button disabled={creatingTeam || !teamName.trim()} onClick={() => void createTeam()}>
+              {t('setup.team.create')}
+            </Button>
+            {createdTeamId ? (
+              <Link className="text-sm text-accent hover:underline" to={`/teams/${createdTeamId}/shifts`}>
+                {t('setup.team.open_shifts')}
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+
+        {step === 3 ? (
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-zinc-900">{t('setup.integrations.title')}</h2>
             <p className="text-sm text-zinc-600">{t('setup.integrations.body')}</p>
@@ -262,7 +318,7 @@ export function SetupWizardPage() {
           </div>
         ) : null}
 
-        {step === 3 ? (
+        {step === 4 ? (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-zinc-900">{t('setup.test_alert.title')}</h2>
             <p className="text-sm text-zinc-600">{t('setup.test_alert.body')}</p>
@@ -273,7 +329,7 @@ export function SetupWizardPage() {
           </div>
         ) : null}
 
-        {step === 4 ? (
+        {step === 5 ? (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-zinc-900">{t('setup.done.title')}</h2>
             <p className="text-sm text-zinc-600">{t('setup.done.body')}</p>
