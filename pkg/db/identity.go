@@ -208,7 +208,8 @@ func getUserByIDTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (User, error) {
 func insertIdentityTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, provider, providerSub string) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO user_identities (user_id, provider, provider_sub)
-VALUES ($1, $2, $3)`, userID, provider, providerSub)
+VALUES ($1, $2, $3)
+ON CONFLICT (provider, provider_sub) DO NOTHING`, userID, provider, providerSub)
 	return err
 }
 

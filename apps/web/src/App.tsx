@@ -12,6 +12,8 @@ import { IntegrationsPage } from './pages/IntegrationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SetupWizardPage } from './pages/SetupWizardPage';
+import { TeamDetailPage } from './pages/TeamDetailPage';
+import { TeamsPage } from './pages/TeamsPage';
 import { TeamShiftsPage } from './pages/TeamShiftsPage';
 
 const initialIncidents: Incident[] = [
@@ -49,6 +51,9 @@ const initialIncidents: Incident[] = [
 ];
 
 function pageFromPath(pathname: string): AppPage {
+  if (pathname.startsWith('/teams')) {
+    return 'teams';
+  }
   if (pathname.startsWith('/setup')) {
     return 'setup';
   }
@@ -190,6 +195,22 @@ function AppRoutes() {
     >
       <Routes>
         <Route path="/" element={<Navigate to="/shifts" replace />} />
+        <Route
+          path="/teams"
+          element={
+            <ProtectedRoute>
+              <TeamsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teams/:teamId"
+          element={
+            <ProtectedRoute>
+              <TeamDetailPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/shifts"
           element={
