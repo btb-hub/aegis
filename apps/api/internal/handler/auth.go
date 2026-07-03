@@ -20,11 +20,51 @@ func NewAuthHandler(auth *service.AuthService, publicURL string) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(r gin.IRouter) {
+	r.GET("/auth/dev/status", h.devStatus)
+	r.GET("/auth/dev/login", h.devLogin)
 	r.GET("/auth/:provider/login", h.login)
 	r.GET("/auth/:provider/callback", h.callback)
 	r.POST("/auth/logout", h.logout)
 	r.GET("/auth/me", h.me)
 	r.PATCH("/auth/me", h.patchMe)
+}
+
+func (h *AuthHandler) devStatus(c *gin.Context) {
+	WriteJSON(c, http.StatusOK, gin.H{"enabled": h.auth.DevAuthEnabled()})
+}
+
+func (h *AuthHandler) devLogin(c *gin.Context) {
+	if !h.auth.DevAuthEnabled() {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	token, _, err := h.auth.DevLogin(c.Request.Context(), c.Query("role"))
+	if err != nil {
+		c.Redirect(http.StatusFound, h.devLoginFailureURL())
+		return
+	}
+	c.SetCookie(sessionCookie, token, 0, "/", "", false, true)
+	c.Redirect(http.StatusFound, h.devRedirectURL(c))
+}
+
+func (h *AuthHandler) devLoginFailureURL() string {
+	base := strings.TrimRight(h.publicURL, "/")
+	if base == "" {
+		return "/login?dev_auth_error=1"
+	}
+	return base + "/login?dev_auth_error=1"
+}
+
+func (h *AuthHandler) devRedirectURL(c *gin.Context) string {
+	redirectPath := c.Query("redirect")
+	if redirectPath != "" && strings.HasPrefix(redirectPath, "/") && !strings.HasPrefix(redirectPath, "//") {
+		return strings.TrimRight(h.publicURL, "/") + redirectPath
+	}
+	redirectURL := h.publicURL
+	if redirectURL == "" {
+		return "/"
+	}
+	return redirectURL
 }
 
 func (h *AuthHandler) login(c *gin.Context) {

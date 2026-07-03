@@ -53,6 +53,10 @@ func (m *authMockUsers) UpsertUser(ctx context.Context, provider, providerSub, e
 	m.users[user.ID] = user
 	return user, nil
 }
+
+func (m *authMockUsers) UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error) {
+	return m.UpsertUser(ctx, "dev", "dev-local", email, displayName, role, locale)
+}
 func (m *authMockUsers) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
 	user, ok := m.users[id]
 	if !ok {

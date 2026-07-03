@@ -3,10 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aegis/aegis/pkg/rbac"
 )
 
 type OIDCProvider struct {
@@ -27,6 +30,9 @@ type Config struct {
 	IncidentDedupWindow    time.Duration
 	EscalationTimeout      time.Duration
 	OIDC                   map[string]OIDCProvider
+	DevAuthEnabled         bool
+	DevAuthDefaultRole     string
+	DevAuthEmail           string
 }
 
 func Load() (*Config, error) {
@@ -60,6 +66,9 @@ func Load() (*Config, error) {
 				Issuer:       os.Getenv("EXPRESS_OIDC_ISSUER"),
 			},
 		},
+		DevAuthEnabled:     parseBoolEnv("DEV_AUTH_ENABLED"),
+		DevAuthDefaultRole: envOr("DEV_AUTH_DEFAULT_ROLE", "admin"),
+		DevAuthEmail:       envOr("DEV_AUTH_EMAIL", "dev@localhost"),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -85,7 +94,36 @@ func (c *Config) validate() error {
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required env: %s", strings.Join(missing, ", "))
 	}
+	if c.DevAuthEnabled {
+		if err := validateDevAuthHost(c.PublicURL); err != nil {
+			return err
+		}
+		if _, err := rbac.Parse(c.DevAuthDefaultRole); err != nil {
+			return fmt.Errorf("invalid DEV_AUTH_DEFAULT_ROLE: %w", err)
+		}
+	}
 	return nil
+}
+
+func parseBoolEnv(key string) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	return value == "1" || value == "true" || value == "yes"
+}
+
+func validateDevAuthHost(publicURL string) error {
+	parsed, err := url.Parse(publicURL)
+	if err != nil {
+		return fmt.Errorf("invalid PUBLIC_URL: %w", err)
+	}
+	switch parsed.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+		return nil
+	default:
+		return fmt.Errorf(
+			"DEV_AUTH_ENABLED requires PUBLIC_URL host to be localhost, 127.0.0.1, or [::1]; got %q",
+			parsed.Hostname(),
+		)
+	}
 }
 
 func (c *Config) Provider(name string) (OIDCProvider, error) {

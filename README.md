@@ -41,7 +41,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 ## Quick facts
 
 - **Stack:** Go 1.25+ (API + worker), PostgreSQL 16, React + TypeScript (Vite), Storybook. No Redis.
-- **Auth:** OIDC via Google, Slack, and eXpress.
+- **Auth:** OIDC via Google, Slack, and eXpress; optional **Dev sign in** on localhost (`DEV_AUTH_ENABLED`).
 - **Locales:** English and Russian (`en`, `ru`).
 - **Coverage:** `make test` enforces ≥90% unit-test coverage on business logic (NFR-5).
 - **Deploy:** Docker Compose — `make setup && make up`, or native dev with `make dev-db` + `make dev-api`.
@@ -51,8 +51,8 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Implementation status
 
-**MVP phases 0–6 are complete** on `main`. See [`backlog/roadmap.md`](./backlog/roadmap.md) for
-phase goals; post-MVP work is listed there under *Later*.
+**Phases 0–7 are complete** on `main` (MVP plus local dev auth). See [`backlog/roadmap.md`](./backlog/roadmap.md)
+for phase goals; further work is listed there under *Later*.
 
 | Phase | Exit (summary) | Status |
 |-------|----------------|--------|
@@ -64,11 +64,12 @@ phase goals; post-MVP work is listed there under *Later*.
 | 4 — Alerting workspace | Filters, search, saved views, inline analytics, CSV export | Done (PR #11) |
 | 5 — L2 ↔ L3 | Handoff, shared timeline, bounce, handoff analytics | Done (PR #12) |
 | 6 — Analytics & polish | Dashboard, setup wizard, a11y pass | Done (PR #13) |
+| 7 — Local dev auth | Dev sign-in for localhost without OIDC | Done |
 
 ### Backend (`apps/api`, `apps/worker`, `pkg/`)
 
-- **Auth & health:** OIDC login (Google, Slack, eXpress), session cookies, RBAC middleware,
-  `/healthz`, `/readyz`, `/metrics`.
+- **Auth & health:** OIDC login (Google, Slack, eXpress), opt-in dev login for localhost,
+  session cookies, RBAC middleware, `/healthz`, `/readyz`, `/metrics`.
 - **Alerts:** webhook ingest, list with search/filters/pagination/grouping/analytics; saved views CRUD; CSV export; enqueues `process_alert` worker job.
 - **Shifts:** teams, memberships, schedules, overrides, on-call slots API; `materialise_oncall`
   worker job (on schedule change + nightly).
@@ -95,6 +96,7 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000007_alert_search_indexes` | alert search backfill + `received_at` index |
 | `000008_saved_views` | saved_views for alert workspace |
 | `000009_handoffs` | handoffs for L2→L3 tracking and analytics |
+| `000010_dev_auth_provider` | allow `dev` OIDC provider for local dev login |
 
 ### Frontend (`apps/web/`)
 
@@ -109,7 +111,8 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
   escalation); compare-to-previous; drill-down links; API-backed.
 - **Setup wizard:** multi-step guided setup (health, auth, integrations, test alert); progress in
   localStorage; API-backed.
-- **Web auth:** login page (`/login`), session in app shell, protected routes, OIDC callback redirect.
+- **Web auth:** login page (`/login`) with OIDC providers and **Dev sign in** when enabled,
+  session in app shell, protected routes, OIDC callback redirect.
 - **i18n:** English + Russian locale files for all UI strings.
 
 **Shifts** and **incidents** pages still use **demo fixtures** in `App.tsx` — UI and handlers are
@@ -133,7 +136,8 @@ Runs Postgres, migrations, API, worker, and web in containers.
 
 ```bash
 make setup          # copy deploy/.env.example → .env, install deps
-# edit .env — at minimum keep SESSION_SECRET and WEBHOOK_SECRET; add OIDC creds to log in
+# edit .env — SESSION_SECRET, WEBHOOK_SECRET; OIDC creds for production-like sign-in
+# optional: DEV_AUTH_ENABLED=true and PUBLIC_URL=http://localhost:3000 for Dev sign in
 make up             # build and start all services (foreground)
 # or: make up-detached && make logs
 ```
@@ -161,6 +165,22 @@ make dev-web        # Vite dev server on :3000 (proxies /api and /auth to :8080)
 ```
 
 Stop Postgres: `make dev-db-down`.
+
+#### Sign in without OIDC (local dev)
+
+Use this to open Alerts, Integrations, Dashboard, and Setup without Google/Slack/eXpress app registration.
+
+1. In `.env` (from `make setup-local`):
+   ```bash
+   DEV_AUTH_ENABLED=true
+   PUBLIC_URL=http://localhost:3000
+   ```
+2. Ensure migrations are applied (`make dev-db` runs them automatically; includes `000010_dev_auth_provider`).
+3. Restart the API after changing `.env`.
+4. Open http://localhost:3000/login and click **Dev sign in**.
+
+You get an admin session on localhost only. Do not enable `DEV_AUTH_ENABLED` in production. Full notes:
+[`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md#local-testing-without-oidc).
 
 On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up` (see `.\scripts\dev.ps1` for all commands).
 

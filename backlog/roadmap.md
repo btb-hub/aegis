@@ -6,8 +6,9 @@ a phase's "exit" before moving on. Epics and their stories are in [`epics/`](./e
 ## MVP status
 
 **Phases 0–6 are complete** on `main` (latest: [PR #13](https://github.com/btb-hub/aegis/pull/13),
-Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`. There are no `Ready` stories until a
-new milestone is added under [Later](#later-post-mvp-not-now).
+Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
+
+**Phases 0–7 are complete** on branch `feat/dev-auth-AEG-060-local-login` (Phase 7 pending merge).
 
 | Phase | Epic | Merged |
 |-------|------|--------|
@@ -17,6 +18,7 @@ new milestone is added under [Later](#later-post-mvp-not-now).
 | 4 | [EPIC-05](./epics/EPIC-05-alerting.md) | PR #11 |
 | 5 | [EPIC-06](./epics/EPIC-06-l2-l3.md) | PR #12 |
 | 6 | [EPIC-07](./epics/EPIC-07-analytics-setup.md) | PR #13 |
+| 7 | [EPIC-08](./epics/EPIC-08-dev-auth.md) | (pending) |
 
 ## Guiding order
 
@@ -108,6 +110,17 @@ handoff analytics work.*
 - Setup wizard incl. "Send test alert"; accessibility pass; setup-time check against NFR-1.
 
 → Epic: [EPIC-07 Analytics & Setup](./epics/EPIC-07-analytics-setup.md)
+
+## Phase 7 — Local dev auth *(Done — this branch)*
+
+*Exit: protected pages work on localhost without OIDC app registration; production auth unchanged.*
+
+- Opt-in `DEV_AUTH_ENABLED` dev login (real session + RBAC).
+- Login page **Dev sign in** when enabled; docs for local testing.
+
+→ Epic: [EPIC-08 Local dev auth](./epics/EPIC-08-dev-auth.md)
+
+**Next story:** none — add a new epic under [Later](#later-post-mvp-not-now) or pick from deferred items.
 
 ## Later (post-MVP, not now)
 
