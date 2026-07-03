@@ -73,6 +73,11 @@ func (s *Store) UpdateUserLocale(ctx context.Context, id uuid.UUID, locale strin
 	return scanUser(s.pool.QueryRow(ctx, q, id, locale))
 }
 
+func (s *Store) UpdateUserProfile(ctx context.Context, id uuid.UUID, displayName, locale string) (User, error) {
+	q := `UPDATE users SET display_name = $2, locale = $3 WHERE id = $1 RETURNING ` + userSelectColumns
+	return scanUser(s.pool.QueryRow(ctx, q, id, displayName, locale))
+}
+
 func (s *Store) CreateSession(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (Session, error) {
 	const q = `INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3) RETURNING id, user_id, token_hash, expires_at, created_at`
 	var session Session

@@ -18,7 +18,7 @@ type OverrideRepository interface {
 	GetOverrideForTeam(ctx context.Context, teamID, overrideID uuid.UUID) (db.Override, error)
 	CreateOverride(ctx context.Context, teamID, userID uuid.UUID, startAt, endAt time.Time) (db.Override, error)
 	DeleteOverrideForTeam(ctx context.Context, teamID, overrideID uuid.UUID) error
-	EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error
+	MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error
 }
 
 type CreateOverrideInput struct {
@@ -60,7 +60,7 @@ func (s *OverrideService) CreateOverride(ctx context.Context, teamID uuid.UUID, 
 	if err != nil {
 		return db.Override{}, err
 	}
-	if err := s.repo.EnqueueMaterialiseOnCall(ctx, teamID); err != nil {
+	if err := s.repo.MaterialiseOnCallForTeam(ctx, teamID); err != nil {
 		return db.Override{}, err
 	}
 	return override, nil
@@ -73,7 +73,7 @@ func (s *OverrideService) DeleteOverride(ctx context.Context, teamID, overrideID
 	if err := s.repo.DeleteOverrideForTeam(ctx, teamID, overrideID); err != nil {
 		return mapOverrideError(err)
 	}
-	if err := s.repo.EnqueueMaterialiseOnCall(ctx, teamID); err != nil {
+	if err := s.repo.MaterialiseOnCallForTeam(ctx, teamID); err != nil {
 		return err
 	}
 	return nil

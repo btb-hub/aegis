@@ -12,7 +12,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`). Pass `?format=json` for JSON user body instead. |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user profile (see below) |
-| PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`) |
+| PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`, `display_name`: non-empty string) |
 
 `GET /auth/me` response includes `id`, `email`, `display_name`, `role`, `locale`, `provider` (primary sign-in provider), optional `avatar_url`, `slack_user_id`, `express_user_huid`, and `identities[]` (`provider`, `provider_sub`, `linked_at`). OIDC login links providers by email when the identity is new; profile fields are backfilled only when empty.
 
@@ -176,7 +176,7 @@ Create/update schedule body:
 
 Create override body: `{"user_id": "uuid", "start_at": "RFC3339", "end_at": "RFC3339"}`. `user_id` must be a team member; `end_at` must be after `start_at`.
 
-Schedule and override changes enqueue a `materialise_oncall` worker job for the team. The worker also runs a nightly job for all teams with schedules.
+Schedule and override changes materialise on-call slots synchronously for the team. The worker also runs a nightly `materialise_oncall` job for all teams with schedules.
 
 | GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
 

@@ -140,7 +140,7 @@ userinfo is still stubbed; there is no user directory API or dev seeds.
 
 → Epic: [EPIC-09 Teams, users & shifts setup](./epics/EPIC-09-teams-users-shifts.md)
 
-**Next story:** [AEG-067](./epics/EPIC-09-teams-users-shifts.md) (teams management UI — in progress).
+**Next story:** EPIC-09 complete — all Phase 8 stories done on branch `feat/epic-9-teams-users-shifts`.
 
 ## Later (post-MVP, not now)
 

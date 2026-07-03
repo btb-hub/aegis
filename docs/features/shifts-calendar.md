@@ -36,9 +36,11 @@ Teams define schedules in Aegis. The worker materialises `on_call_slots`. The UI
 
 ## UI
 
-- Calendar month view with colour per user.
-- "On call now" banner on team page.
-- Override create dialog with datetime pickers in team timezone.
+- `/shifts` lists teams or redirects when only one exists; `/teams/{id}/shifts` loads live on-call data from the API (AEG-068).
+- Calendar month view with colour per user; rotation slots and overrides split by `source`.
+- "On call now" banner on team shifts page.
+- Admins create weekly schedules and overrides from the shifts page (AEG-069); successful mutations refresh the calendar.
+- Empty state when a team has no schedule yet, with a link to create one.
 
 ## API
 

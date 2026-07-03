@@ -108,7 +108,7 @@ func (m *scheduleHandlerRepo) DeleteScheduleForTeam(ctx context.Context, teamID,
 	return nil
 }
 
-func (m *scheduleHandlerRepo) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error {
+func (m *scheduleHandlerRepo) MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error {
 	return nil
 }
 

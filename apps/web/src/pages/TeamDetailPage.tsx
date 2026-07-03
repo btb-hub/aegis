@@ -172,7 +172,7 @@ export function TeamDetailPage() {
           <section className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-zinc-900">{t('teams.detail.members_title')}</h2>
-              <Link to="/shifts" className="text-sm text-accent hover:underline">
+              <Link to={`/teams/${teamId}/shifts`} className="text-sm text-accent hover:underline">
                 {t('nav.shifts')}
               </Link>
             </div>

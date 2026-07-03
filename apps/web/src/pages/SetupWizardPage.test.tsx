@@ -71,6 +71,9 @@ describe('SetupWizardPage', () => {
     expect(screen.getByText(/Signed in as/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Create your first team')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText('Configure connectors')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Jira base URL'), { target: { value: 'https://jira.example.com' } });
@@ -137,6 +140,38 @@ describe('SetupWizardPage', () => {
     expect(screen.getByText(/API health check passed/)).toBeInTheDocument();
   });
 
+  it('creates team in wizard step', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((input: RequestInfo, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/healthz')) {
+          return Promise.resolve({ ok: true });
+        }
+        if (url.includes('/teams') && init?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: 'team-1', name: 'Platform', description: '' }),
+          });
+        }
+        if (url.includes('/integrations')) {
+          return Promise.resolve({ ok: true, json: async () => ({ items: [] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      }),
+    );
+
+    renderWizard();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.change(screen.getByLabelText('Team name'), { target: { value: 'Platform' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Platform created/i)).toBeInTheDocument();
+    });
+  });
+
   it('shows connector errors', async () => {
     vi.stubGlobal(
       'fetch',
@@ -156,6 +191,7 @@ describe('SetupWizardPage', () => {
     );
 
     renderWizard();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     fireEvent.click(screen.getAllByRole('button', { name: 'Save connector' })[0]);

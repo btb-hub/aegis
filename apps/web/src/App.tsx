@@ -1,20 +1,20 @@
 import { useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell, type AppPage } from './components/layout/AppShell';
 import { useAuth } from './context/AuthContext';
 import type { Incident } from './lib/incidentTypes';
-import { buildDemoShiftsForMonth, resolveCurrentOnCall } from './lib/shiftsDemoData';
 import { IncidentsPage } from './pages/IncidentsPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { SetupWizardPage } from './pages/SetupWizardPage';
+import { AccountPage } from './pages/AccountPage';
+import { ShiftsLandingPage } from './pages/ShiftsLandingPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { TeamsPage } from './pages/TeamsPage';
-import { TeamShiftsPage } from './pages/TeamShiftsPage';
+import { TeamShiftsRoute } from './pages/TeamShiftsRoute';
 
 const initialIncidents: Incident[] = [
   {
@@ -51,6 +51,9 @@ const initialIncidents: Incident[] = [
 ];
 
 function pageFromPath(pathname: string): AppPage {
+  if (pathname.includes('/shifts')) {
+    return 'shifts';
+  }
   if (pathname.startsWith('/teams')) {
     return 'teams';
   }
@@ -78,23 +81,12 @@ const handoffTeams = [
 ];
 
 function AppRoutes() {
-  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [incidents, setIncidents] = useState(initialIncidents);
 
   const currentPage = pageFromPath(location.pathname);
-
-  const shiftsMonth = useMemo(() => new Date(), []);
-  const { slots: demoSlots, overrides: demoOverrides } = useMemo(
-    () => buildDemoShiftsForMonth(shiftsMonth),
-    [shiftsMonth],
-  );
-  const onCallUsers = useMemo(
-    () => resolveCurrentOnCall(demoSlots, demoOverrides, shiftsMonth),
-    [demoSlots, demoOverrides, shiftsMonth],
-  );
 
   const handlers = useMemo(
     () => ({
@@ -212,15 +204,27 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/account"
+          element={
+            <ProtectedRoute>
+              <AccountPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/shifts"
           element={
-            <TeamShiftsPage
-              teamName={t('shifts.demo_team')}
-              onCallUsers={onCallUsers}
-              slots={demoSlots}
-              overrides={demoOverrides}
-              month={shiftsMonth}
-            />
+            <ProtectedRoute>
+              <ShiftsLandingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teams/:teamId/shifts"
+          element={
+            <ProtectedRoute>
+              <TeamShiftsRoute />
+            </ProtectedRoute>
           }
         />
         <Route

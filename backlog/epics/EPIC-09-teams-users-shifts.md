@@ -105,7 +105,7 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-066 — Dev user seeds
 
-- **Status:** In Progress
+- **Status:** Done
 - **Depends on:** AEG-064
 - **PRD:** NFR-1 (local setup); supports REQ-SHIFT-01 local testing
 - **Acceptance:**
@@ -126,7 +126,7 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-067 — Teams management UI
 
-- **Status:** In Progress
+- **Status:** Done
 - **Depends on:** AEG-065, AEG-058, AEG-056
 - **PRD:** REQ-SHIFT-01
 - **Acceptance:**
@@ -146,16 +146,16 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-068 — Shifts page wired to API
 
-- **Status:** Ready
+- **Status:** Done
 - **Depends on:** AEG-067, AEG-014, AEG-015
 - **PRD:** REQ-SHIFT-06, REQ-SHIFT-07
 - **Acceptance:**
-  - [ ] Remove `shiftsDemoData` from production route; `TeamShiftsPage` loads team by id (route
+  - [x] Remove `shiftsDemoData` from production route; `TeamShiftsPage` loads team by id (route
         `/teams/:teamId/shifts` or team selector on `/shifts`)
-  - [ ] Fetches `GET /teams/{id}/on-call/current` and `GET /teams/{id}/on-call/calendar?from&to`
-  - [ ] `OnCallBanner` and `ShiftsCalendar` render API data; loading and error states
-  - [ ] Redirect or empty state when team has no schedule yet
-  - [ ] Vitest with mocked fetch; update existing App tests
+  - [x] Fetches `GET /teams/{id}/on-call/current` and `GET /teams/{id}/on-call/calendar?from&to`
+  - [x] `OnCallBanner` and `ShiftsCalendar` render API data; loading and error states
+  - [x] Redirect or empty state when team has no schedule yet
+  - [x] Vitest with mocked fetch; update existing App tests
 
 **Plan:** API client helpers in `apps/web/src/lib/shiftsApi.ts`; map API slot shape to existing
 `CalendarSlot` types where possible.
@@ -164,15 +164,15 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-069 — Schedule and override admin UI
 
-- **Status:** Ready
+- **Status:** Done
 - **Depends on:** AEG-068, AEG-010, AEG-011
 - **PRD:** REQ-SHIFT-02, REQ-SHIFT-03
 - **Acceptance:**
-  - [ ] Admin: create/edit weekly schedule (name, IANA timezone, handoff weekday/time, ordered participants
+  - [x] Admin: create/edit weekly schedule (name, IANA timezone, handoff weekday/time, ordered participants
         from team members)
-  - [ ] Admin: create/delete override (user, start/end in team timezone); validation errors surfaced in UI
-  - [ ] Successful mutations refresh calendar; toast on success
-  - [ ] Copy in `en` + `ru`; Vitest for schedule form validation; Storybook for override dialog
+  - [x] Admin: create/delete override (user, start/end in team timezone); validation errors surfaced in UI
+  - [x] Successful mutations refresh calendar; toast on success
+  - [x] Copy in `en` + `ru`; Vitest for schedule form validation; Storybook for override dialog
 
 **Plan:** Forms call existing schedule/override handlers; participant multiselect from team members list.
 
@@ -180,19 +180,19 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-071 — Account page
 
-- **Status:** Ready
+- **Status:** Done
 - **Depends on:** AEG-064, AEG-058, AEG-056
 - **PRD:** REQ-AUTH-03, REQ-I18N-02, REQ-INT-04 (eXpress link surfacing)
 - **Acceptance:**
-  - [ ] Protected route `/account` per [`docs/features/account.md`](../docs/features/account.md)
-  - [ ] **Profile:** avatar (or initials), editable display name, read-only email + role badge;
+  - [x] Protected route `/account` per [`docs/features/account.md`](../docs/features/account.md)
+  - [x] **Profile:** avatar (or initials), editable display name, read-only email + role badge;
         `PATCH /auth/me` accepts `display_name` + existing `locale`
-  - [ ] **Language:** en/ru control persists via `PATCH /auth/me` and syncs i18n/localStorage
-  - [ ] **Connected sign-in:** list Google/Slack/eXpress linked state from `identities[]`; **Connect** buttons
+  - [x] **Language:** en/ru control persists via `PATCH /auth/me` and syncs i18n/localStorage
+  - [x] **Connected sign-in:** list Google/Slack/eXpress linked state from `identities[]`; **Connect** buttons
         → `/auth/{provider}/login?redirect=/account`
-  - [ ] **Paging identity:** read-only Slack id; eXpress link-code generator UI (`POST /users/me/express-link-code`)
-  - [ ] Header: display name links to `/account` (or explicit Account entry)
-  - [ ] Copy in `en` + `ru`; Vitest for profile/locale save; Storybook for AccountPage variants
+  - [x] **Paging identity:** read-only Slack id; eXpress link-code generator UI (`POST /users/me/express-link-code`)
+  - [x] Header: display name links to `/account` (or explicit Account entry)
+  - [x] Copy in `en` + `ru`; Vitest for profile/locale save; Storybook for AccountPage variants
 
 **Plan:** `AccountPage` + section components; extend `AuthContext` user type; wire locale switcher to API
 when session present.
@@ -201,16 +201,16 @@ when session present.
 
 ### AEG-070 — Setup wizard team step and docs
 
-- **Status:** Ready
+- **Status:** Done
 - **Depends on:** AEG-067, AEG-069, AEG-066, AEG-071
 - **PRD:** NFR-1, REQ-SHIFT-01
 - **Acceptance:**
-  - [ ] Setup wizard new step (or extend existing): create first team + add self or seeded users + minimal
+  - [x] Setup wizard new step (or extend existing): create first team + add self or seeded users + minimal
         primary schedule (can link to full shifts page)
-  - [ ] `docs/features/shifts-calendar.md` updated: UI no longer demo-only
-  - [ ] `docs/03-data-model.md` — `avatar_url` on `users`
-  - [ ] `README.md` — flow: seed dev users → create team → open shifts
-  - [ ] `backlog/epics/EPIC-02-shifts.md` — note post-MVP UI wiring closed by AEG-068–069
+  - [x] `docs/features/shifts-calendar.md` updated: UI no longer demo-only
+  - [x] `docs/03-data-model.md` — `avatar_url` on `users`
+  - [x] `README.md` — flow: seed dev users → create team → open shifts
+  - [x] `backlog/epics/EPIC-02-shifts.md` — note post-MVP UI wiring closed by AEG-068–069
 
 **Plan:** Insert wizard step after auth; reuse team/schedule components from AEG-067/069.
 

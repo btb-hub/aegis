@@ -173,3 +173,11 @@ func (m *identityMockUsers) UpdateUserLocale(ctx context.Context, id uuid.UUID, 
 	m.users[id] = user
 	return user, nil
 }
+
+func (m *identityMockUsers) UpdateUserProfile(ctx context.Context, id uuid.UUID, displayName, locale string) (db.User, error) {
+	user := m.users[id]
+	user.DisplayName = displayName
+	user.Locale = locale
+	m.users[id] = user
+	return user, nil
+}

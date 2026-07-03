@@ -21,7 +21,7 @@ type ScheduleRepository interface {
 	CreateScheduleWithLayer(ctx context.Context, teamID uuid.UUID, name, timezone string, layer db.CreateScheduleLayerInput) (db.ScheduleWithLayers, error)
 	UpdateScheduleWithLayer(ctx context.Context, teamID, scheduleID uuid.UUID, name, timezone string, layer db.CreateScheduleLayerInput) (db.ScheduleWithLayers, error)
 	DeleteScheduleForTeam(ctx context.Context, teamID, scheduleID uuid.UUID) error
-	EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) error
+	MaterialiseOnCallForTeam(ctx context.Context, teamID uuid.UUID) error
 }
 
 type WeeklyRotationInput struct {
@@ -81,7 +81,7 @@ func (s *ScheduleService) CreateSchedule(ctx context.Context, teamID uuid.UUID, 
 	if err != nil {
 		return db.ScheduleWithLayers{}, mapScheduleError(err)
 	}
-	if err := s.repo.EnqueueMaterialiseOnCall(ctx, teamID); err != nil {
+	if err := s.repo.MaterialiseOnCallForTeam(ctx, teamID); err != nil {
 		return db.ScheduleWithLayers{}, err
 	}
 	return schedule, nil
@@ -99,7 +99,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, teamID, scheduleID
 	if err != nil {
 		return db.ScheduleWithLayers{}, mapScheduleError(err)
 	}
-	if err := s.repo.EnqueueMaterialiseOnCall(ctx, teamID); err != nil {
+	if err := s.repo.MaterialiseOnCallForTeam(ctx, teamID); err != nil {
 		return db.ScheduleWithLayers{}, err
 	}
 	return schedule, nil
@@ -112,7 +112,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, teamID, scheduleID
 	if err := s.repo.DeleteScheduleForTeam(ctx, teamID, scheduleID); err != nil {
 		return mapScheduleError(err)
 	}
-	if err := s.repo.EnqueueMaterialiseOnCall(ctx, teamID); err != nil {
+	if err := s.repo.MaterialiseOnCallForTeam(ctx, teamID); err != nil {
 		return err
 	}
 	return nil
