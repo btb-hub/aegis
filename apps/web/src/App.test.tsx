@@ -30,21 +30,43 @@ describe('App', () => {
     vi.useRealTimers();
   });
 
-  it('renders translated sample content', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({}),
-    } as Response);
+  it('renders shifts landing when signed in', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'user-1',
+            email: 'alice@example.com',
+            display_name: 'Alice',
+            role: 'admin',
+            locale: 'en',
+            provider: 'google',
+          }),
+        } as Response;
+      }
+      if (url.includes('/api/v1/teams') && !url.includes('/teams/')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              { id: 'team-1', name: 'Platform', description: '', created_at: '', updated_at: '' },
+              { id: 'team-2', name: 'Data', description: '', created_at: '', updated_at: '' },
+            ],
+          }),
+        } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
 
     renderApp('/shifts');
 
     await waitFor(() => {
-      expect(screen.getByText('On-call schedule and overrides')).toBeInTheDocument();
+      expect(screen.getByText('Select a team to view its on-call calendar.')).toBeInTheDocument();
     });
-    expect(screen.getByText(/on call now/i)).toBeInTheDocument();
-    expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
-    expect(screen.getByText('Shifts')).toBeInTheDocument();
+    expect(screen.getAllByText('Shifts').length).toBeGreaterThan(0);
     expect(screen.getByText('Incidents')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Incidents'));
@@ -67,6 +89,9 @@ describe('App', () => {
             provider: 'google',
           }),
         } as Response;
+      }
+      if (url.includes('/api/v1/teams') && !url.includes('/teams/')) {
+        return { ok: true, json: async () => ({ items: [{ id: 'team-1', name: 'Platform', description: '', created_at: '', updated_at: '' }] }) } as Response;
       }
       if (url.includes('/saved-views')) {
         return { ok: true, status: 200, json: async () => ({ items: [] }) } as Response;
