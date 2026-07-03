@@ -19,9 +19,10 @@ import (
 )
 
 type UserRepository interface {
-	UpsertUser(ctx context.Context, provider, providerSub, email, displayName, role, locale string) (db.User, error)
+	ResolveOIDCLogin(ctx context.Context, input db.OIDCLoginInput) (db.OIDCLoginResult, error)
 	UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
+	ListUserIdentities(ctx context.Context, userID uuid.UUID) ([]db.UserIdentity, error)
 	UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error)
 }
 
@@ -121,10 +122,18 @@ func (s *AuthService) CompleteLogin(ctx context.Context, provider, code string) 
 		return "", db.User{}, apperrors.Validation("oidc exchange failed", map[string]any{"error": err.Error()})
 	}
 
-	user, err = s.users.UpsertUser(ctx, provider, info.Sub, info.Email, info.DisplayName, "member", "en")
+	result, err := s.users.ResolveOIDCLogin(ctx, db.OIDCLoginInput{
+		Provider:    provider,
+		ProviderSub: info.Sub,
+		Email:       info.Email,
+		DisplayName: info.DisplayName,
+		AvatarURL:   info.AvatarURL,
+		SlackUserID: info.SlackUserID,
+	})
 	if err != nil {
 		return "", db.User{}, err
 	}
+	user = result.User
 
 	rawToken, hash, err := sessiontoken.New()
 	if err != nil {
@@ -145,14 +154,35 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 }
 
 func (s *AuthService) CurrentUser(ctx context.Context, token string) (db.User, error) {
+	profile, err := s.CurrentUserProfile(ctx, token)
+	if err != nil {
+		return db.User{}, err
+	}
+	return profile.User, nil
+}
+
+type UserProfile struct {
+	User       db.User
+	Identities []db.UserIdentity
+}
+
+func (s *AuthService) CurrentUserProfile(ctx context.Context, token string) (UserProfile, error) {
 	if token == "" {
-		return db.User{}, apperrors.Unauthorized("missing session")
+		return UserProfile{}, apperrors.Unauthorized("missing session")
 	}
 	session, err := s.sessions.GetSessionByTokenHash(ctx, sessiontoken.Hash(token))
 	if err != nil {
-		return db.User{}, apperrors.Unauthorized("invalid session")
+		return UserProfile{}, apperrors.Unauthorized("invalid session")
 	}
-	return s.users.GetUserByID(ctx, session.UserID)
+	user, err := s.users.GetUserByID(ctx, session.UserID)
+	if err != nil {
+		return UserProfile{}, err
+	}
+	identities, err := s.users.ListUserIdentities(ctx, user.ID)
+	if err != nil {
+		return UserProfile{}, err
+	}
+	return UserProfile{User: user, Identities: identities}, nil
 }
 
 func (s *AuthService) UpdateLocale(ctx context.Context, token, newLocale string) (db.User, error) {
@@ -178,8 +208,8 @@ func NewOAuthTokenExchanger(cfg *config.Config) TokenExchanger {
 	return oidc.NewClient(cfg)
 }
 
-func UserJSON(user db.User) map[string]any {
-	return map[string]any{
+func UserJSON(user db.User, identities []db.UserIdentity) map[string]any {
+	out := map[string]any{
 		"id":           user.ID.String(),
 		"email":        user.Email,
 		"display_name": user.DisplayName,
@@ -187,8 +217,33 @@ func UserJSON(user db.User) map[string]any {
 		"locale":       user.Locale,
 		"provider":     user.Provider,
 	}
+	if user.AvatarURL != nil && *user.AvatarURL != "" {
+		out["avatar_url"] = *user.AvatarURL
+	}
+	if user.SlackUserID != nil && *user.SlackUserID != "" {
+		out["slack_user_id"] = *user.SlackUserID
+	}
+	if user.ExpressUserHuid.Valid {
+		out["express_user_huid"] = uuid.UUID(user.ExpressUserHuid.Bytes).String()
+	}
+	if identities != nil {
+		out["identities"] = IdentitiesJSON(identities)
+	}
+	return out
 }
 
-func MarshalUser(user db.User) ([]byte, error) {
-	return json.Marshal(UserJSON(user))
+func IdentitiesJSON(identities []db.UserIdentity) []map[string]any {
+	items := make([]map[string]any, 0, len(identities))
+	for _, identity := range identities {
+		items = append(items, map[string]any{
+			"provider":     identity.Provider,
+			"provider_sub": identity.ProviderSub,
+			"linked_at":    identity.LinkedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	return items
+}
+
+func MarshalUser(user db.User, identities []db.UserIdentity) ([]byte, error) {
+	return json.Marshal(UserJSON(user, identities))
 }

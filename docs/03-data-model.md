@@ -6,7 +6,7 @@ PostgreSQL 16. Migrations via golang-migrate. Queries via sqlc.
 
 | Phase | Tables |
 |-------|--------|
-| 0 | `users`, `sessions`, `jobs`, `alerts` |
+| 0 | `users`, `sessions`, `jobs`, `alerts`, `user_identities`, `audit_log` |
 | 1 | `teams`, `team_memberships`, `schedules`, `schedule_layers`, `overrides`, `on_call_slots` |
 | 2 | `routing_rules`, `incidents`, `incident_alerts`, `timeline_events`, `integrations`, `notifications` |
 | 4 | `saved_views` (+ alert search indexes) |
@@ -28,9 +28,24 @@ PostgreSQL 16. Migrations via golang-migrate. Queries via sqlc.
 | locale | text | `en` or `ru`; default `en` |
 | slack_user_id | text nullable | For paging |
 | express_user_huid | uuid nullable | For paging |
+| avatar_url | text nullable | Profile image from OIDC `picture` |
 | created_at | timestamptz | |
 
-No `password_hash`.
+### user_identities
+
+Links multiple OIDC providers to one `users` row. Login resolves `(provider, provider_sub)` here first; new provider with matching email links to existing user with fill-if-empty backfill.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| user_id | uuid FK | |
+| provider | text | `google`, `slack`, `express`, `dev` |
+| provider_sub | text | OIDC `sub` |
+| linked_at | timestamptz | |
+
+Unique on `(provider, provider_sub)` and `(user_id, provider)`.
+
+### audit_log
 
 ### sessions
 

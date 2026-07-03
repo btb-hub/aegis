@@ -53,7 +53,7 @@ type teamRepoMock struct {
 
 func newTeamRepoMock() *teamRepoMock {
 	return &teamRepoMock{
-		authMockUsers:    authMockUsers{users: map[uuid.UUID]db.User{}},
+		authMockUsers:    *newAuthMockUsers(),
 		authMockSessions: authMockSessions{byHash: map[string]db.Session{}},
 		teams:            map[uuid.UUID]db.Team{},
 		memberships:      map[uuid.UUID]map[uuid.UUID]db.TeamMembership{},

@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS user_identities;
+ALTER TABLE users DROP COLUMN IF EXISTS avatar_url;

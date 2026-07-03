@@ -15,48 +15,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockUsers struct {
-	users map[uuid.UUID]db.User
-}
-
-func (m *mockUsers) UpsertUser(ctx context.Context, provider, providerSub, email, displayName, role, locale string) (db.User, error) {
-	user := db.User{
-		ID:          uuid.New(),
-		Provider:    provider,
-		ProviderSub: providerSub,
-		Email:       email,
-		DisplayName: displayName,
-		Role:        role,
-		Locale:      locale,
-	}
-	m.users[user.ID] = user
-	return user, nil
-}
-
-func (m *mockUsers) UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error) {
-	return m.UpsertUser(ctx, "dev", "dev-local", email, displayName, role, locale)
-}
-
-func (m *mockUsers) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
-	user, ok := m.users[id]
-	if !ok {
-		return db.User{}, errors.New("not found")
-	}
-	return user, nil
-}
-
-func (m *mockUsers) UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error) {
-	user, ok := m.users[id]
-	if !ok {
-		return db.User{}, errors.New("not found")
-	}
-	user.Locale = locale
-	m.users[id] = user
-	return user, nil
-}
+type mockUsers = identityMockUsers
 
 type mockSessions struct {
 	byHash map[string]db.Session
+}
+
+func testAuthService(t *testing.T) (*AuthService, *identityMockUsers, *mockSessions) {
+	t.Helper()
+	cfg := &config.Config{
+		SessionTTL: 24 * time.Hour,
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newIdentityMockUsers()
+	sessions := &mockSessions{byHash: map[string]db.Session{}}
+	svc := NewAuthService(cfg, users, sessions, &mockOIDC{})
+	return svc, users, sessions
 }
 
 func (m *mockSessions) CreateSession(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.Session, error) {
@@ -86,20 +62,6 @@ func (m *mockOIDC) AuthCodeURL(provider, state string) (string, error) {
 
 func (m *mockOIDC) Exchange(ctx context.Context, provider, code string) (*OIDCUserInfo, error) {
 	return &OIDCUserInfo{Sub: "sub-1", Email: "a@example.com", DisplayName: "A"}, nil
-}
-
-func testAuthService(t *testing.T) (*AuthService, *mockUsers, *mockSessions) {
-	t.Helper()
-	cfg := &config.Config{
-		SessionTTL: 24 * time.Hour,
-		OIDC: map[string]config.OIDCProvider{
-			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
-		},
-	}
-	users := &mockUsers{users: map[uuid.UUID]db.User{}}
-	sessions := &mockSessions{byHash: map[string]db.Session{}}
-	svc := NewAuthService(cfg, users, sessions, &mockOIDC{})
-	return svc, users, sessions
 }
 
 func TestAuthLoginURL(t *testing.T) {
@@ -225,7 +187,7 @@ func TestAuthUpdateLocaleSuccess(t *testing.T) {
 
 func TestUserJSON(t *testing.T) {
 	id := uuid.New()
-	data, err := MarshalUser(db.User{ID: id, Email: "x@y.z", Role: "member", Locale: "en", Provider: "google"})
+	data, err := MarshalUser(db.User{ID: id, Email: "x@y.z", Role: "member", Locale: "en", Provider: "google"}, nil)
 	require.NoError(t, err)
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(data, &out))

@@ -19,6 +19,7 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 | 5 | [EPIC-06](./epics/EPIC-06-l2-l3.md) | PR #12 |
 | 6 | [EPIC-07](./epics/EPIC-07-analytics-setup.md) | PR #13 |
 | 7 | [EPIC-08](./epics/EPIC-08-dev-auth.md) | (pending) |
+| 8 | [EPIC-09](./epics/EPIC-09-teams-users-shifts.md) | — |
 
 ## Guiding order
 
@@ -120,7 +121,26 @@ handoff analytics work.*
 
 → Epic: [EPIC-08 Local dev auth](./epics/EPIC-08-dev-auth.md)
 
-**Next story:** none — add a new epic under [Later](#later-post-mvp-not-now) or pick from deferred items.
+**Next story:** none on Phase 7 — see Phase 8 below.
+
+## Phase 8 — Teams, users & shifts setup *(Next)*
+
+*Exit: admin creates a team, adds SSO-like users, defines a rotation and overrides in the UI; shifts
+calendar shows live on-call data; local dev can seed realistic users without OIDC.*
+
+**Why now:** Phase 1 backend for teams/schedules is done, but the web app still uses demo fixtures.
+Dev auth (Phase 7) unlocks protected pages yet cannot configure on-call. SSO upsert exists but OIDC
+userinfo is still stubbed; there is no user directory API or dev seeds.
+
+- Real OIDC profile provisioning with multi-provider **fill-if-empty backfill** (`user_identities`).
+- Account page (profile, locale, connected providers, eXpress link).
+- Admin users list + dev seed command.
+- Teams CRUD/members UI; shifts page wired to API; schedule/override admin UI.
+- Setup wizard team step; docs updated.
+
+→ Epic: [EPIC-09 Teams, users & shifts setup](./epics/EPIC-09-teams-users-shifts.md)
+
+**Next story:** [AEG-064](./epics/EPIC-09-teams-users-shifts.md) (OIDC userinfo and profile fields).
 
 ## Later (post-MVP, not now)
 

@@ -12,26 +12,16 @@ import (
 )
 
 func (s *Store) GetUserByExpressHuid(ctx context.Context, expressHuid uuid.UUID) (User, error) {
-	const q = `SELECT id, provider, provider_sub, email, display_name, role, locale, slack_user_id, express_user_huid, created_at FROM users WHERE express_user_huid = $1`
-	var user User
-	err := s.pool.QueryRow(ctx, q, expressHuid).Scan(
-		&user.ID, &user.Provider, &user.ProviderSub, &user.Email, &user.DisplayName,
-		&user.Role, &user.Locale, &user.SlackUserID, &user.ExpressUserHuid, &user.CreatedAt,
-	)
-	return user, err
+	q := `SELECT ` + userSelectColumns + ` FROM users WHERE express_user_huid = $1`
+	return scanUser(s.pool.QueryRow(ctx, q, expressHuid))
 }
 
 func (s *Store) UpdateUserExpressHuid(ctx context.Context, userID, expressHuid uuid.UUID) (User, error) {
-	const q = `
+	q := `
 UPDATE users SET express_user_huid = $2
 WHERE id = $1
-RETURNING id, provider, provider_sub, email, display_name, role, locale, slack_user_id, express_user_huid, created_at`
-	var user User
-	err := s.pool.QueryRow(ctx, q, userID, expressHuid).Scan(
-		&user.ID, &user.Provider, &user.ProviderSub, &user.Email, &user.DisplayName,
-		&user.Role, &user.Locale, &user.SlackUserID, &user.ExpressUserHuid, &user.CreatedAt,
-	)
-	return user, err
+RETURNING ` + userSelectColumns
+	return scanUser(s.pool.QueryRow(ctx, q, userID, expressHuid))
 }
 
 func (s *Store) CreateExpressLinkCode(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error) {
@@ -72,11 +62,11 @@ FOR UPDATE`, code).Scan(&userID)
 	err = tx.QueryRow(ctx, `
 UPDATE users SET express_user_huid = $2
 WHERE id = $1
-RETURNING id, provider, provider_sub, email, display_name, role, locale, slack_user_id, express_user_huid, created_at`,
+RETURNING `+userSelectColumns,
 		userID, expressHuid,
 	).Scan(
 		&user.ID, &user.Provider, &user.ProviderSub, &user.Email, &user.DisplayName,
-		&user.Role, &user.Locale, &user.SlackUserID, &user.ExpressUserHuid, &user.CreatedAt,
+		&user.Role, &user.Locale, &user.AvatarURL, &user.SlackUserID, &user.ExpressUserHuid, &user.CreatedAt,
 	)
 	if err != nil {
 		return User{}, err

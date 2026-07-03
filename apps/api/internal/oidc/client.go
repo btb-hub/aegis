@@ -11,6 +11,8 @@ type UserInfo struct {
 	Sub         string
 	Email       string
 	DisplayName string
+	AvatarURL   string
+	SlackUserID string
 }
 
 type Exchanger interface {
@@ -85,6 +87,9 @@ func UserInfoFromToken(provider string, token tokenExtras) *UserInfo {
 	if !ok || raw == "" {
 		return &UserInfo{Sub: "unknown", Email: "", DisplayName: provider + " user"}
 	}
-	_ = raw
-	return &UserInfo{Sub: "sub-from-token", Email: "user@example.com", DisplayName: provider + " user"}
+	claims, err := ParseIDTokenPayload(raw)
+	if err != nil {
+		return &UserInfo{Sub: "unknown", Email: "", DisplayName: provider + " user"}
+	}
+	return UserInfoFromClaims(provider, claims)
 }

@@ -92,7 +92,12 @@ func (h *AuthHandler) callback(c *gin.Context) {
 	}
 	c.SetCookie(sessionCookie, token, 0, "/", "", false, true)
 	if c.Query("format") == "json" {
-		WriteJSON(c, http.StatusOK, service.UserJSON(user))
+		profile, err := h.auth.CurrentUserProfile(c.Request.Context(), token)
+		if err != nil {
+			WriteJSON(c, http.StatusOK, service.UserJSON(user, nil))
+			return
+		}
+		WriteJSON(c, http.StatusOK, service.UserJSON(profile.User, profile.Identities))
 		return
 	}
 	redirectURL := h.publicURL
@@ -114,12 +119,12 @@ func (h *AuthHandler) logout(c *gin.Context) {
 
 func (h *AuthHandler) me(c *gin.Context) {
 	token, _ := c.Cookie(sessionCookie)
-	user, err := h.auth.CurrentUser(c.Request.Context(), token)
+	profile, err := h.auth.CurrentUserProfile(c.Request.Context(), token)
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	WriteJSON(c, http.StatusOK, service.UserJSON(user))
+	WriteJSON(c, http.StatusOK, service.UserJSON(profile.User, profile.Identities))
 }
 
 func (h *AuthHandler) patchMe(c *gin.Context) {
@@ -136,7 +141,12 @@ func (h *AuthHandler) patchMe(c *gin.Context) {
 		WriteError(c, err)
 		return
 	}
-	WriteJSON(c, http.StatusOK, service.UserJSON(user))
+	profile, err := h.auth.CurrentUserProfile(c.Request.Context(), token)
+	if err != nil {
+		WriteJSON(c, http.StatusOK, service.UserJSON(user, nil))
+		return
+	}
+	WriteJSON(c, http.StatusOK, service.UserJSON(profile.User, profile.Identities))
 }
 
 func SessionToken(c *gin.Context) string {

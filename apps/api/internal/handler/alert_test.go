@@ -81,7 +81,7 @@ func TestListAlertsWithTeamFilter(t *testing.T) {
 	alertRepo := &teamFilterAlertRepo{}
 	teamRepo := &teamLookupRepo{team: db.Team{ID: teamID, Name: "Platform"}}
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(teamRepo)
@@ -104,7 +104,7 @@ func TestListAlertsWithTeamFilter(t *testing.T) {
 func TestListAlertsUnknownTeam(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(&emptyTeamRepo{})
@@ -131,7 +131,7 @@ func TestListAlertsRepoError(t *testing.T) {
 			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
 		},
 	}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(&emptyTeamRepo{})
@@ -296,7 +296,7 @@ func TestListAlertsInvalidGroupBy(t *testing.T) {
 func TestListAlertsGroupRepoError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(&emptyTeamRepo{})
@@ -379,7 +379,7 @@ func TestExportAlertsWithTeamFilter(t *testing.T) {
 	alertRepo := &teamFilterAlertRepo{}
 	teamRepo := &teamLookupRepo{team: db.Team{ID: teamID, Name: "Platform"}}
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(teamRepo)
@@ -401,7 +401,7 @@ func TestExportAlertsWithTeamFilter(t *testing.T) {
 func TestListAlertsAnalyticsError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(&emptyTeamRepo{})

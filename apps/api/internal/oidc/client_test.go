@@ -1,6 +1,8 @@
 package oidc
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,6 +22,11 @@ func TestUserInfoFromTokenFallback(t *testing.T) {
 }
 
 func TestUserInfoFromTokenWithIDToken(t *testing.T) {
-	info := UserInfoFromToken("slack", fakeToken{extras: map[string]any{"id_token": "jwt"}})
+	claims := map[string]any{"sub": "sub-from-token", "email": "user@example.com", "name": "Example User"}
+	payload, err := json.Marshal(claims)
+	require.NoError(t, err)
+	token := "hdr." + base64.RawURLEncoding.EncodeToString(payload) + ".sig"
+	info := UserInfoFromToken("slack", fakeToken{extras: map[string]any{"id_token": token}})
 	require.Equal(t, "sub-from-token", info.Sub)
+	require.Equal(t, "user@example.com", info.Email)
 }

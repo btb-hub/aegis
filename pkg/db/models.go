@@ -8,16 +8,25 @@ import (
 )
 
 type User struct {
-	ID              uuid.UUID `json:"id"`
-	Provider        string    `json:"provider"`
-	ProviderSub     string    `json:"provider_sub"`
-	Email           string    `json:"email"`
-	DisplayName     string    `json:"display_name"`
-	Role            string    `json:"role"`
-	Locale          string    `json:"locale"`
-	SlackUserID     *string   `json:"slack_user_id"`
+	ID              uuid.UUID   `json:"id"`
+	Provider        string      `json:"provider"`
+	ProviderSub     string      `json:"provider_sub"`
+	Email           string      `json:"email"`
+	DisplayName     string      `json:"display_name"`
+	Role            string      `json:"role"`
+	Locale          string      `json:"locale"`
+	AvatarURL       *string     `json:"avatar_url,omitempty"`
+	SlackUserID     *string     `json:"slack_user_id,omitempty"`
 	ExpressUserHuid pgtype.UUID `json:"express_user_huid"`
-	CreatedAt       time.Time `json:"created_at"`
+	CreatedAt       time.Time   `json:"created_at"`
+}
+
+type UserIdentity struct {
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	Provider    string    `json:"provider"`
+	ProviderSub string    `json:"provider_sub"`
+	LinkedAt    time.Time `json:"linked_at"`
 }
 
 type Session struct {

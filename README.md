@@ -97,6 +97,7 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000008_saved_views` | saved_views for alert workspace |
 | `000009_handoffs` | handoffs for L2→L3 tracking and analytics |
 | `000010_dev_auth_provider` | allow `dev` OIDC provider for local dev login |
+| `000011_user_identities` | `user_identities`, `avatar_url`, `audit_log`; backfill SSO identities |
 
 ### Frontend (`apps/web/`)
 
