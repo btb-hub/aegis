@@ -126,20 +126,21 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-067 — Teams management UI
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** AEG-065, AEG-058, AEG-056
 - **PRD:** REQ-SHIFT-01
 - **Acceptance:**
-  - [ ] `/teams` page (admin mutations; all roles can list): create team (name, description), edit, delete
-  - [ ] Team detail: list members; add member via user search picker (`GET /users?q=`); remove member;
+  - [x] `/teams` page (admin mutations; all roles can list): create team (name, description), edit, delete
+  - [x] Team detail: list members; add member via user search picker (`GET /users?q=`); remove member;
         optional `team_role` (`member` | `lead`)
-  - [ ] Empty state when no teams: CTA to create first team
-  - [ ] Nav entry or shifts breadcrumb links to team list
-  - [ ] Copy in `en` + `ru`; Vitest for create flow and member add; Storybook for `TeamMemberPicker` (or
+  - [x] Empty state when no teams: CTA to create first team
+  - [x] Nav entry or shifts breadcrumb links to team list
+  - [x] Copy in `en` + `ru`; Vitest for create flow and member add; Storybook for `TeamMemberPicker` (or
         equivalent shared component)
 
-**Plan:** TanStack Query hooks for teams/members/users APIs; reuse design-system `Button`, `Input`, `Modal`;
-admin-only action buttons gated on `user.role === 'admin'`.
+**Plan:** `TeamsPage` + `TeamDetailPage` with inline fetch; `TeamMemberPicker` for admin user search;
+`Modal` for create/edit/delete; nav + shifts breadcrumb link to `/teams`. Branch:
+`feat/teams-AEG-067-teams-management-ui`.
 
 ---
 
