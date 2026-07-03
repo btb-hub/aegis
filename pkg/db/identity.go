@@ -140,6 +140,32 @@ ORDER BY linked_at`
 	return identities, rows.Err()
 }
 
+func (s *Store) ListUserIdentitiesByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][]UserIdentity, error) {
+	out := make(map[uuid.UUID][]UserIdentity, len(userIDs))
+	if len(userIDs) == 0 {
+		return out, nil
+	}
+	const q = `
+SELECT id, user_id, provider, provider_sub, linked_at
+FROM user_identities
+WHERE user_id = ANY($1)
+ORDER BY user_id, provider`
+	rows, err := s.pool.Query(ctx, q, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var identity UserIdentity
+		if err := rows.Scan(&identity.ID, &identity.UserID, &identity.Provider, &identity.ProviderSub, &identity.LinkedAt); err != nil {
+			return nil, err
+		}
+		out[identity.UserID] = append(out[identity.UserID], identity)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) EnsureDevIdentity(ctx context.Context, userID uuid.UUID) error {
 	_, err := s.pool.Exec(ctx, `
 INSERT INTO user_identities (user_id, provider, provider_sub)

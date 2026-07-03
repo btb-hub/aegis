@@ -123,7 +123,7 @@ handoff analytics work.*
 
 **Next story:** none on Phase 7 — see Phase 8 below.
 
-## Phase 8 — Teams, users & shifts setup *(Next — this branch)*
+## Phase 8 — Teams, users & shifts setup *(In progress)*
 
 *Exit: admin creates a team, adds SSO-like users, defines a rotation and overrides in the UI; shifts
 calendar shows live on-call data; local dev can seed realistic users without OIDC.*

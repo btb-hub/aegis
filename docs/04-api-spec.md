@@ -121,6 +121,37 @@ Add member body: `{"user_id": "uuid", "team_role": "member" | "lead"}` (defaults
 
 Member response includes `user_id`, `team_role`, `email`, `display_name`.
 
+## Users (Phase 8)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/users` | session + admin | Paginated user directory for member pickers |
+
+Query params: `q` (search email and display name), `page` (default 1), `page_size` (default 100, max 100).
+
+**Implemented (AEG-065):** Response items match `GET /auth/me` user fields: `id`, `email`, `display_name`, `role`, `avatar_url`, `slack_user_id`, `express_user_huid`, and `identities[]`. Sorted by `display_name` ascending.
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "email": "alice@example.com",
+      "display_name": "Alice",
+      "role": "member",
+      "locale": "en",
+      "provider": "google",
+      "identities": [
+        {"provider": "google", "provider_sub": "…", "linked_at": "2026-07-03T12:00:00Z"}
+      ]
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 100
+}
+```
+
 Create/update schedule body:
 
 ```json
