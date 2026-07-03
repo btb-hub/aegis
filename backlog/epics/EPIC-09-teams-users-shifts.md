@@ -85,7 +85,7 @@ update [`03-data-model.md`](../docs/03-data-model.md). Branch: `feat/identity-AE
 
 ### AEG-065 — Users list API (admin)
 
-- **Status:** In Progress
+- **Status:** Done
 - **Depends on:** AEG-064
 - **PRD:** REQ-SHIFT-01 (admins assign members)
 - **Acceptance:**
@@ -105,20 +105,22 @@ reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
 
 ### AEG-066 — Dev user seeds
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** AEG-064
 - **PRD:** NFR-1 (local setup); supports REQ-SHIFT-01 local testing
 - **Acceptance:**
-  - [ ] `make seed-dev` (or `go run ./cmd/seed-dev`) upserts a fixed set of users idempotently
-  - [ ] At least: 1 Google, 1 Slack (with `slack_user_id` + avatar), 1 eXpress (with `express_user_huid` +
+  - [x] `make seed-dev` (or `go run ./cmd/seed-dev`) upserts a fixed set of users idempotently
+  - [x] At least: 1 Google, 1 Slack (with `slack_user_id` + avatar), 1 eXpress (with `express_user_huid` +
         avatar), 1 admin-capable dev-style row optional
-  - [ ] Each seed user has: `email`, `display_name`, `avatar_url`, plus `user_identities` rows for
+  - [x] Each seed user has: `email`, `display_name`, `avatar_url`, plus `user_identities` rows for
         google/slack/express as appropriate; Slack/eXpress include provider-specific ids
-  - [ ] Avatars use stable public placeholder URLs (no secrets, no binary blobs in repo)
-  - [ ] Documented in `README.md` and `docs/07-setup-deployment.md` under local dev
-  - [ ] Seed does not run in production (guard: `PUBLIC_URL` localhost or explicit `SEED_DEV=1`)
+  - [x] Avatars use stable public placeholder URLs (no secrets, no binary blobs in repo)
+  - [x] Documented in `README.md` and `docs/07-setup-deployment.md` under local dev
+  - [x] Seed does not run in production (guard: `PUBLIC_URL` localhost or explicit `SEED_DEV=1`)
 
-**Plan:** `db/seeds/dev_users.sql` or Go seed command invoked by Makefile; uses same upsert keys as SSO.
+**Plan:** `pkg/db/seed_dev.go` with idempotent `UpsertSeedDevUser`; `apps/api/cmd/seed-dev` CLI;
+`make seed-dev` via Makefile. Guard with localhost `PUBLIC_URL` or `SEED_DEV=1`. Branch:
+`feat/users-AEG-066-dev-users-seed`.
 
 ---
 
