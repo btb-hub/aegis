@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -30,6 +31,10 @@ func (m *mockUsers) UpsertUser(ctx context.Context, provider, providerSub, email
 	}
 	m.users[user.ID] = user
 	return user, nil
+}
+
+func (m *mockUsers) UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error) {
+	return m.UpsertUser(ctx, "dev", "dev-local", email, displayName, role, locale)
 }
 
 func (m *mockUsers) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
@@ -121,6 +126,66 @@ func TestAuthCompleteLoginCreatesSession(t *testing.T) {
 	require.NotEmpty(t, token)
 	require.NotEmpty(t, user.ID)
 	require.Len(t, sessions.byHash, 1)
+}
+
+func TestAuthDevLoginDisabled(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	_, _, err := svc.DevLogin(context.Background(), "admin")
+	require.Error(t, err)
+	appErr, ok := err.(*apperrors.Error)
+	require.True(t, ok)
+	require.Equal(t, http.StatusNotFound, appErr.StatusCode)
+}
+
+func TestAuthDevLoginCreatesAdminSession(t *testing.T) {
+	svc, users, sessions := testAuthService(t)
+	svc.cfg.DevAuthEnabled = true
+	svc.cfg.DevAuthEmail = "dev@localhost"
+
+	token, user, err := svc.DevLogin(context.Background(), "admin")
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+	require.Equal(t, "admin", user.Role)
+	require.Equal(t, "dev", user.Provider)
+	require.Equal(t, "dev@localhost", user.Email)
+	require.Len(t, users.users, 1)
+	require.Len(t, sessions.byHash, 1)
+
+	current, err := svc.CurrentUser(context.Background(), token)
+	require.NoError(t, err)
+	require.Equal(t, "admin", current.Role)
+}
+
+func TestAuthDevLoginInvalidRole(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	svc.cfg.DevAuthEnabled = true
+
+	_, _, err := svc.DevLogin(context.Background(), "superuser")
+	require.Error(t, err)
+	appErr, ok := err.(*apperrors.Error)
+	require.True(t, ok)
+	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+}
+
+func TestAuthDevLoginUsesDefaultRole(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	svc.cfg.DevAuthEnabled = true
+	svc.cfg.DevAuthDefaultRole = "viewer"
+
+	token, user, err := svc.DevLogin(context.Background(), "")
+	require.NoError(t, err)
+	require.Equal(t, "viewer", user.Role)
+
+	current, err := svc.CurrentUser(context.Background(), token)
+	require.NoError(t, err)
+	require.Equal(t, "viewer", current.Role)
+}
+
+func TestAuthDevAuthEnabled(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	require.False(t, svc.DevAuthEnabled())
+	svc.cfg.DevAuthEnabled = true
+	require.True(t, svc.DevAuthEnabled())
 }
 
 func TestAuthCurrentUserAndLogout(t *testing.T) {

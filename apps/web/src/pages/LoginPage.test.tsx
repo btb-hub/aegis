@@ -18,6 +18,24 @@ function renderLoginPage() {
   );
 }
 
+function mockAuthFetches(devEnabled: boolean) {
+  vi.mocked(fetch).mockImplementation(async (input) => {
+    const url = String(input);
+    if (url.includes('/auth/dev/status')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ enabled: devEnabled }),
+      } as Response;
+    }
+    return {
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    } as Response;
+  });
+}
+
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
@@ -28,11 +46,7 @@ describe('LoginPage', () => {
   });
 
   it('renders provider sign-in links when unsigned', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      json: async () => ({}),
-    } as Response);
+    mockAuthFetches(false);
 
     renderLoginPage();
 
@@ -50,5 +64,20 @@ describe('LoginPage', () => {
       'href',
       '/auth/express/login',
     );
+    expect(screen.queryByRole('link', { name: 'Dev sign in' })).not.toBeInTheDocument();
+  });
+
+  it('shows dev sign-in when dev auth is enabled', async () => {
+    mockAuthFetches(true);
+
+    renderLoginPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Dev sign in' })).toHaveAttribute(
+        'href',
+        '/auth/dev/login?role=admin',
+      );
+    });
+    expect(screen.getByText('Local development only. Do not enable in production.')).toBeInTheDocument();
   });
 });

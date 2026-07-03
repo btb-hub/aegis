@@ -13,12 +13,14 @@ import (
 	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/locale"
+	"github.com/aegis/aegis/pkg/rbac"
 	"github.com/aegis/aegis/pkg/sessiontoken"
 	"github.com/google/uuid"
 )
 
 type UserRepository interface {
 	UpsertUser(ctx context.Context, provider, providerSub, email, displayName, role, locale string) (db.User, error)
+	UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error)
 }
@@ -35,6 +37,10 @@ type TokenExchanger interface {
 	AuthCodeURL(provider string, state string) (string, error)
 	Exchange(ctx context.Context, provider, code string) (*OIDCUserInfo, error)
 }
+
+const (
+	devAuthDisplayName = "Local Dev User"
+)
 
 type AuthService struct {
 	cfg      *config.Config
@@ -69,6 +75,44 @@ func (s *AuthService) LoginURL(provider string) (string, string, error) {
 		return "", "", err
 	}
 	return url, state, nil
+}
+
+func (s *AuthService) DevAuthEnabled() bool {
+	return s.cfg.DevAuthEnabled
+}
+
+func (s *AuthService) DevLogin(ctx context.Context, role string) (token string, user db.User, err error) {
+	if !s.cfg.DevAuthEnabled {
+		return "", db.User{}, apperrors.NotFound("dev auth")
+	}
+	if role == "" {
+		role = s.cfg.DevAuthDefaultRole
+	}
+	parsedRole, err := rbac.Parse(role)
+	if err != nil {
+		return "", db.User{}, apperrors.Validation("invalid role", map[string]any{"role": role})
+	}
+
+	user, err = s.users.UpsertDevUser(
+		ctx,
+		s.cfg.DevAuthEmail,
+		devAuthDisplayName,
+		string(parsedRole),
+		"en",
+	)
+	if err != nil {
+		return "", db.User{}, err
+	}
+
+	rawToken, hash, err := sessiontoken.New()
+	if err != nil {
+		return "", db.User{}, err
+	}
+	expires := s.now().Add(s.cfg.SessionTTL)
+	if _, err := s.sessions.CreateSession(ctx, user.ID, hash, expires); err != nil {
+		return "", db.User{}, err
+	}
+	return rawToken, user, nil
 }
 
 func (s *AuthService) CompleteLogin(ctx context.Context, provider, code string) (token string, user db.User, err error) {

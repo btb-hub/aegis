@@ -37,6 +37,21 @@ RETURNING id, provider, provider_sub, email, display_name, role, locale, slack_u
 	return user, err
 }
 
+func (s *Store) UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (User, error) {
+	const q = `
+INSERT INTO users (provider, provider_sub, email, display_name, role, locale)
+VALUES ('dev', 'dev-local', $1, $2, $3, $4)
+ON CONFLICT (provider, provider_sub) DO UPDATE
+SET email = EXCLUDED.email, display_name = EXCLUDED.display_name, role = EXCLUDED.role
+RETURNING id, provider, provider_sub, email, display_name, role, locale, slack_user_id, express_user_huid, created_at`
+	var user User
+	err := s.pool.QueryRow(ctx, q, email, displayName, role, locale).Scan(
+		&user.ID, &user.Provider, &user.ProviderSub, &user.Email, &user.DisplayName,
+		&user.Role, &user.Locale, &user.SlackUserID, &user.ExpressUserHuid, &user.CreatedAt,
+	)
+	return user, err
+}
+
 func (s *Store) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	const q = `SELECT id, provider, provider_sub, email, display_name, role, locale, slack_user_id, express_user_huid, created_at FROM users WHERE id = $1`
 	var user User

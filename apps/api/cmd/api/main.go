@@ -36,6 +36,9 @@ func main() {
 	if err := loadI18n(); err != nil {
 		log.Fatalf("i18n: %v", err)
 	}
+	if cfg.DevAuthEnabled {
+		log.Printf("WARNING: DEV_AUTH_ENABLED — dev login active; never use in production")
+	}
 
 	store := db.NewStore(pool)
 	auth := service.NewAuthService(cfg, store, store, service.NewOAuthTokenExchanger(cfg))

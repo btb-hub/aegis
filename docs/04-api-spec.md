@@ -14,6 +14,15 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | GET | `/auth/me` | session | Current user + role + locale |
 | PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`) |
 
+### Development only
+
+Available when `DEV_AUTH_ENABLED=true` and `PUBLIC_URL` points at localhost. Disabled by default; must not be enabled in production.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/auth/dev/status` | — | `{ "enabled": true \| false }` |
+| GET | `/auth/dev/login` | — | Create dev user session; `302` to `PUBLIC_URL`. Query: `role` (`admin` \| `member` \| `viewer`, default from env), optional `redirect` (relative path). Returns `404` when disabled. |
+
 ## Health
 
 | Method | Path | Description |

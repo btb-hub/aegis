@@ -100,6 +100,16 @@ Open `http://localhost:6006`. Build static catalog for CI: `npm run build-storyb
 | `EXPRESS_OIDC_CLIENT_SECRET` | |
 | `EXPRESS_OIDC_REDIRECT_URL` | |
 
+### Local dev auth (development only)
+
+| Variable | Description |
+|----------|-------------|
+| `DEV_AUTH_ENABLED` | Set to `true` to enable **Dev sign in** on `/login` (default off) |
+| `DEV_AUTH_DEFAULT_ROLE` | Role for dev login when `?role=` omitted (`admin`, `member`, `viewer`; default `admin`) |
+| `DEV_AUTH_EMAIL` | Email stored on the dev user (default `dev@localhost`) |
+
+Requires `PUBLIC_URL` host to be `localhost`, `127.0.0.1`, or `[::1]`. The API logs a warning at startup when enabled. **Never set in production.**
+
 ### Integrations (also storable per-row in DB after setup)
 
 - Jira: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`
@@ -117,12 +127,38 @@ export DATABASE_URL=postgres://aegis:aegis@localhost:5432/aegis?sslmode=disable
 make migrate-up
 ```
 
+## Local testing without OIDC
+
+To exercise Alerts, Integrations, Dashboard, and Setup without Google/Slack/eXpress app registration:
+
+1. Copy env template: `make setup-local` (or `make setup` for Docker).
+2. Set in `.env`:
+   ```bash
+   DEV_AUTH_ENABLED=true
+   PUBLIC_URL=http://localhost:3000   # native dev; use http://localhost:8080 for API-only Docker
+   ```
+3. Apply migrations (`000010_dev_auth_provider` adds the `dev` user provider):
+   ```bash
+   make dev-db-down && make dev-db   # reapplies migrations in Docker
+   # or: make migrate-up when golang-migrate CLI is installed
+   ```
+4. Restart the API (`make dev-api` or `make up`).
+5. Open http://localhost:3000/login and click **Dev sign in**.
+6. Confirm `GET /auth/me` returns your dev user with role `admin`.
+
+If dev login fails, you are redirected to `/login?dev_auth_error=1`.
+
+Integrations and setup test-alert require the admin role; the default dev login uses `admin`. To test
+viewer/member RBAC, use `/auth/dev/login?role=viewer` or `?role=member`.
+
+For production-like sign-in testing, configure real OIDC credentials instead (see tables above).
+
 ## Setup wizard (Phase 6)
 
 Route: `/setup` in the web app (multi-step wizard; progress in `localStorage`).
 
 1. **Health** — `GET /healthz` on the API (≈ 2 min)
-2. **OIDC** — sign in via `/login` and confirm `GET /auth/me` (≈ 30–60 min with IdP app registration)
+2. **OIDC** — sign in via `/login` and confirm `GET /auth/me` (≈ 30–60 min with IdP app registration, or use **Dev sign in** locally when `DEV_AUTH_ENABLED=true`)
 3. **Integrations** — save + test Jira, Slack, eXpress via `/api/v1/integrations` (≈ 2–4 h depending on credentials)
 4. **Test alert** — `POST /api/v1/setup/test-alert` from the wizard (≈ 5 min)
 5. **Dashboard** — open `/dashboard` and confirm the five widgets load

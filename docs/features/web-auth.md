@@ -22,6 +22,20 @@ App load -> GET /auth/me -> shell shows user + Sign out
 Protected routes -> redirect to /login if no session
 ```
 
+## Dev login (local only)
+
+When `DEV_AUTH_ENABLED=true` and `PUBLIC_URL` is localhost, the API exposes dev auth routes and the
+login page shows **Dev sign in**. This creates a real `users` row and session cookie — same middleware
+as OIDC. **Never enable in production.**
+
+```text
+/login -> Dev sign in -> GET /auth/dev/login?role=admin -> session cookie -> app
+GET /auth/dev/status -> { "enabled": true }   (no session required)
+```
+
+Disable by unsetting `DEV_AUTH_ENABLED` or setting it to `false`. `GET /auth/dev/login` returns `404`
+when disabled.
+
 ## Login page
 
 - Three provider buttons only (no local password).
