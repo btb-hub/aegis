@@ -55,6 +55,7 @@ func main() {
 	integrationsSvc := service.NewIntegrationService(store, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(store)
 	savedViews := service.NewSavedViewService(store)
+	users := service.NewUserService(store)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -64,6 +65,7 @@ func main() {
 	handler.NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	handler.NewAlertHandler(alerts, teams, auth).Register(r)
 	handler.NewTeamHandler(teams, auth).Register(r)
+	handler.NewUserHandler(users, auth).Register(r)
 	handler.NewScheduleHandler(schedules, auth).Register(r)
 	handler.NewOverrideHandler(overrides, auth).Register(r)
 	handler.NewOnCallHandler(oncall, auth).Register(r)

@@ -48,7 +48,7 @@ changing RBAC model, production IdP changes, Helm/K8s.
 
 ### AEG-064 — OIDC identities, backfill, and profile fields
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-005
 - **PRD:** REQ-AUTH-01, REQ-AUTH-03; [`09-security.md`](../docs/09-security.md) flow step 3–4
 - **Acceptance:**
@@ -85,19 +85,21 @@ update [`03-data-model.md`](../docs/03-data-model.md). Branch: `feat/identity-AE
 
 ### AEG-065 — Users list API (admin)
 
-- **Status:** Ready
+- **Status:** In Progress
 - **Depends on:** AEG-064
 - **PRD:** REQ-SHIFT-01 (admins assign members)
 - **Acceptance:**
-  - [ ] `GET /api/v1/users` — session + admin; paginated list with `q` search on email/display_name
-  - [ ] Response items: `id`, `email`, `display_name`, `role`, `avatar_url`, `identities[]` (or
+  - [x] `GET /api/v1/users` — session + admin; paginated list with `q` search on email/display_name
+  - [x] Response items: `id`, `email`, `display_name`, `role`, `avatar_url`, `identities[]` (or
         `providers[]`), `slack_user_id`, `express_user_huid`
-  - [ ] Default sort: `display_name` asc; `page` / `page_size` (max 100)
-  - [ ] Documented in `docs/04-api-spec.md`
-  - [ ] Handler + service tests including authz (member gets 403)
+  - [x] Default sort: `display_name` asc; `page` / `page_size` (max 100)
+  - [x] Documented in `docs/04-api-spec.md`
+  - [x] Handler + service tests including authz (member gets 403)
 
-**Plan:** Store query + `UserService.ListUsers`; `UserHandler` registered in API main; sqlc optional
-(raw query in store is fine if faster).
+**Plan:** `pkg/db/users.go` — paginated list + count with `q` on email/display_name; batch-load
+identities per page. `UserService.ListUsers` + `UserHandler` on `GET /api/v1/users` (admin only);
+reuse `UserJSON`. Tests: service mock + handler authz (member → 403). Branch:
+`feat/users-AEG-065-users-list-api`.
 
 ---
 
