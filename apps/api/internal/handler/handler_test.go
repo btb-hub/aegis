@@ -111,6 +111,14 @@ func (m *authMockUsers) UpdateUserLocale(ctx context.Context, id uuid.UUID, loca
 	return user, nil
 }
 
+func (m *authMockUsers) UpdateUserProfile(ctx context.Context, id uuid.UUID, displayName, locale string) (db.User, error) {
+	user := m.users[id]
+	user.DisplayName = displayName
+	user.Locale = locale
+	m.users[id] = user
+	return user, nil
+}
+
 type authMockSessions struct{ byHash map[string]db.Session }
 
 func (m *authMockSessions) CreateSession(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.Session, error) {

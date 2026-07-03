@@ -1,15 +1,21 @@
 import { useTranslation } from 'react-i18next';
 import i18n, { persistLocale } from '../../i18n';
+import { patchAuthMe } from '../../lib/authTypes';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 
 export function LanguageSwitcher() {
   const { t, i18n: i18next } = useTranslation();
+  const { user, refresh } = useAuth();
   const current = i18next.language.startsWith('ru') ? 'ru' : 'en';
 
   const setLocale = (locale: 'en' | 'ru') => {
     persistLocale(locale);
     void i18n.changeLanguage(locale);
     document.documentElement.lang = locale;
+    if (user) {
+      void patchAuthMe({ locale }).then(() => refresh()).catch(() => undefined);
+    }
   };
 
   return (

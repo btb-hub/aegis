@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/aegis/aegis/apps/api/internal/service"
+	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -129,14 +130,22 @@ func (h *AuthHandler) me(c *gin.Context) {
 
 func (h *AuthHandler) patchMe(c *gin.Context) {
 	var body struct {
-		Locale string `json:"locale"`
+		Locale      *string `json:"locale"`
+		DisplayName *string `json:"display_name"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
 		return
 	}
+	if body.Locale == nil && body.DisplayName == nil {
+		WriteError(c, apperrors.Validation("locale or display_name is required", nil))
+		return
+	}
 	token, _ := c.Cookie(sessionCookie)
-	user, err := h.auth.UpdateLocale(c.Request.Context(), token, body.Locale)
+	user, err := h.auth.UpdateProfile(c.Request.Context(), token, service.UpdateProfileInput{
+		DisplayName: body.DisplayName,
+		Locale:      body.Locale,
+	})
 	if err != nil {
 		WriteError(c, err)
 		return

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -182,6 +183,50 @@ func TestAuthUpdateLocaleSuccess(t *testing.T) {
 
 	user, err := svc.UpdateLocale(context.Background(), token, "ru")
 	require.NoError(t, err)
+	require.Equal(t, "ru", user.Locale)
+}
+
+func TestAuthUpdateProfileDisplayName(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	token, _, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	name := "  Alice Updated  "
+	user, err := svc.UpdateProfile(context.Background(), token, UpdateProfileInput{DisplayName: &name})
+	require.NoError(t, err)
+	require.Equal(t, "Alice Updated", user.DisplayName)
+}
+
+func TestAuthUpdateProfileEmptyDisplayName(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	token, _, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	empty := "   "
+	_, err = svc.UpdateProfile(context.Background(), token, UpdateProfileInput{DisplayName: &empty})
+	require.Error(t, err)
+}
+
+func TestAuthUpdateProfileLongDisplayName(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	token, _, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	long := strings.Repeat("a", maxDisplayNameLength+1)
+	_, err = svc.UpdateProfile(context.Background(), token, UpdateProfileInput{DisplayName: &long})
+	require.Error(t, err)
+}
+
+func TestAuthUpdateProfileBothFields(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	token, _, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	name := "New Name"
+	locale := "ru"
+	user, err := svc.UpdateProfile(context.Background(), token, UpdateProfileInput{DisplayName: &name, Locale: &locale})
+	require.NoError(t, err)
+	require.Equal(t, "New Name", user.DisplayName)
 	require.Equal(t, "ru", user.Locale)
 }
 

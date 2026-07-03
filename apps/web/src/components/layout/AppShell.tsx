@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import type { AuthUser } from '../../lib/authTypes';
 import { Button } from '../ui/Button';
@@ -65,7 +65,9 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
         <header className="flex h-14 items-center justify-end gap-4 border-b border-zinc-200 bg-white px-4">
           {user ? (
             <div className="flex items-center gap-3 text-sm text-zinc-700">
-              <span>{user.display_name || user.email}</span>
+              <Link to="/account" className="font-medium text-zinc-900 hover:text-accent">
+                {user.display_name || user.email}
+              </Link>
               <Button
                 variant="ghost"
                 onClick={() => {

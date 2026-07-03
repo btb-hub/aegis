@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aegis/aegis/apps/api/internal/oidc"
@@ -24,6 +25,7 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	ListUserIdentities(ctx context.Context, userID uuid.UUID) ([]db.UserIdentity, error)
 	UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error)
+	UpdateUserProfile(ctx context.Context, id uuid.UUID, displayName, locale string) (db.User, error)
 }
 
 type SessionRepository interface {
@@ -186,14 +188,43 @@ func (s *AuthService) CurrentUserProfile(ctx context.Context, token string) (Use
 }
 
 func (s *AuthService) UpdateLocale(ctx context.Context, token, newLocale string) (db.User, error) {
-	if err := locale.Validate(newLocale); err != nil {
-		return db.User{}, apperrors.InvalidLocale()
-	}
+	return s.UpdateProfile(ctx, token, UpdateProfileInput{Locale: &newLocale})
+}
+
+type UpdateProfileInput struct {
+	DisplayName *string
+	Locale      *string
+}
+
+const maxDisplayNameLength = 120
+
+func (s *AuthService) UpdateProfile(ctx context.Context, token string, input UpdateProfileInput) (db.User, error) {
 	user, err := s.CurrentUser(ctx, token)
 	if err != nil {
 		return db.User{}, err
 	}
-	return s.users.UpdateUserLocale(ctx, user.ID, newLocale)
+
+	displayName := user.DisplayName
+	if input.DisplayName != nil {
+		trimmed := strings.TrimSpace(*input.DisplayName)
+		if trimmed == "" {
+			return db.User{}, apperrors.Validation("display_name must not be empty", nil)
+		}
+		if len(trimmed) > maxDisplayNameLength {
+			return db.User{}, apperrors.Validation("display_name is too long", nil)
+		}
+		displayName = trimmed
+	}
+
+	localeValue := user.Locale
+	if input.Locale != nil {
+		if err := locale.Validate(*input.Locale); err != nil {
+			return db.User{}, apperrors.InvalidLocale()
+		}
+		localeValue = *input.Locale
+	}
+
+	return s.users.UpdateUserProfile(ctx, user.ID, displayName, localeValue)
 }
 
 func randomState() (string, error) {
