@@ -32,7 +32,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
 		},
 	}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
@@ -46,17 +46,43 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 	return r, auth
 }
 
-type authMockUsers struct{ users map[uuid.UUID]db.User }
+type authMockUsers struct {
+	users             map[uuid.UUID]db.User
+	identities        map[string]db.UserIdentity
+	listIdentitiesErr error
+}
 
-func (m *authMockUsers) UpsertUser(ctx context.Context, provider, providerSub, email, displayName, role, locale string) (db.User, error) {
-	user := db.User{ID: uuid.New(), Provider: provider, Email: email, DisplayName: displayName, Role: role, Locale: locale}
+func newAuthMockUsers() *authMockUsers {
+	return &authMockUsers{
+		users:      map[uuid.UUID]db.User{},
+		identities: map[string]db.UserIdentity{},
+	}
+}
+
+func (m *authMockUsers) ResolveOIDCLogin(ctx context.Context, input db.OIDCLoginInput) (db.OIDCLoginResult, error) {
+	user := db.User{
+		ID:          uuid.New(),
+		Provider:    input.Provider,
+		ProviderSub: input.ProviderSub,
+		Email:       input.Email,
+		DisplayName: input.DisplayName,
+		Role:        "member",
+		Locale:      "en",
+	}
+	m.users[user.ID] = user
+	identity := db.UserIdentity{
+		ID: uuid.New(), UserID: user.ID, Provider: input.Provider, ProviderSub: input.ProviderSub, LinkedAt: time.Now(),
+	}
+	m.identities[input.Provider+":"+input.ProviderSub] = identity
+	return db.OIDCLoginResult{User: user, Identities: []db.UserIdentity{identity}, NewIdentityLinked: true}, nil
+}
+
+func (m *authMockUsers) UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error) {
+	user := db.User{ID: uuid.New(), Provider: "dev", Email: email, DisplayName: displayName, Role: role, Locale: locale}
 	m.users[user.ID] = user
 	return user, nil
 }
 
-func (m *authMockUsers) UpsertDevUser(ctx context.Context, email, displayName, role, locale string) (db.User, error) {
-	return m.UpsertUser(ctx, "dev", "dev-local", email, displayName, role, locale)
-}
 func (m *authMockUsers) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
 	user, ok := m.users[id]
 	if !ok {
@@ -64,6 +90,20 @@ func (m *authMockUsers) GetUserByID(ctx context.Context, id uuid.UUID) (db.User,
 	}
 	return user, nil
 }
+
+func (m *authMockUsers) ListUserIdentities(ctx context.Context, userID uuid.UUID) ([]db.UserIdentity, error) {
+	if m.listIdentitiesErr != nil {
+		return nil, m.listIdentitiesErr
+	}
+	var items []db.UserIdentity
+	for _, identity := range m.identities {
+		if identity.UserID == userID {
+			items = append(items, identity)
+		}
+	}
+	return items, nil
+}
+
 func (m *authMockUsers) UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error) {
 	user := m.users[id]
 	user.Locale = locale
@@ -246,6 +286,29 @@ func TestAuthCallbackAndMe(t *testing.T) {
 	req2.AddCookie(&http.Cookie{Name: sessionCookie, Value: session})
 	r.ServeHTTP(w2, req2)
 	require.Equal(t, http.StatusOK, w2.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w2.Body.Bytes(), &body))
+	require.NotNil(t, body["identities"])
+}
+
+func TestPatchMeSuccessReturnsIdentities(t *testing.T) {
+	r, auth := setupRouter(t)
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	payload, _ := json.Marshal(map[string]string{"locale": "ru"})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/auth/me", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "ru", body["locale"])
+	require.NotNil(t, body["identities"])
 }
 
 func TestPatchMeInvalidLocale(t *testing.T) {
@@ -310,6 +373,34 @@ func TestCallbackJSONFormat(t *testing.T) {
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	require.Equal(t, "u@example.com", body["email"])
+	require.NotNil(t, body["identities"])
+}
+
+func TestCallbackJSONWhenProfileLoadFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{
+		SessionTTL: time.Hour,
+		PublicURL:  "http://localhost:3000",
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newAuthMockUsers()
+	users.listIdentitiesErr = errors.New("identities unavailable")
+	auth := service.NewAuthService(cfg, users, &authMockSessions{byHash: map[string]db.Session{}}, &authMockOIDC{})
+	r := gin.New()
+	NewAuthHandler(auth, cfg.PublicURL).Register(r)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz&format=json", nil)
+	req.AddCookie(&http.Cookie{Name: "aegis_oauth_state", Value: "abc"})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "u@example.com", body["email"])
+	require.Nil(t, body["identities"])
 }
 
 func TestAuthCallbackBadState(t *testing.T) {

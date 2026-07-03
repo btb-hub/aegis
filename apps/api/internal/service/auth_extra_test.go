@@ -21,7 +21,7 @@ func TestAuthLoginStateFailure(t *testing.T) {
 
 func TestCompleteLoginExchangeFailure(t *testing.T) {
 	cfg := testOAuthConfig(t)
-	users := &mockUsers{users: map[uuid.UUID]db.User{}}
+	users := newIdentityMockUsers()
 	sessions := &mockSessions{byHash: map[string]db.Session{}}
 	svc := NewAuthService(cfg, users, sessions, failOIDC{})
 
@@ -31,7 +31,7 @@ func TestCompleteLoginExchangeFailure(t *testing.T) {
 
 func TestCompleteLoginSessionFailure(t *testing.T) {
 	cfg := testOAuthConfig(t)
-	users := &mockUsers{users: map[uuid.UUID]db.User{}}
+	users := newIdentityMockUsers()
 	sessions := &failSessions{}
 	svc := NewAuthService(cfg, users, sessions, &mockOIDC{})
 
@@ -57,7 +57,7 @@ func (f *failSessions) CreateSession(ctx context.Context, userID uuid.UUID, toke
 
 func TestLoginURLOIDCAuthFailure(t *testing.T) {
 	cfg := testOAuthConfig(t)
-	users := &mockUsers{users: map[uuid.UUID]db.User{}}
+	users := newIdentityMockUsers()
 	sessions := &mockSessions{byHash: map[string]db.Session{}}
 	svc := NewAuthService(cfg, users, sessions, failOIDC{})
 

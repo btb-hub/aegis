@@ -30,7 +30,7 @@ type shiftsHandlerRepo struct {
 func newShiftsHandlerRepo() *shiftsHandlerRepo {
 	return &shiftsHandlerRepo{
 		teamRepoMock: teamRepoMock{
-			authMockUsers:    authMockUsers{users: map[uuid.UUID]db.User{}},
+			authMockUsers:    *newAuthMockUsers(),
 			authMockSessions: authMockSessions{byHash: map[string]db.Session{}},
 			teams:            map[uuid.UUID]db.Team{},
 			memberships:      map[uuid.UUID]map[uuid.UUID]db.TeamMembership{},

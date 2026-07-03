@@ -24,7 +24,7 @@ func setupSavedViewRouter(t *testing.T) (*gin.Engine, *service.AuthService, *moc
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	repo := &mockSavedViewRepo{views: map[uuid.UUID]db.SavedView{}}
@@ -257,7 +257,7 @@ func TestSavedViewUpdateNotFound(t *testing.T) {
 func TestExportAlertsUnknownTeam(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(&emptyTeamRepo{})
@@ -291,7 +291,7 @@ func TestSavedViewGetInvalidID(t *testing.T) {
 func TestExportAlertsRepoError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{SessionTTL: time.Hour}
-	users := &authMockUsers{users: map[uuid.UUID]db.User{}}
+	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	teams := service.NewTeamService(&emptyTeamRepo{})
