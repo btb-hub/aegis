@@ -1,5 +1,5 @@
 .PHONY: lint type test tidy migrate-up migrate-down migrate-docker \
-	setup setup-local install deps \
+	setup setup-local install deps seed-dev \
 	up up-detached down logs ps \
 	dev-db dev-db-down dev-api dev-worker dev-web
 
@@ -107,3 +107,6 @@ dev-worker:
 
 dev-web:
 	cd apps/web && npm run dev
+
+seed-dev:
+	$(LOAD_ENV) go run ./apps/api/cmd/seed-dev

@@ -110,6 +110,14 @@ Open `http://localhost:6006`. Build static catalog for CI: `npm run build-storyb
 
 Requires `PUBLIC_URL` host to be `localhost`, `127.0.0.1`, or `[::1]`. The API logs a warning at startup when enabled. **Never set in production.**
 
+### Dev user seeds (development only)
+
+| Variable | Description |
+|----------|-------------|
+| `SEED_DEV` | Set to `1` to allow `make seed-dev` when `PUBLIC_URL` is not localhost (still required) |
+
+See [Dev user seeds](#dev-user-seeds-local-only) below.
+
 ### Integrations (also storable per-row in DB after setup)
 
 - Jira: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`
@@ -152,6 +160,29 @@ Integrations and setup test-alert require the admin role; the default dev login 
 viewer/member RBAC, use `/auth/dev/login?role=viewer` or `?role=member`.
 
 For production-like sign-in testing, configure real OIDC credentials instead (see tables above).
+
+## Dev user seeds (local only)
+
+Populate a fixed directory of users for team member pickers and on-call setup without OIDC sign-ins:
+
+```bash
+make seed-dev
+# or: go run ./apps/api/cmd/seed-dev   (with .env loaded)
+```
+
+**Guard:** runs only when `PUBLIC_URL` host is `localhost`, `127.0.0.1`, or `[::1]`, unless
+`SEED_DEV=1` is set (still requires `PUBLIC_URL`). **Never run against production.**
+
+**Seeded users (idempotent):**
+
+| Display name | Email | Provider | Notes |
+|--------------|-------|----------|-------|
+| Alice Google | `alice@seed.local` | google | avatar URL |
+| Bob Slack | `bob@seed.local` | slack | `slack_user_id`, avatar |
+| Carol eXpress | `carol@seed.local` | express | `express_user_huid`, avatar, locale `ru` |
+| Local Admin | `dev@localhost` | dev | admin role for RBAC tests |
+
+Re-run after schema changes or to reset profile fields to the canonical seed values.
 
 ## Setup wizard (Phase 6)
 

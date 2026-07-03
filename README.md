@@ -183,6 +183,19 @@ Use this to open Alerts, Integrations, Dashboard, and Setup without Google/Slack
 You get an admin session on localhost only. Do not enable `DEV_AUTH_ENABLED` in production. Full notes:
 [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md#local-testing-without-oidc).
 
+#### Seed dev users (local directory)
+
+After migrations, populate SSO-like users for team pickers and shifts testing without real OIDC sign-ins:
+
+```bash
+make seed-dev
+```
+
+Requires `DATABASE_URL` and `PUBLIC_URL` pointing at localhost (same guard as dev auth), or set
+`SEED_DEV=1` to override the host check. Idempotent — safe to re-run. Seeds four users: Google,
+Slack (with `slack_user_id` + avatar), eXpress (with `express_user_huid` + avatar), and a dev
+admin row (`dev@localhost`).
+
 On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up` (see `.\scripts\dev.ps1` for all commands).
 
 ### Other commands
@@ -192,6 +205,7 @@ On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up` (s
 | `make install` | Alias for `make setup` |
 | `make ps` | Show running Compose services |
 | `make migrate-up` | Apply migrations (requires `migrate` CLI + `DATABASE_URL`) |
+| `make seed-dev` | Upsert local dev user directory (localhost guard; see below) |
 | `make lint type test` | CI gate — lint, typecheck, tests + coverage |
 
 Storybook: `cd apps/web && npm run storybook` → http://localhost:6006
