@@ -17,4 +17,12 @@ describe('status variant helpers', () => {
   it('maps alert firing status', () => {
     expect(alertStatusVariant('firing')).toBe('firing');
   });
+
+  it('maps alert resolved status', () => {
+    expect(alertStatusVariant('resolved')).toBe('resolved');
+  });
+
+  it('maps unknown alert status to neutral', () => {
+    expect(alertStatusVariant('unknown')).toBe('neutral');
+  });
 });

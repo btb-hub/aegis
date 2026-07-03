@@ -20,7 +20,11 @@ describe('formatNumber', () => {
 });
 
 describe('formatShortDate', () => {
-  it('formats month and day', () => {
+  it('formats month and day from ISO string', () => {
     expect(formatShortDate('2026-06-15T00:00:00Z', 'en')).toMatch(/Jun/);
+  });
+
+  it('formats month and day from Date object', () => {
+    expect(formatShortDate(new Date('2026-06-15T00:00:00Z'), 'en')).toMatch(/Jun/);
   });
 });
