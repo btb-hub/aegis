@@ -1,4 +1,4 @@
-package alertsim
+package simulator
 
 import (
 	"encoding/json"
@@ -22,7 +22,7 @@ type LabelDefaults struct {
 	Project string
 }
 
-// Payload is the webhook JSON shape accepted by pkg/alertparse.
+// Payload is the webhook JSON shape accepted by the Aegis alert webhook.
 type Payload struct {
 	Status      string            `json:"status"`
 	Labels      map[string]string `json:"labels"`

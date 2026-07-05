@@ -1,4 +1,4 @@
-package alertsim
+package simulator
 
 import (
 	"bytes"

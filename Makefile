@@ -1,12 +1,16 @@
 .PHONY: lint type test tidy migrate-up migrate-down migrate-docker \
-	setup setup-local install deps seed-dev seed-demo \
-	up up-detached down logs ps \
-	dev-db dev-db-down dev-api dev-worker dev-web dev-simulator simulate-alert
+	setup setup-local install deps seed-dev \
+	up up-detached up-dev up-dev-detached down logs ps \
+	dev-db dev-db-down dev-api dev-worker dev-web \
+	dev-simulator dev-simulator-bootstrap simulate-alert test-devtools
 
 GO_PKGS := ./pkg/... ./apps/api/... ./apps/worker/...
 
 COMPOSE := docker compose -f deploy/docker-compose.yml
 COMPOSE_DEV := docker compose -f deploy/docker-compose.dev.yml
+COMPOSE_WITH_SIM := $(COMPOSE) --profile dev
+
+ALERT_SIM := ./devtools/alert-simulator/cmd/alert-simulator
 
 migrate-docker:
 	$(COMPOSE) run --rm migrate
@@ -30,7 +34,7 @@ type:
 	cd apps/worker && go build -o ../../bin/worker ./cmd/worker
 	cd apps/web && npm run typecheck
 
-GO_PKG_PKGS := ./alertparse/... ./alertsim/... ./apperrors/... ./config/... ./i18n/... ./integrations/... ./locale/... ./oncall/... ./rbac/... ./routing/... ./sessiontoken/...
+GO_PKG_PKGS := ./alertparse/... ./apperrors/... ./config/... ./i18n/... ./integrations/... ./locale/... ./oncall/... ./rbac/... ./routing/... ./sessiontoken/...
 GO_API_PKGS := ./internal/handler/... ./internal/middleware/... ./internal/service/...
 GO_WORKER_PKGS := ./internal/processor/...
 
@@ -47,6 +51,7 @@ tidy:
 	cd pkg && go mod tidy
 	cd apps/api && go mod tidy
 	cd apps/worker && go mod tidy
+	cd devtools/alert-simulator && go mod tidy
 
 migrate-up:
 	migrate -path db/migrations -database "$${DATABASE_URL}" up
@@ -76,6 +81,7 @@ deps:
 	cd pkg && go mod download
 	cd apps/api && go mod download
 	cd apps/worker && go mod download
+	cd devtools/alert-simulator && go mod download
 	cd apps/web && npm install
 
 up: migrate-docker
@@ -84,8 +90,14 @@ up: migrate-docker
 up-detached: migrate-docker
 	$(COMPOSE) up --build -d
 
+up-dev: migrate-docker
+	$(COMPOSE_WITH_SIM) up --build
+
+up-dev-detached: migrate-docker
+	$(COMPOSE_WITH_SIM) up --build -d
+
 down:
-	$(COMPOSE) down
+	$(COMPOSE_WITH_SIM) down
 
 logs:
 	$(COMPOSE) logs -f
@@ -112,10 +124,13 @@ seed-dev:
 	$(LOAD_ENV) go run ./apps/api/cmd/seed-dev
 
 dev-simulator:
-	$(LOAD_ENV) go run ./apps/api/cmd/alert-simulator
+	$(LOAD_ENV) go run $(ALERT_SIM)
 
 simulate-alert:
-	$(LOAD_ENV) go run ./apps/api/cmd/alert-simulator -once
+	$(LOAD_ENV) go run $(ALERT_SIM) -once
 
-seed-demo:
-	$(LOAD_ENV) go run ./apps/api/cmd/seed-demo
+dev-simulator-bootstrap:
+	$(LOAD_ENV) go run $(ALERT_SIM) -bootstrap-only
+
+test-devtools:
+	cd devtools/alert-simulator && go test ./...

@@ -1,4 +1,4 @@
-package alertsim
+package simulator
 
 import (
 	"os"
@@ -8,6 +8,7 @@ import (
 
 // Config holds simulator settings from environment and defaults.
 type Config struct {
+	APIBaseURL string
 	WebhookURL string
 	Secret     string
 	Team       string
@@ -24,13 +25,17 @@ func LoadConfig() Config {
 		}
 	}
 
-	url := strings.TrimSpace(os.Getenv("AEGIS_WEBHOOK_URL"))
-	if url == "" {
-		base := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_URL")), "/")
-		if base == "" {
-			base = "http://localhost:8080"
+	apiBase := strings.TrimRight(strings.TrimSpace(os.Getenv("AEGIS_API_URL")), "/")
+	if apiBase == "" {
+		apiBase = strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_URL")), "/")
+		if apiBase == "" {
+			apiBase = "http://localhost:8080"
 		}
-		url = base + "/api/v1/alerts/webhook"
+	}
+
+	webhookURL := strings.TrimSpace(os.Getenv("AEGIS_WEBHOOK_URL"))
+	if webhookURL == "" {
+		webhookURL = apiBase + "/api/v1/alerts/webhook"
 	}
 
 	team := strings.TrimSpace(os.Getenv("ALERT_SIM_TEAM"))
@@ -43,7 +48,8 @@ func LoadConfig() Config {
 	}
 
 	return Config{
-		WebhookURL: url,
+		APIBaseURL: apiBase,
+		WebhookURL: webhookURL,
 		Secret:     strings.TrimSpace(os.Getenv("WEBHOOK_SECRET")),
 		Team:       team,
 		Project:    project,

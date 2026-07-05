@@ -184,46 +184,61 @@ make seed-dev
 
 Re-run after schema changes or to reset profile fields to the canonical seed values.
 
-## Alert simulator (local testing)
+## Alert simulator (dev only)
 
-Send realistic monitoring alerts through the webhook to exercise routing, incidents, and paging
-without Grafana or Alertmanager:
+The alert simulator lives under `devtools/alert-simulator/` — it is **not** shipped in production
+binaries. It integrates with Aegis through the public **alert webhook** and **HTTP API** (dev auth
+for bootstrap).
 
 ```bash
 # Terminal 1–2: api + worker (see Native dev above)
 make dev-api
 make dev-worker
 
-# Terminal 3: one random alert
+# Terminal 3: ensure routing via API (requires DEV_AUTH_ENABLED=true)
+make dev-simulator-bootstrap
+
+# Send one random alert
 make simulate-alert
 
 # Or run continuously (default every 30s)
 make dev-simulator
 ```
 
-**Prerequisites:** api and worker running; a routing rule that matches simulator labels (default
-`team=platform`). If you have alerts but no incidents, run `make seed-demo` to create the rule and
-re-queue failed worker jobs.
-
-```bash
-make seed-demo   # creates team=platform routing rule + replays failed process_alert jobs
-```
+**Prerequisites:** api and worker running; `WEBHOOK_SECRET` in `.env`; routing rule matching
+simulator labels (default `team=platform`). Run `make dev-simulator-bootstrap` once on a fresh
+setup — it creates the Platform team and routing rule through `/api/v1/teams` and
+`/api/v1/routing-rules`.
 
 | Variable | Purpose |
 |----------|---------|
 | `WEBHOOK_SECRET` | Required — same as API |
-| `PUBLIC_URL` or `AEGIS_WEBHOOK_URL` | Webhook base (default `http://localhost:8080/api/v1/alerts/webhook`) |
+| `AEGIS_API_URL` | API base for bootstrap (default `PUBLIC_URL` or `http://localhost:8080`) |
+| `AEGIS_WEBHOOK_URL` | Full webhook URL (default `{API}/api/v1/alerts/webhook`) |
 | `ALERT_SIM_INTERVAL` | Loop interval when running without flags (default `30s`) |
 | `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Labels for routing (default `platform`) |
 
 **CLI flags:**
 
 ```bash
-go run ./apps/api/cmd/alert-simulator -list              # scenario catalog
-go run ./apps/api/cmd/alert-simulator -scenario high_cpu # one scenario
-go run ./apps/api/cmd/alert-simulator -all               # every scenario once
-go run ./apps/api/cmd/alert-simulator -once              # random alert
-go run ./apps/api/cmd/alert-simulator -interval 1m       # continuous loop
+go run ./devtools/alert-simulator/cmd/alert-simulator -list
+go run ./devtools/alert-simulator/cmd/alert-simulator -bootstrap-only
+go run ./devtools/alert-simulator/cmd/alert-simulator -scenario high_cpu
+go run ./devtools/alert-simulator/cmd/alert-simulator -once
+go run ./devtools/alert-simulator/cmd/alert-simulator -interval 1m
+```
+
+**Docker (optional dev profile):**
+
+```bash
+make up-dev              # full stack + alert simulator (foreground)
+make up-dev-detached     # same, detached
+```
+
+Or:
+
+```bash
+docker compose -f deploy/docker-compose.yml --profile dev up --build
 ```
 
 Built-in scenarios include high CPU, disk full, OOM kills, HTTP 5xx spikes, DB connection pool
