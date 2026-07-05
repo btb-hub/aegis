@@ -57,7 +57,7 @@ describe('IntegrationsPage', () => {
 
     renderPage();
 
-    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/shifts');
+    expect(screen.getByRole('link', { name: 'Platform' })).toHaveAttribute('href', '/dashboard');
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Integrations');
     expect(screen.getByRole('heading', { name: 'Integrations', level: 1 })).toBeInTheDocument();
   });

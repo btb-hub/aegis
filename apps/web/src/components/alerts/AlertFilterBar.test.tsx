@@ -11,8 +11,19 @@ function StatefulFilterBar() {
   return (
     <AlertFilterBar
       filters={filters}
+      appliedFilters={filters}
       onChange={setFilters}
       onApply={vi.fn()}
+      resultTotal={12}
+      savedViews={[]}
+      selectedViewId=""
+      onLoadView={() => undefined}
+      saveName=""
+      onSaveNameChange={() => undefined}
+      shareView={false}
+      onShareViewChange={() => undefined}
+      onSaveView={vi.fn()}
+      onExport={vi.fn()}
     />
   );
 }
@@ -36,5 +47,6 @@ describe('AlertFilterBar', () => {
 
     expect(screen.getByLabelText('Search')).toHaveValue('cpu');
     expect(screen.getByLabelText('Label key')).toHaveValue('service');
+    expect(screen.getByText(/· 12 results/)).toBeInTheDocument();
   });
 });

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IncidentDetail, type HandoffTeamOption } from '../components/incidents/IncidentDetail';
 import { IncidentList } from '../components/incidents/IncidentList';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import type { Incident, IncidentStatus } from '../lib/incidentTypes';
 
 type IncidentsPageProps = {
@@ -31,11 +33,15 @@ export function IncidentsPage({
   );
 
   return (
-    <div className="max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">{t('incidents.page_title')}</h1>
-        <p className="text-zinc-600">{t('incidents.page_subtitle')}</p>
-      </div>
+    <PageContent>
+      <PageHeader
+        title={t('incidents.page_title')}
+        subtitle={t('incidents.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('nav.incidents') }],
+        }}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <IncidentList
@@ -61,6 +67,6 @@ export function IncidentsPage({
           </p>
         )}
       </div>
-    </div>
+    </PageContent>
   );
 }

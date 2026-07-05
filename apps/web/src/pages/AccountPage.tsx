@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import { AUTH_PROVIDERS, createExpressLinkCode, patchAuthMe, type AuthProviderId } from '../lib/authTypes';
@@ -112,14 +113,15 @@ export function AccountPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <div>
-        <PageBreadcrumb
-          ariaLabel={t('nav.breadcrumb_label')}
-          items={[{ label: t('account.page_title') }]}
-        />
-        <h1 className="text-3xl font-semibold">{t('account.page_title')}</h1>
-      </div>
+    <PageContent className="mx-auto max-w-2xl">
+      <PageHeader
+        title={t('account.page_title')}
+        subtitle={t('account.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('account.page_title') }],
+        }}
+      />
 
       <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="text-lg font-semibold">{t('account.profile_title')}</h2>
@@ -153,14 +155,14 @@ export function AccountPage() {
         <h2 className="text-lg font-semibold">{t('account.language_title')}</h2>
         <div className="flex gap-2" role="group" aria-label={t('language.switcher_label')}>
           <Button
-            variant={locale === 'en' ? 'primary' : 'ghost'}
+            variant={locale === 'en' ? 'secondary' : 'ghost'}
             disabled={savingLocale}
             onClick={() => void saveLocale('en')}
           >
             {t('language.en')}
           </Button>
           <Button
-            variant={locale === 'ru' ? 'primary' : 'ghost'}
+            variant={locale === 'ru' ? 'secondary' : 'ghost'}
             disabled={savingLocale}
             onClick={() => void saveLocale('ru')}
           >
@@ -218,6 +220,6 @@ export function AccountPage() {
       </section>
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
-    </div>
+    </PageContent>
   );
 }

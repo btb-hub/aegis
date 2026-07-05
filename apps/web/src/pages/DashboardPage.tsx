@@ -3,7 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { MetricTrendChart } from '../components/analytics/MetricTrendChart';
 import { Button } from '../components/ui/Button';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { Banner } from '../components/ui/Banner';
+import { Checkbox } from '../components/ui/Checkbox';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import {
   defaultAnalyticsRange,
   formatDuration,
@@ -52,35 +55,24 @@ export function DashboardPage() {
   }, [loadOverview]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <PageBreadcrumb
-            ariaLabel={t('nav.breadcrumb_label')}
-            items={[
-              { label: t('shifts.demo_team'), href: '/shifts' },
-              { label: t('nav.dashboard') },
-            ]}
-          />
-          <h1 className="text-2xl font-semibold text-zinc-900">{t('dashboard.page_title')}</h1>
-          <p className="mt-1 text-sm text-zinc-600">{t('dashboard.page_subtitle')}</p>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-zinc-700">
-          <input
-            type="checkbox"
+    <PageContent>
+      <PageHeader
+        title={t('dashboard.page_title')}
+        subtitle={t('dashboard.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('nav.dashboard') }],
+        }}
+        actions={
+          <Checkbox
+            label={t('dashboard.compare_previous')}
             checked={comparePrevious}
-            onChange={(event) => setComparePrevious(event.target.checked)}
-            className="h-4 w-4 rounded border-zinc-300 text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            onChange={setComparePrevious}
           />
-          {t('dashboard.compare_previous')}
-        </label>
-      </div>
+        }
+      />
 
-      {error ? (
-        <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          {error}
-        </div>
-      ) : null}
+      {error ? <Banner variant="warning">{error}</Banner> : null}
 
       {loading ? (
         <p className="text-sm text-zinc-600">{t('dashboard.loading')}</p>
@@ -88,7 +80,7 @@ export function DashboardPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <section className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900">{t('dashboard.mtta_title')}</h2>
+              <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.mtta_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents?status=acknowledged')}>
                 {t('dashboard.view_incidents')}
               </Button>
@@ -112,7 +104,7 @@ export function DashboardPage() {
 
           <section className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900">{t('dashboard.mttr_title')}</h2>
+              <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.mttr_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents?status=resolved')}>
                 {t('dashboard.view_incidents')}
               </Button>
@@ -136,7 +128,7 @@ export function DashboardPage() {
 
           <section className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900">{t('dashboard.noise_title')}</h2>
+              <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.noise_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/alerts')}>
                 {t('dashboard.view_alerts')}
               </Button>
@@ -163,7 +155,7 @@ export function DashboardPage() {
 
           <section className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900">{t('dashboard.load_title')}</h2>
+              <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.load_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents')}>
                 {t('dashboard.view_incidents')}
               </Button>
@@ -186,7 +178,7 @@ export function DashboardPage() {
 
           <section className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900">{t('dashboard.handoff_title')}</h2>
+              <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.handoff_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents')}>
                 {t('dashboard.view_incidents')}
               </Button>
@@ -201,7 +193,7 @@ export function DashboardPage() {
 
           <section className="rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900">{t('dashboard.escalation_title')}</h2>
+              <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.escalation_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents?status=open')}>
                 {t('dashboard.view_incidents')}
               </Button>
@@ -225,6 +217,6 @@ export function DashboardPage() {
           {t('dashboard.setup_link')}
         </Link>
       </p>
-    </div>
+    </PageContent>
   );
 }

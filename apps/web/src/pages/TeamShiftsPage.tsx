@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { OnCallBanner } from '../components/shifts/OnCallBanner';
 import { ShiftsCalendar } from '../components/shifts/ShiftsCalendar';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import type { CalendarOverride, CalendarSlot, OnCallUser } from '../lib/shiftsTypes';
 
 type TeamShiftsPageProps = {
@@ -22,20 +23,21 @@ export function TeamShiftsPage({
   const { t } = useTranslation();
 
   return (
-    <div className="max-w-5xl space-y-6">
-      <div>
-        <PageBreadcrumb
-          ariaLabel={t('nav.breadcrumb_label')}
-          items={[
+    <PageContent>
+      <PageHeader
+        title={teamName}
+        subtitle={t('shifts.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [
+            { label: t('nav.platform'), href: '/dashboard' },
             { label: t('nav.teams'), href: '/teams' },
             { label: teamName },
-          ]}
-        />
-        <h1 className="text-3xl font-semibold">{teamName}</h1>
-        <p className="text-zinc-600">{t('shifts.page_subtitle')}</p>
-      </div>
+          ],
+        }}
+      />
       <OnCallBanner users={onCallUsers} />
       <ShiftsCalendar month={month} slots={slots} overrides={overrides} />
-    </div>
+    </PageContent>
   );
 }

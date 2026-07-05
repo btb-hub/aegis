@@ -20,6 +20,7 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 | 6 | [EPIC-07](./epics/EPIC-07-analytics-setup.md) | PR #13 |
 | 7 | [EPIC-08](./epics/EPIC-08-dev-auth.md) | PR #15 |
 | 8 | [EPIC-09](./epics/EPIC-09-teams-users-shifts.md) | — |
+| 9 | [EPIC-10](./epics/EPIC-10-ui-polish.md) | — |
 
 ## Guiding order
 
@@ -141,6 +142,24 @@ userinfo is still stubbed; there is no user directory API or dev seeds.
 → Epic: [EPIC-09 Teams, users & shifts setup](./epics/EPIC-09-teams-users-shifts.md)
 
 **Next story:** EPIC-09 complete — all Phase 8 stories done on branch `feat/epic-9-teams-users-shifts`.
+
+## Phase 9 — UI polish
+
+*Exit: Alerts workspace matches the design-system filter bar; shared layout/table components exist;
+every route uses consistent page headers, breadcrumbs, and spacing.*
+
+**Why now:** Feature epics prioritised behaviour over composition. The Alerts page (and several others)
+use misaligned ad-hoc layouts, raw native controls, and inconsistent typography relative to
+[`docs/design_system.html`](./docs/design_system.html).
+
+- Shared `Select`, `Banner`, `Checkbox`, `PageHeader`, `PageContent`, `DataTable`, `Pagination`
+- Alerts page redesigned to the **Search & Filter Bar** pattern
+- Cross-page header, breadcrumb, and content-width consistency
+- Incidents, dashboard, teams, setup, account secondary polish
+
+→ Epic: [EPIC-10 UI polish](./epics/EPIC-10-ui-polish.md)
+
+**Next story:** none — EPIC-10 in review on branch `feat/epic-10-ui-polish`.
 
 ## Later (post-MVP, not now)
 
