@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import { fetchTeams } from '../lib/shiftsApi';
 import type { Team } from '../lib/teamTypes';
 
@@ -31,12 +33,12 @@ export function ShiftsLandingPage() {
 
   if (error) {
     return (
-      <div className="space-y-3">
+      <PageContent>
         <p className="text-sm text-red-700">{error}</p>
         <Button variant="secondary" onClick={() => void load()}>
           {t('shifts.retry')}
         </Button>
-      </div>
+      </PageContent>
     );
   }
 
@@ -46,20 +48,32 @@ export function ShiftsLandingPage() {
 
   if (teams.length === 0) {
     return (
-      <div className="max-w-2xl space-y-4">
-        <h1 className="text-3xl font-semibold">{t('nav.shifts')}</h1>
-        <p className="text-sm text-zinc-600">{t('shifts.no_teams')}</p>
+      <PageContent>
+        <PageHeader
+          title={t('nav.shifts')}
+          subtitle={t('shifts.no_teams')}
+          breadcrumb={{
+            ariaLabel: t('nav.breadcrumb_label'),
+            items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('nav.shifts') }],
+          }}
+        />
         <Link to="/teams" className="text-sm text-accent hover:underline">
           {t('shifts.no_teams_cta')}
         </Link>
-      </div>
+      </PageContent>
     );
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-3xl font-semibold">{t('nav.shifts')}</h1>
-      <p className="text-sm text-zinc-600">{t('shifts.select_team')}</p>
+    <PageContent>
+      <PageHeader
+        title={t('nav.shifts')}
+        subtitle={t('shifts.select_team')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('nav.shifts') }],
+        }}
+      />
       <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 bg-white">
         {teams.map((team) => (
           <li key={team.id}>
@@ -72,6 +86,6 @@ export function ShiftsLandingPage() {
           </li>
         ))}
       </ul>
-    </div>
+    </PageContent>
   );
 }

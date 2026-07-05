@@ -3,10 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { Team } from '../lib/teamTypes';
+import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
+import { DataTable } from '../components/ui/DataTable';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 
 type TeamFormState = {
@@ -145,29 +148,18 @@ export function TeamsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <PageBreadcrumb
-            ariaLabel={t('nav.breadcrumb_label')}
-            items={[{ label: t('nav.teams') }]}
-          />
-          <h1 className="text-2xl font-semibold text-zinc-900">{t('teams.page_title')}</h1>
-          <p className="mt-1 text-sm text-zinc-600">{t('teams.page_subtitle')}</p>
-        </div>
-        {isAdmin ? (
-          <Button onClick={openCreate}>{t('teams.create')}</Button>
-        ) : null}
-      </div>
+    <PageContent>
+      <PageHeader
+        title={t('teams.page_title')}
+        subtitle={t('teams.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('nav.teams') }],
+        }}
+        actions={isAdmin ? <Button onClick={openCreate}>{t('teams.create')}</Button> : undefined}
+      />
 
-      {loadError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-        >
-          {loadError}
-        </div>
-      ) : null}
+      {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
 
       {loading ? (
         <p className="text-sm text-zinc-600">{t('teams.loading')}</p>
@@ -181,43 +173,46 @@ export function TeamsPage() {
           ) : null}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-          <table className="min-w-full divide-y divide-zinc-200 text-sm">
-            <thead className="bg-zinc-50 text-left text-zinc-600">
-              <tr>
-                <th className="px-4 py-3 font-medium">{t('teams.column.name')}</th>
-                <th className="px-4 py-3 font-medium">{t('teams.column.description')}</th>
-                <th className="px-4 py-3 font-medium">{t('teams.column.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {items.map((team) => (
-                <tr key={team.id}>
-                  <td className="px-4 py-3 font-medium text-zinc-900">
-                    <Link to={`/teams/${team.id}`} className="text-accent hover:underline">
-                      {team.name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-700">{team.description || '—'}</td>
-                  <td className="px-4 py-3">
-                    {isAdmin ? (
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="ghost" onClick={() => openEdit(team)}>
-                          {t('teams.edit')}
-                        </Button>
-                        <Button variant="ghost" onClick={() => setDeleteTarget(team)}>
-                          {t('teams.delete')}
-                        </Button>
-                      </div>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            {
+              key: 'name',
+              header: t('teams.column.name'),
+              cellClassName: 'font-medium text-zinc-900',
+              render: (team) => (
+                <Link to={`/teams/${team.id}`} className="text-accent hover:underline">
+                  {team.name}
+                </Link>
+              ),
+            },
+            {
+              key: 'description',
+              header: t('teams.column.description'),
+              cellClassName: 'text-zinc-700',
+              render: (team) => team.description || '—',
+            },
+            {
+              key: 'actions',
+              header: t('teams.column.actions'),
+              render: (team) =>
+                isAdmin ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={() => openEdit(team)}>
+                      {t('teams.edit')}
+                    </Button>
+                    <Button variant="ghost" onClick={() => setDeleteTarget(team)}>
+                      {t('teams.delete')}
+                    </Button>
+                  </div>
+                ) : (
+                  '—'
+                ),
+            },
+          ]}
+          rows={items}
+          rowKey={(team) => team.id}
+          emptyMessage={t('teams.empty')}
+        />
       )}
 
       <Modal
@@ -252,6 +247,6 @@ export function TeamsPage() {
       </Modal>
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
-    </div>
+    </PageContent>
   );
 }

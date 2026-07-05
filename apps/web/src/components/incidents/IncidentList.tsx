@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Incident, IncidentStatus } from '../../lib/incidentTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
+import { Button } from '../ui/Button';
 import { SeverityTag } from '../ui/SeverityTag';
 import { StatusTag, incidentStatusVariant } from '../ui/StatusTag';
 
@@ -28,19 +29,15 @@ export function IncidentList({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-zinc-600">{t('incidents.filter_label')}</span>
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('incidents.filter_label')}>
         {statusOptions.map((status) => (
-          <button
+          <Button
             key={status}
-            type="button"
-            className={`rounded-md px-3 py-1 text-sm ${
-              statusFilter === status ? 'bg-zinc-900 text-white' : 'bg-surface-muted text-zinc-700'
-            }`}
+            variant={statusFilter === status ? 'secondary' : 'ghost'}
             onClick={() => onStatusFilterChange(status)}
           >
             {t(`incidents.status.${status}`)}
-          </button>
+          </Button>
         ))}
       </div>
 

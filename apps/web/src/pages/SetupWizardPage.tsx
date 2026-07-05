@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 import { loadSetupWizardState, saveSetupWizardState } from '../lib/setupWizard';
 
@@ -177,21 +178,18 @@ export function SetupWizardPage() {
   const integrationByKind = (kind: string) => integrations.find((item) => item.kind === kind);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <PageBreadcrumb
-          ariaLabel={t('nav.breadcrumb_label')}
-          items={[
-            { label: t('shifts.demo_team'), href: '/shifts' },
-            { label: t('nav.setup') },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-zinc-900">{t('setup.page_title')}</h1>
-        <p className="mt-1 text-sm text-zinc-600">{t('setup.page_subtitle')}</p>
-      </div>
+    <PageContent className="mx-auto max-w-3xl">
+      <PageHeader
+        title={t('setup.page_title')}
+        subtitle={t('setup.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [{ label: t('nav.platform'), href: '/dashboard' }, { label: t('nav.setup') }],
+        }}
+      />
 
       <nav aria-label={t('setup.progress_label')}>
-        <ol className="flex flex-wrap gap-2 text-sm">
+        <ol className="flex flex-wrap gap-3 text-sm">
           {stepLabels.map((label, index) => (
             <li
               key={label}
@@ -272,7 +270,7 @@ export function SetupWizardPage() {
               <Input label={t('setup.integrations.jira.api_token')} value={jiraConfig.api_token} onChange={(value) => setJiraConfig((c) => ({ ...c, api_token: value }))} />
               <Input label={t('setup.integrations.jira.project_key')} value={jiraConfig.project_key} onChange={(value) => setJiraConfig((c) => ({ ...c, project_key: value }))} />
               <div className="flex gap-2">
-                <Button disabled={savingKind === 'jira'} onClick={() => void upsertIntegration('jira', 'Jira', jiraConfig)}>
+                <Button variant="secondary" disabled={savingKind === 'jira'} onClick={() => void upsertIntegration('jira', 'Jira', jiraConfig)}>
                   {t('setup.integrations.save')}
                 </Button>
                 {integrationByKind('jira') ? (
@@ -288,7 +286,7 @@ export function SetupWizardPage() {
               <Input label={t('setup.integrations.slack.bot_token')} value={slackConfig.bot_token} onChange={(value) => setSlackConfig((c) => ({ ...c, bot_token: value }))} />
               <Input label={t('setup.integrations.slack.signing_secret')} value={slackConfig.signing_secret} onChange={(value) => setSlackConfig((c) => ({ ...c, signing_secret: value }))} />
               <div className="flex gap-2">
-                <Button disabled={savingKind === 'slack'} onClick={() => void upsertIntegration('slack', 'Slack', slackConfig)}>
+                <Button variant="secondary" disabled={savingKind === 'slack'} onClick={() => void upsertIntegration('slack', 'Slack', slackConfig)}>
                   {t('setup.integrations.save')}
                 </Button>
                 {integrationByKind('slack') ? (
@@ -305,7 +303,7 @@ export function SetupWizardPage() {
               <Input label={t('setup.integrations.express.host')} value={expressConfig.host} onChange={(value) => setExpressConfig((c) => ({ ...c, host: value }))} />
               <Input label={t('setup.integrations.express.secret_key')} value={expressConfig.secret_key} onChange={(value) => setExpressConfig((c) => ({ ...c, secret_key: value }))} />
               <div className="flex gap-2">
-                <Button disabled={savingKind === 'express'} onClick={() => void upsertIntegration('express', 'eXpress', expressConfig)}>
+                <Button variant="secondary" disabled={savingKind === 'express'} onClick={() => void upsertIntegration('express', 'eXpress', expressConfig)}>
                   {t('setup.integrations.save')}
                 </Button>
                 {integrationByKind('express') ? (
@@ -350,6 +348,6 @@ export function SetupWizardPage() {
       </div>
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
-    </div>
+    </PageContent>
   );
 }

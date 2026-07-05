@@ -163,7 +163,9 @@ describe('TeamDetailPage', () => {
 
     const row = screen.getByText('Alice').closest('tr');
     expect(row).not.toBeNull();
-    fireEvent.change(within(row as HTMLElement).getByLabelText('Team role'), { target: { value: 'lead' } });
+    fireEvent.change(within(row as HTMLElement).getAllByLabelText('Team role')[0], {
+      target: { value: 'lead' },
+    });
 
     await waitFor(() => {
       expect(screen.getByText('Member role updated')).toBeInTheDocument();

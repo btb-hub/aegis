@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { DataTable } from '../components/ui/DataTable';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 
 type IntegrationItem = {
@@ -72,68 +75,67 @@ export function IntegrationsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <PageBreadcrumb
-          ariaLabel={t('nav.breadcrumb_label')}
-          items={[
-            { label: t('shifts.demo_team'), href: '/shifts' },
+    <PageContent>
+      <PageHeader
+        title={t('integrations.page_title')}
+        subtitle={t('integrations.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [
+            { label: t('nav.platform'), href: '/dashboard' },
             { label: t('nav.integrations') },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-zinc-900">{t('integrations.page_title')}</h1>
-        <p className="mt-1 text-sm text-zinc-600">{t('integrations.page_subtitle')}</p>
-      </div>
+          ],
+        }}
+      />
 
-      {loadError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-        >
-          {loadError}
-        </div>
-      ) : null}
+      {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
 
       {loading ? (
         <p className="text-sm text-zinc-600">{t('integrations.loading')}</p>
       ) : loadError ? null : items.length === 0 ? (
         <p className="text-sm text-zinc-600">{t('integrations.empty')}</p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-          <table className="min-w-full divide-y divide-zinc-200 text-sm">
-            <thead className="bg-zinc-50 text-left text-zinc-600">
-              <tr>
-                <th className="px-4 py-3 font-medium">{t('integrations.column.name')}</th>
-                <th className="px-4 py-3 font-medium">{t('integrations.column.kind')}</th>
-                <th className="px-4 py-3 font-medium">{t('integrations.column.status')}</th>
-                <th className="px-4 py-3 font-medium">{t('integrations.column.actions')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200">
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-4 py-3 font-medium text-zinc-900">{item.name}</td>
-                  <td className="px-4 py-3 text-zinc-700">{item.kind}</td>
-                  <td className="px-4 py-3 text-zinc-700">
-                    {item.enabled ? t('integrations.enabled') : t('integrations.disabled')}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Button
-                      variant="secondary"
-                      disabled={testingId === item.id}
-                      onClick={() => void testConnection(item.id)}
-                    >
-                      {testingId === item.id ? t('integrations.testing') : t('integrations.test_connection')}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={[
+            {
+              key: 'name',
+              header: t('integrations.column.name'),
+              cellClassName: 'font-medium text-zinc-900',
+              render: (item) => item.name,
+            },
+            {
+              key: 'kind',
+              header: t('integrations.column.kind'),
+              cellClassName: 'text-zinc-700',
+              render: (item) => item.kind,
+            },
+            {
+              key: 'status',
+              header: t('integrations.column.status'),
+              cellClassName: 'text-zinc-700',
+              render: (item) => (item.enabled ? t('integrations.enabled') : t('integrations.disabled')),
+            },
+            {
+              key: 'actions',
+              header: t('integrations.column.actions'),
+              render: (item) => (
+                <Button
+                  variant="secondary"
+                  disabled={testingId === item.id}
+                  onClick={() => void testConnection(item.id)}
+                >
+                  {testingId === item.id ? t('integrations.testing') : t('integrations.test_connection')}
+                </Button>
+              ),
+            },
+          ]}
+          rows={items}
+          rowKey={(item) => item.id}
+          emptyMessage={t('integrations.empty')}
+        />
       )}
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
-    </div>
+    </PageContent>
   );
 }

@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { AlertAnalyticsPanel } from '../components/alerts/AlertAnalyticsPanel';
 import { AlertFilterBar } from '../components/alerts/AlertFilterBar';
 import { AlertGroupTable, AlertTable } from '../components/alerts/AlertTable';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { Banner } from '../components/ui/Banner';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 import {
   defaultAlertFilters,
@@ -24,8 +24,8 @@ const PAGE_SIZE = 25;
 
 export function AlertsPage() {
   const { t } = useTranslation();
-  const [draftFilters, setDraftFilters] = useState<AlertFilters>(defaultAlertFilters);
-  const [appliedFilters, setAppliedFilters] = useState<AlertFilters>(defaultAlertFilters);
+  const [draftFilters, setDraftFilters] = useState<AlertFilters>(() => defaultAlertFilters());
+  const [appliedFilters, setAppliedFilters] = useState<AlertFilters>(() => defaultAlertFilters());
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<AlertItem[]>([]);
   const [groups, setGroups] = useState<AlertGroup[]>([]);
@@ -160,71 +160,37 @@ export function AlertsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <PageBreadcrumb
-          ariaLabel={t('nav.breadcrumb_label')}
-          items={[
-            { label: t('shifts.demo_team'), href: '/shifts' },
+    <PageContent>
+      <PageHeader
+        title={t('alerts.page_title')}
+        subtitle={t('alerts.page_subtitle')}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [
+            { label: t('nav.platform'), href: '/dashboard' },
             { label: t('nav.alerts') },
-          ]}
-        />
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-zinc-900">{t('alerts.page_title')}</h1>
-            <p className="mt-1 text-sm text-zinc-600">{t('alerts.page_subtitle')}</p>
-          </div>
-          <Button variant="secondary" onClick={() => void exportCsv()}>
-            {t('alerts.export')}
-          </Button>
-        </div>
-      </div>
+          ],
+        }}
+      />
 
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-200 bg-white p-4">
-        <label className="space-y-1 text-sm">
-          <span className="text-zinc-600">{t('alerts.saved_views.load')}</span>
-          <select
-            className="h-9 min-w-48 rounded-md border border-zinc-200 px-3 text-sm"
-            value={selectedViewId}
-            onChange={(event) => loadSavedView(event.target.value)}
-          >
-            <option value="">{t('alerts.saved_views.none')}</option>
-            {savedViews.map((view) => (
-              <option key={view.id} value={view.id}>
-                {view.name}
-                {view.shared ? ` (${t('alerts.saved_views.shared')})` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Input
-          label={t('alerts.saved_views.name')}
-          value={saveName}
-          onChange={setSaveName}
-        />
-        <label className="flex items-center gap-2 text-sm text-zinc-700">
-          <input
-            type="checkbox"
-            checked={shareView}
-            onChange={(event) => setShareView(event.target.checked)}
-          />
-          {t('alerts.saved_views.share')}
-        </label>
-        <Button variant="secondary" onClick={() => void saveCurrentView()}>
-          {t('alerts.saved_views.save')}
-        </Button>
-      </div>
+      <AlertFilterBar
+        filters={draftFilters}
+        appliedFilters={appliedFilters}
+        onChange={setDraftFilters}
+        onApply={applyFilters}
+        resultTotal={loading ? undefined : total}
+        savedViews={savedViews}
+        selectedViewId={selectedViewId}
+        onLoadView={loadSavedView}
+        saveName={saveName}
+        onSaveNameChange={setSaveName}
+        shareView={shareView}
+        onShareViewChange={setShareView}
+        onSaveView={() => void saveCurrentView()}
+        onExport={() => void exportCsv()}
+      />
 
-      <AlertFilterBar filters={draftFilters} onChange={setDraftFilters} onApply={applyFilters} />
-
-      {loadError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-        >
-          {loadError}
-        </div>
-      ) : null}
+      {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
 
       {loading ? (
         <p className="text-sm text-zinc-600">{t('alerts.loading')}</p>
@@ -246,6 +212,6 @@ export function AlertsPage() {
       )}
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
-    </div>
+    </PageContent>
   );
 }

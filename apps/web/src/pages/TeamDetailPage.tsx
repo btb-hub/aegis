@@ -2,12 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { TeamMemberPicker } from '../components/teams/TeamMemberPicker';
+import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
-import { PageBreadcrumb } from '../components/ui/PageBreadcrumb';
+import { DataTable } from '../components/ui/DataTable';
+import { PageContent } from '../components/ui/PageContent';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Select } from '../components/ui/Select';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import type { Team, TeamMember, TeamRole, UserDirectoryItem } from '../lib/teamTypes';
 import { TEAM_ROLES } from '../lib/teamTypes';
+
+const roleOptions = (t: (key: string) => string) =>
+  TEAM_ROLES.map((role) => ({ value: role, label: t(`teams.detail.role.${role}`) }));
 
 export function TeamDetailPage() {
   const { t } = useTranslation();
@@ -26,6 +33,7 @@ export function TeamDetailPage() {
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
 
   const memberUserIds = useMemo(() => members.map((member) => member.user_id), [members]);
+  const roles = useMemo(() => roleOptions(t), [t]);
 
   const loadTeam = useCallback(async () => {
     setLoading(true);
@@ -142,118 +150,102 @@ export function TeamDetailPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <PageBreadcrumb
-          ariaLabel={t('nav.breadcrumb_label')}
-          items={[
-            { label: t('nav.teams'), href: '/teams' },
-            { label: team?.name ?? t('teams.detail.loading_name') },
-          ]}
-        />
-        <h1 className="text-2xl font-semibold text-zinc-900">{team?.name ?? t('teams.detail.loading_name')}</h1>
-        {team?.description ? <p className="mt-1 text-sm text-zinc-600">{team.description}</p> : null}
-      </div>
+  const teamName = team?.name ?? t('teams.detail.loading_name');
 
-      {loadError ? (
-        <div
-          role="alert"
-          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-        >
-          {loadError}
-        </div>
-      ) : null}
+  return (
+    <PageContent>
+      <PageHeader
+        title={teamName}
+        subtitle={team?.description ?? undefined}
+        breadcrumb={{
+          ariaLabel: t('nav.breadcrumb_label'),
+          items: [
+            { label: t('nav.platform'), href: '/dashboard' },
+            { label: t('nav.teams'), href: '/teams' },
+            { label: teamName },
+          ],
+        }}
+        actions={
+          <Link to={`/teams/${teamId}/shifts`} className="text-sm font-medium text-accent hover:underline">
+            {t('nav.shifts')}
+          </Link>
+        }
+      />
+
+      {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
 
       {loading ? (
         <p className="text-sm text-zinc-600">{t('teams.loading')}</p>
       ) : loadError ? null : (
         <>
           <section className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold text-zinc-900">{t('teams.detail.members_title')}</h2>
-              <Link to={`/teams/${teamId}/shifts`} className="text-sm text-accent hover:underline">
-                {t('nav.shifts')}
-              </Link>
-            </div>
-
-            {members.length === 0 ? (
-              <p className="text-sm text-zinc-600">{t('teams.detail.members_empty')}</p>
-            ) : (
-              <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-                <table className="min-w-full divide-y divide-zinc-200 text-sm">
-                  <thead className="bg-zinc-50 text-left text-zinc-600">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">{t('teams.detail.column.name')}</th>
-                      <th className="px-4 py-3 font-medium">{t('teams.detail.column.email')}</th>
-                      <th className="px-4 py-3 font-medium">{t('teams.detail.column.role')}</th>
-                      {isAdmin ? (
-                        <th className="px-4 py-3 font-medium">{t('teams.detail.column.actions')}</th>
-                      ) : null}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-200">
-                    {members.map((member) => (
-                      <tr key={member.id}>
-                        <td className="px-4 py-3 font-medium text-zinc-900">{member.display_name}</td>
-                        <td className="px-4 py-3 text-zinc-700">{member.email}</td>
-                        <td className="px-4 py-3 text-zinc-700">
-                          {isAdmin ? (
-                            <select
-                              aria-label={t('teams.detail.role_label')}
-                              className="h-9 rounded-md border border-zinc-300 px-2 text-sm"
-                              value={member.team_role}
-                              disabled={updatingUserId === member.user_id}
-                              onChange={(event) =>
-                                void updateMemberRole(member, event.target.value as TeamRole)
-                              }
-                            >
-                              {TEAM_ROLES.map((role) => (
-                                <option key={role} value={role}>
-                                  {t(`teams.detail.role.${role}`)}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            t(`teams.detail.role.${member.team_role}`)
-                          )}
-                        </td>
-                        {isAdmin ? (
-                          <td className="px-4 py-3">
-                            <Button
-                              variant="ghost"
-                              disabled={removingUserId === member.user_id}
-                              onClick={() => void removeMember(member)}
-                            >
-                              {t('teams.detail.remove_member')}
-                            </Button>
-                          </td>
-                        ) : null}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <h2 className="text-lg font-semibold text-zinc-900">{t('teams.detail.members_title')}</h2>
+            <DataTable
+              columns={[
+                {
+                  key: 'name',
+                  header: t('teams.detail.column.name'),
+                  cellClassName: 'font-medium text-zinc-900',
+                  render: (member) => member.display_name,
+                },
+                {
+                  key: 'email',
+                  header: t('teams.detail.column.email'),
+                  cellClassName: 'text-zinc-700',
+                  render: (member) => member.email,
+                },
+                {
+                  key: 'role',
+                  header: t('teams.detail.column.role'),
+                  render: (member) =>
+                    isAdmin ? (
+                      <Select
+                        hideLabel
+                        id={`member-role-${member.user_id}`}
+                        label={t('teams.detail.role_label')}
+                        value={member.team_role}
+                        disabled={updatingUserId === member.user_id}
+                        options={roles}
+                        onChange={(value) => void updateMemberRole(member, value as TeamRole)}
+                      />
+                    ) : (
+                      t(`teams.detail.role.${member.team_role}`)
+                    ),
+                },
+                ...(isAdmin
+                  ? [
+                      {
+                        key: 'actions',
+                        header: t('teams.detail.column.actions'),
+                        render: (member: TeamMember) => (
+                          <Button
+                            variant="ghost"
+                            disabled={removingUserId === member.user_id}
+                            onClick={() => void removeMember(member)}
+                          >
+                            {t('teams.detail.remove_member')}
+                          </Button>
+                        ),
+                      },
+                    ]
+                  : []),
+              ]}
+              rows={members}
+              rowKey={(member) => member.id}
+              emptyMessage={t('teams.detail.members_empty')}
+            />
           </section>
 
           {isAdmin ? (
-            <section className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+            <section className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
               <h3 className="text-sm font-semibold text-zinc-900">{t('teams.detail.add_member')}</h3>
-              <label className="block text-sm text-zinc-700">
-                <span className="mb-1 block font-medium">{t('teams.detail.role_label')}</span>
-                <select
-                  className="h-9 rounded-md border border-zinc-300 px-2 text-sm"
-                  value={pendingRole}
-                  onChange={(event) => setPendingRole(event.target.value as TeamRole)}
-                >
-                  {TEAM_ROLES.map((role) => (
-                    <option key={role} value={role}>
-                      {t(`teams.detail.role.${role}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <Select
+                id="add-member-role"
+                label={t('teams.detail.role_label')}
+                value={pendingRole}
+                options={roles}
+                onChange={(value) => setPendingRole(value as TeamRole)}
+              />
               <TeamMemberPicker
                 disabled={addingMember}
                 excludeUserIds={memberUserIds}
@@ -265,6 +257,6 @@ export function TeamDetailPage() {
       )}
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
-    </div>
+    </PageContent>
   );
 }

@@ -57,8 +57,9 @@ describe('ShiftsLandingPage', () => {
       </I18nextProvider>,
     );
 
-    expect(await screen.findByText('Platform')).toBeInTheDocument();
-    expect(screen.getByText('Data')).toBeInTheDocument();
+    const platformLinks = await screen.findAllByRole('link', { name: 'Platform' });
+    expect(platformLinks.some((link) => link.getAttribute('href') === '/teams/team-1/shifts')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Data' })).toHaveAttribute('href', '/teams/team-2/shifts');
   });
 
   it('shows empty state when no teams exist', async () => {
