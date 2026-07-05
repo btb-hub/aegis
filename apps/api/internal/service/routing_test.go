@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/aegis/aegis/pkg/apperrors"
@@ -137,6 +138,17 @@ func TestMapRoutingErrorNotFound(t *testing.T) {
 	appErr, ok := err.(*apperrors.Error)
 	require.True(t, ok)
 	require.Equal(t, "NOT_FOUND", appErr.Code)
+}
+
+func TestMapRoutingErrorPassthrough(t *testing.T) {
+	inner := errors.New("db down")
+	require.Equal(t, inner, mapRoutingError(inner))
+}
+
+func TestRoutingServiceCreateRuleTeamNotFound(t *testing.T) {
+	svc := NewRoutingService(&routingMockRepo{})
+	_, err := svc.CreateRule(context.Background(), uuid.New(), map[string]string{"team": "platform"}, 1)
+	require.Error(t, err)
 }
 
 func TestRoutingRuleJSON(t *testing.T) {

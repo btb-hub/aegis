@@ -30,6 +30,8 @@ describe('IncidentDetail', () => {
         <IncidentDetail
           incident={incident}
           teams={teams}
+          owningTeamName="Platform L2"
+          owningTier="l2"
           canBounce={false}
           onAcknowledge={vi.fn()}
           onResolve={vi.fn()}
@@ -44,6 +46,7 @@ describe('IncidentDetail', () => {
     expect(screen.getByText('Acknowledge')).toBeInTheDocument();
     expect(screen.getByText('Resolve')).toBeInTheDocument();
     expect(screen.getByText('Hand off to L3')).toBeInTheDocument();
+    expect(screen.getByText('Owned by Platform L2')).toBeInTheDocument();
     expect(screen.getByText('Created')).toBeInTheDocument();
   });
 

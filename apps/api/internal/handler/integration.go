@@ -49,16 +49,26 @@ func (h *IntegrationHandler) listIntegrations(c *gin.Context) {
 
 func (h *IntegrationHandler) upsertIntegration(c *gin.Context) {
 	var body struct {
-		Kind    string          `json:"kind"`
-		Name    string          `json:"name"`
-		Config  json.RawMessage `json:"config"`
-		Enabled bool            `json:"enabled"`
+		Kind        string          `json:"kind"`
+		Name        string          `json:"name"`
+		Config      json.RawMessage `json:"config"`
+		Enabled     bool            `json:"enabled"`
+		WorkspaceID *string         `json:"workspace_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
 		return
 	}
-	item, err := h.integrations.Upsert(c.Request.Context(), body.Kind, body.Name, body.Config, body.Enabled)
+	var workspaceID *uuid.UUID
+	if body.WorkspaceID != nil && *body.WorkspaceID != "" {
+		id, err := uuid.Parse(*body.WorkspaceID)
+		if err != nil {
+			WriteError(c, apperrors.Validation("workspace_id must be a valid uuid", nil))
+			return
+		}
+		workspaceID = &id
+	}
+	item, err := h.integrations.Upsert(c.Request.Context(), body.Kind, body.Name, body.Config, body.Enabled, workspaceID)
 	if err != nil {
 		WriteError(c, err)
 		return

@@ -38,7 +38,16 @@ func (h *TeamHandler) Register(r gin.IRouter) {
 }
 
 func (h *TeamHandler) listTeams(c *gin.Context) {
-	teams, err := h.teams.ListTeams(c.Request.Context())
+	var workspaceID *uuid.UUID
+	if raw := c.Query("workspace_id"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			WriteError(c, apperrors.Validation("workspace_id must be a valid uuid", nil))
+			return
+		}
+		workspaceID = &id
+	}
+	teams, err := h.teams.ListTeams(c.Request.Context(), workspaceID)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -52,14 +61,21 @@ func (h *TeamHandler) listTeams(c *gin.Context) {
 
 func (h *TeamHandler) createTeam(c *gin.Context) {
 	var body struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		WorkspaceID string  `json:"workspace_id"`
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		SupportTier *string `json:"support_tier"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
 		return
 	}
-	team, err := h.teams.CreateTeam(c.Request.Context(), body.Name, body.Description)
+	workspaceID, err := uuid.Parse(body.WorkspaceID)
+	if err != nil {
+		WriteError(c, apperrors.Validation("workspace_id must be a valid uuid", nil))
+		return
+	}
+	team, err := h.teams.CreateTeam(c.Request.Context(), workspaceID, body.Name, body.Description, body.SupportTier)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -88,14 +104,15 @@ func (h *TeamHandler) updateTeam(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		SupportTier *string `json:"support_tier"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
 		return
 	}
-	team, err := h.teams.UpdateTeam(c.Request.Context(), id, body.Name, body.Description)
+	team, err := h.teams.UpdateTeam(c.Request.Context(), id, body.Name, body.Description, body.SupportTier)
 	if err != nil {
 		WriteError(c, err)
 		return

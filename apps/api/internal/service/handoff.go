@@ -21,6 +21,7 @@ type HandoffRepository interface {
 	EnqueueHandoffNotify(ctx context.Context, incidentID uuid.UUID) error
 	HandoffStats(ctx context.Context, from, to time.Time) (db.HandoffStats, error)
 	ListTimelineEvents(ctx context.Context, incidentID uuid.UUID) ([]db.TimelineEvent, error)
+	HasEscalationPath(ctx context.Context, fromTeamID, toTeamID uuid.UUID) (bool, error)
 }
 
 type HandoffService struct {
@@ -32,11 +33,23 @@ func NewHandoffService(repo HandoffRepository) *HandoffService {
 }
 
 func (s *HandoffService) Handoff(ctx context.Context, incidentID, actorID, toTeamID uuid.UUID, note string) (db.Incident, error) {
-	if _, err := s.repo.GetIncidentByID(ctx, incidentID); err != nil {
+	incident, err := s.repo.GetIncidentByID(ctx, incidentID)
+	if err != nil {
 		return db.Incident{}, mapHandoffIncidentError(err)
 	}
 	if _, err := s.repo.GetTeam(ctx, toTeamID); err != nil {
 		return db.Incident{}, mapHandoffTeamError(err)
+	}
+
+	ok, err := s.repo.HasEscalationPath(ctx, incident.TeamID, toTeamID)
+	if err != nil {
+		return db.Incident{}, err
+	}
+	if !ok {
+		return db.Incident{}, apperrors.Validation("handoff target is not configured in escalation paths", map[string]any{
+			"from_team_id": incident.TeamID.String(),
+			"to_team_id":   toTeamID.String(),
+		})
 	}
 
 	onCall, err := s.repo.CurrentOnCallUsers(ctx, toTeamID, time.Now().UTC())
@@ -47,7 +60,7 @@ func (s *HandoffService) Handoff(ctx context.Context, incidentID, actorID, toTea
 		return db.Incident{}, apperrors.Validation("target team has no one on call", nil)
 	}
 
-	incident, _, err := s.repo.HandoffIncident(ctx, db.HandoffIncidentInput{
+	incident, _, err = s.repo.HandoffIncident(ctx, db.HandoffIncidentInput{
 		IncidentID: incidentID,
 		ActorID:    actorID,
 		ToTeamID:   toTeamID,

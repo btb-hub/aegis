@@ -23,7 +23,9 @@ One-click handoff to L3 team's current on-call with shared timeline and measurab
 
 ## Shared timeline
 
-- L2 and L3 users with access see identical `timeline_events` — no role-based hiding in MVP.
+- L2 and L3 users with access see identical `timeline_events` — no role-based hiding (REQ-L2L3-03).
+- Phase 10 extends this policy to **all support tiers** (L1, NOC included): no tier-based filtering in
+  API or UI. See [`support-levels-and-workspaces.md`](./support-levels-and-workspaces.md#timeline-visibility-policy-req-l2l3-03-unchanged).
 
 ## Bounce
 
@@ -38,3 +40,4 @@ One-click handoff to L3 team's current on-call with shared timeline and measurab
 ## References
 
 - Epic: [`EPIC-06-l2-l3`](../../backlog/epics/EPIC-06-l2-l3.md)
+- Phase 10 (tiers, workspaces, shared timeline policy): [`EPIC-11-support-levels-workspaces`](../../backlog/epics/EPIC-11-support-levels-workspaces.md)

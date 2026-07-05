@@ -208,12 +208,12 @@ type teamLookupRepo struct {
 	team db.Team
 }
 
-func (r *teamLookupRepo) ListTeams(context.Context) ([]db.Team, error) { return nil, nil }
+func (r *teamLookupRepo) ListTeamsFiltered(context.Context, uuid.UUID) ([]db.Team, error) { return nil, nil }
 func (r *teamLookupRepo) GetTeam(context.Context, uuid.UUID) (db.Team, error) { return r.team, nil }
-func (r *teamLookupRepo) CreateTeam(context.Context, string, string) (db.Team, error) {
-	return db.Team{}, nil
+func (r *teamLookupRepo) CreateTeam(_ context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
+	return db.Team{WorkspaceID: workspaceID, Name: name, Description: description, SupportTier: supportTier}, nil
 }
-func (r *teamLookupRepo) UpdateTeam(context.Context, uuid.UUID, string, string) (db.Team, error) {
+func (r *teamLookupRepo) UpdateTeam(context.Context, uuid.UUID, string, string, *string) (db.Team, error) {
 	return db.Team{}, nil
 }
 func (r *teamLookupRepo) DeleteTeam(context.Context, uuid.UUID) error { return nil }
@@ -229,6 +229,9 @@ func (r *teamLookupRepo) UpdateTeamMemberRole(context.Context, uuid.UUID, uuid.U
 func (r *teamLookupRepo) RemoveTeamMember(context.Context, uuid.UUID, uuid.UUID) error { return nil }
 func (r *teamLookupRepo) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
 	return db.User{}, nil
+}
+func (r *teamLookupRepo) GetWorkspace(_ context.Context, id uuid.UUID) (db.Workspace, error) {
+	return db.Workspace{ID: id, Name: "Default", Slug: "default"}, nil
 }
 
 var errListAlerts = &listAlertsError{}

@@ -99,7 +99,7 @@ dashboard only. This epic is a **visual and compositional** pass — no new prod
 
 ### AEG-072 — Shared form and feedback components
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-056
 - **PRD:** REQ-DS-04; [`12-design-system.md`](../docs/12-design-system.md) Components table
 - **Acceptance:**
@@ -117,7 +117,7 @@ dashboard only. This epic is a **visual and compositional** pass — no new prod
 
 ### AEG-073 — PageHeader and PageContent layout primitives
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-056
 - **PRD:** [`12-design-system.md`](../docs/12-design-system.md) Typography + Spacing
 - **Acceptance:**
@@ -133,7 +133,7 @@ dashboard only. This epic is a **visual and compositional** pass — no new prod
 
 ### AEG-074 — DataTable and Pagination components
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-056, AEG-072
 - **PRD:** REQ-DS-04; design system Data Table pattern
 - **Acceptance:**
@@ -148,7 +148,7 @@ dashboard only. This epic is a **visual and compositional** pass — no new prod
 
 ### AEG-075 — Alerts workspace layout polish
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-072, AEG-073, AEG-074
 - **PRD:** REQ-ALERT-01, REQ-ALERT-04; design system Search & Filter Bar pattern
 - **Acceptance:**
@@ -171,7 +171,7 @@ Reference user screenshot / composed screen in canvas.
 
 ### AEG-076 — Cross-page header and shell consistency
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-073
 - **PRD:** [`12-design-system.md`](../docs/12-design-system.md)
 - **Acceptance:**
@@ -189,7 +189,7 @@ Reference user screenshot / composed screen in canvas.
 
 ### AEG-077 — Secondary pages visual polish
 
-- **Status:** In Review
+- **Status:** Done
 - **Depends on:** AEG-072, AEG-074, AEG-076
 - **PRD:** [`12-design-system.md`](../docs/12-design-system.md)
 - **Acceptance:**

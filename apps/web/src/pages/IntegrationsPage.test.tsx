@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
 import { IntegrationsPage } from './IntegrationsPage';
 
@@ -31,7 +32,9 @@ function renderPage() {
   return render(
     <MemoryRouter>
       <I18nextProvider i18n={i18n}>
-        <IntegrationsPage />
+        <AuthProvider>
+          <IntegrationsPage />
+        </AuthProvider>
       </I18nextProvider>
     </MemoryRouter>,
   );
@@ -52,8 +55,28 @@ describe('IntegrationsPage', () => {
     vi.unstubAllGlobals();
   });
 
+  function mockFetch(body: unknown, status = 200) {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      return jsonResponse(body, status);
+    });
+  }
+
   it('shows breadcrumb navigation back to shifts', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ items: [] }));
+    mockFetch({ items: [] });
 
     renderPage();
 
@@ -63,7 +86,7 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows loading then empty state', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ items: [] }));
+    mockFetch({ items: [] });
 
     renderPage();
     expect(screen.getByText('Loading integrations')).toBeInTheDocument();
@@ -74,9 +97,29 @@ describe('IntegrationsPage', () => {
   });
 
   it('renders integrations and tests connection successfully', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse({ items: [slackIntegration, jiraIntegration] }))
-      .mockResolvedValueOnce(jsonResponse({}));
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/test') && init?.method === 'POST') {
+        return jsonResponse({});
+      }
+      if (url.includes('/integrations')) {
+        return jsonResponse({ items: [slackIntegration, jiraIntegration] });
+      }
+      return jsonResponse({}, 404);
+    });
 
     renderPage();
 
@@ -97,7 +140,7 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows sign-in message when load returns 401', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({}, 401));
+    mockFetch({}, 401);
 
     renderPage();
 
@@ -107,7 +150,7 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows load error when fetch fails', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({}, 500));
+    mockFetch({}, 500);
 
     renderPage();
 
@@ -117,7 +160,23 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows load error on network failure', async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(new Error('network'));
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      throw new Error('network');
+    });
 
     renderPage();
 
@@ -127,9 +186,26 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows sign-in toast when test returns 401', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse({ items: [slackIntegration] }))
-      .mockResolvedValueOnce(jsonResponse({}, 401));
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/test') && init?.method === 'POST') {
+        return jsonResponse({}, 401);
+      }
+      return jsonResponse({ items: [slackIntegration] });
+    });
 
     renderPage();
 
@@ -144,9 +220,26 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows API error message when test fails', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse({ items: [slackIntegration] }))
-      .mockResolvedValueOnce(jsonResponse({ message: 'Invalid token' }, 400));
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/test') && init?.method === 'POST') {
+        return jsonResponse({ message: 'Invalid token' }, 400);
+      }
+      return jsonResponse({ items: [slackIntegration] });
+    });
 
     renderPage();
 
@@ -166,9 +259,26 @@ describe('IntegrationsPage', () => {
       resolveTest = resolve;
     });
 
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse({ items: [slackIntegration] }))
-      .mockReturnValueOnce(testPromise);
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/test') && init?.method === 'POST') {
+        return testPromise;
+      }
+      return jsonResponse({ items: [slackIntegration] });
+    });
 
     renderPage();
 
@@ -188,9 +298,26 @@ describe('IntegrationsPage', () => {
   });
 
   it('shows generic test failure on unexpected rejection', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(jsonResponse({ items: [slackIntegration] }))
-      .mockRejectedValueOnce('network');
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/test') && init?.method === 'POST') {
+        throw new Error('network');
+      }
+      return jsonResponse({ items: [slackIntegration] });
+    });
 
     renderPage();
 
@@ -201,6 +328,54 @@ describe('IntegrationsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Connection failed')).toBeInTheDocument();
+    });
+  });
+
+  it('shows workspace scope badge and saves workspace integration', async () => {
+    const workspaceIntegration = {
+      ...jiraIntegration,
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Default', slug: 'default', description: '' }],
+        });
+      }
+      if (url === '/api/v1/integrations' && init?.method === 'POST') {
+        return jsonResponse(workspaceIntegration, 201);
+      }
+      if (url === '/api/v1/integrations') {
+        return jsonResponse({ items: [slackIntegration, workspaceIntegration] });
+      }
+      return jsonResponse({ items: [] });
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Workspace · Default')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add integration' }));
+    fireEvent.change(screen.getByLabelText('Scope'), { target: { value: '00000000-0000-0000-0000-000000000001' } });
+    fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Integration saved')).toBeInTheDocument();
     });
   });
 });

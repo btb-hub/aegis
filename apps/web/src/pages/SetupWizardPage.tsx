@@ -7,6 +7,8 @@ import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
+import { DEFAULT_WORKSPACE_ID } from '../lib/teamTypes';
+import { addEscalationPath, fetchWorkspaces } from '../lib/workspacesApi';
 import { loadSetupWizardState, saveSetupWizardState } from '../lib/setupWizard';
 
 type IntegrationItem = {
@@ -52,7 +54,11 @@ export function SetupWizardPage() {
 
   const [teamName, setTeamName] = useState('');
   const [teamDescription, setTeamDescription] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [l2TeamName, setL2TeamName] = useState('');
+  const [l3TeamName, setL3TeamName] = useState('');
   const [createdTeamId, setCreatedTeamId] = useState<string | null>(null);
+  const [createdWorkspaceId, setCreatedWorkspaceId] = useState<string | null>(null);
   const [creatingTeam, setCreatingTeam] = useState(false);
 
   useEffect(() => {
@@ -158,7 +164,11 @@ export function SetupWizardPage() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: teamName.trim(), description: teamDescription.trim() }),
+        body: JSON.stringify({
+          workspace_id: DEFAULT_WORKSPACE_ID,
+          name: teamName.trim(),
+          description: teamDescription.trim(),
+        }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
@@ -167,6 +177,74 @@ export function SetupWizardPage() {
       const data = (await response.json()) as { id: string; name: string };
       setCreatedTeamId(data.id);
       setToast({ message: t('setup.team.created', { name: data.name }), variant: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('setup.team.create_failed');
+      setToast({ message, variant: 'default' });
+    } finally {
+      setCreatingTeam(false);
+    }
+  };
+
+  const createWorkspaceStructure = async () => {
+    if (!l2TeamName.trim() || !l3TeamName.trim()) {
+      return;
+    }
+    setCreatingTeam(true);
+    setToast(null);
+    try {
+      let workspaceId = createdWorkspaceId ?? DEFAULT_WORKSPACE_ID;
+      if (workspaceName.trim()) {
+        const workspaceResponse = await fetch('/api/v1/workspaces', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: workspaceName.trim() }),
+        });
+        if (!workspaceResponse.ok) {
+          const body = (await workspaceResponse.json()) as { message?: string };
+          throw new Error(body.message ?? t('setup.workspace.create_failed'));
+        }
+        const workspace = (await workspaceResponse.json()) as { id: string; name: string };
+        workspaceId = workspace.id;
+        setCreatedWorkspaceId(workspace.id);
+      } else {
+        const existing = await fetchWorkspaces();
+        const defaultWorkspace = existing.find((item) => item.id === DEFAULT_WORKSPACE_ID) ?? existing[0];
+        if (defaultWorkspace) {
+          workspaceId = defaultWorkspace.id;
+          setCreatedWorkspaceId(defaultWorkspace.id);
+        }
+      }
+
+      const createTeamRequest = async (name: string, supportTier: string) => {
+        const response = await fetch('/api/v1/teams', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workspace_id: workspaceId,
+            name: name.trim(),
+            support_tier: supportTier,
+          }),
+        });
+        if (!response.ok) {
+          const body = (await response.json()) as { message?: string };
+          throw new Error(body.message ?? t('setup.team.create_failed'));
+        }
+        return (await response.json()) as { id: string; name: string };
+      };
+
+      const l2Team = await createTeamRequest(l2TeamName, 'l2');
+      const l3Team = await createTeamRequest(l3TeamName, 'l3');
+      await addEscalationPath(workspaceId, {
+        from_team_id: l2Team.id,
+        to_team_id: l3Team.id,
+      });
+      setCreatedTeamId(l2Team.id);
+      setToast({
+        message: t('setup.team.structure_created', { l2: l2Team.name, l3: l3Team.name }),
+        variant: 'success',
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('setup.team.create_failed');
       setToast({ message, variant: 'default' });
@@ -242,19 +320,44 @@ export function SetupWizardPage() {
         ) : null}
 
         {step === 2 ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-zinc-900">{t('setup.team.title')}</h2>
-            <p className="text-sm text-zinc-600">{t('setup.team.body')}</p>
-            <Input label={t('setup.team.name_label')} value={teamName} onChange={setTeamName} />
-            <Input label={t('setup.team.description_label')} value={teamDescription} onChange={setTeamDescription} />
-            <Button disabled={creatingTeam || !teamName.trim()} onClick={() => void createTeam()}>
-              {t('setup.team.create')}
-            </Button>
-            {createdTeamId ? (
-              <Link className="text-sm text-accent hover:underline" to={`/teams/${createdTeamId}/shifts`}>
-                {t('setup.team.open_shifts')}
-              </Link>
-            ) : null}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-zinc-900">{t('setup.workspace.title')}</h2>
+              <p className="text-sm text-zinc-600">{t('setup.workspace.body')}</p>
+              <Input
+                label={t('setup.workspace.name_label')}
+                value={workspaceName}
+                onChange={setWorkspaceName}
+              />
+            </div>
+
+            <div className="space-y-4 rounded-md border border-zinc-200 p-4">
+              <h3 className="font-medium text-zinc-900">{t('setup.team.escalation_title')}</h3>
+              <p className="text-sm text-zinc-600">{t('setup.team.escalation_body')}</p>
+              <Input label={t('setup.team.l2_name_label')} value={l2TeamName} onChange={setL2TeamName} />
+              <Input label={t('setup.team.l3_name_label')} value={l3TeamName} onChange={setL3TeamName} />
+              <Button
+                disabled={creatingTeam || !l2TeamName.trim() || !l3TeamName.trim()}
+                onClick={() => void createWorkspaceStructure()}
+              >
+                {t('setup.team.create_structure')}
+              </Button>
+              {createdTeamId ? (
+                <Link className="text-sm text-accent hover:underline" to={`/teams/${createdTeamId}/shifts`}>
+                  {t('setup.team.open_shifts')}
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="space-y-4 rounded-md border border-dashed border-zinc-200 p-4">
+              <h3 className="font-medium text-zinc-900">{t('setup.team.title')}</h3>
+              <p className="text-sm text-zinc-600">{t('setup.team.body')}</p>
+              <Input label={t('setup.team.name_label')} value={teamName} onChange={setTeamName} />
+              <Input label={t('setup.team.description_label')} value={teamDescription} onChange={setTeamDescription} />
+              <Button disabled={creatingTeam || !teamName.trim()} onClick={() => void createTeam()}>
+                {t('setup.team.create')}
+              </Button>
+            </div>
           </div>
         ) : null}
 

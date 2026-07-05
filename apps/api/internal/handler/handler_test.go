@@ -190,14 +190,16 @@ func (m *authMockAlertRepo) StreamAlertsCSV(ctx context.Context, params db.ListA
 
 type emptyTeamRepo struct{}
 
-func (e *emptyTeamRepo) ListTeams(ctx context.Context) ([]db.Team, error) { return nil, nil }
+func (e *emptyTeamRepo) ListTeamsFiltered(ctx context.Context, workspaceID uuid.UUID) ([]db.Team, error) {
+	return nil, nil
+}
 func (e *emptyTeamRepo) GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error) {
 	return db.Team{}, pgx.ErrNoRows
 }
-func (e *emptyTeamRepo) CreateTeam(ctx context.Context, name, description string) (db.Team, error) {
-	return db.Team{}, nil
+func (e *emptyTeamRepo) CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
+	return db.Team{WorkspaceID: workspaceID, Name: name, Description: description, SupportTier: supportTier}, nil
 }
-func (e *emptyTeamRepo) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string) (db.Team, error) {
+func (e *emptyTeamRepo) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	return db.Team{}, nil
 }
 func (e *emptyTeamRepo) DeleteTeam(ctx context.Context, id uuid.UUID) error { return nil }
@@ -213,6 +215,9 @@ func (e *emptyTeamRepo) UpdateTeamMemberRole(ctx context.Context, teamID, userID
 func (e *emptyTeamRepo) RemoveTeamMember(ctx context.Context, teamID, userID uuid.UUID) error { return nil }
 func (e *emptyTeamRepo) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
 	return db.User{}, pgx.ErrNoRows
+}
+func (e *emptyTeamRepo) GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error) {
+	return db.Workspace{ID: id, Name: "Default", Slug: "default"}, nil
 }
 
 func TestHealthz(t *testing.T) {

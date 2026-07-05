@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import type { Team } from '../lib/teamTypes';
+import {
+  DEFAULT_WORKSPACE_ID,
+  SUPPORT_TIERS,
+  type SupportTier,
+  type Team,
+  type Workspace,
+} from '../lib/teamTypes';
+import { fetchWorkspaces } from '../lib/workspacesApi';
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
 import { DataTable } from '../components/ui/DataTable';
@@ -10,14 +17,23 @@ import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Select } from '../components/ui/Select';
+import { StatusTag } from '../components/ui/StatusTag';
 import { Toast } from '../components/ui/Toast';
 
 type TeamFormState = {
   name: string;
   description: string;
+  workspace_id: string;
+  support_tier: string;
 };
 
-const emptyForm: TeamFormState = { name: '', description: '' };
+const emptyForm: TeamFormState = {
+  name: '',
+  description: '',
+  workspace_id: DEFAULT_WORKSPACE_ID,
+  support_tier: '',
+};
 
 export function TeamsPage() {
   const { t } = useTranslation();
@@ -25,6 +41,8 @@ export function TeamsPage() {
   const isAdmin = user?.role === 'admin';
 
   const [items, setItems] = useState<Team[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [workspaceFilter, setWorkspaceFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
@@ -37,11 +55,42 @@ export function TeamsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Team | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const workspaceById = useMemo(
+    () => new Map(workspaces.map((workspace) => [workspace.id, workspace])),
+    [workspaces],
+  );
+
+  const tierOptions = useMemo(
+    () => [
+      { value: '', label: t('teams.tier.unset') },
+      ...SUPPORT_TIERS.map((tier) => ({ value: tier, label: t(`teams.tier.${tier}`) })),
+    ],
+    [t],
+  );
+
+  const workspaceOptions = useMemo(
+    () => workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
+    [workspaces],
+  );
+
+  const loadWorkspaces = useCallback(async () => {
+    try {
+      const list = await fetchWorkspaces();
+      setWorkspaces(list);
+    } catch {
+      setWorkspaces([]);
+    }
+  }, []);
+
   const loadTeams = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const response = await fetch('/api/v1/teams', { credentials: 'include' });
+      const query =
+        workspaceFilter !== 'all'
+          ? `/api/v1/teams?workspace_id=${encodeURIComponent(workspaceFilter)}`
+          : '/api/v1/teams';
+      const response = await fetch(query, { credentials: 'include' });
       if (response.status === 401) {
         setLoadError(t('teams.sign_in_required'));
         setItems([]);
@@ -58,7 +107,11 @@ export function TeamsPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, workspaceFilter]);
+
+  useEffect(() => {
+    void loadWorkspaces();
+  }, [loadWorkspaces]);
 
   useEffect(() => {
     void loadTeams();
@@ -66,13 +119,21 @@ export function TeamsPage() {
 
   const openCreate = () => {
     setEditingTeam(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      workspace_id: workspaceFilter !== 'all' ? workspaceFilter : DEFAULT_WORKSPACE_ID,
+    });
     setFormOpen(true);
   };
 
   const openEdit = (team: Team) => {
     setEditingTeam(team);
-    setForm({ name: team.name, description: team.description ?? '' });
+    setForm({
+      name: team.name,
+      description: team.description ?? '',
+      workspace_id: team.workspace_id,
+      support_tier: team.support_tier ?? '',
+    });
     setFormOpen(true);
   };
 
@@ -86,13 +147,30 @@ export function TeamsPage() {
     setSaving(true);
     setToast(null);
     try {
+      const payload: Record<string, string> = {
+        name: form.name.trim(),
+        description: form.description.trim(),
+      };
+      if (editingTeam) {
+        if (form.support_tier) {
+          payload.support_tier = form.support_tier;
+        } else {
+          payload.support_tier = '';
+        }
+      } else {
+        payload.workspace_id = form.workspace_id;
+        if (form.support_tier) {
+          payload.support_tier = form.support_tier;
+        }
+      }
+
       const response = await fetch(
         editingTeam ? `/api/v1/teams/${editingTeam.id}` : '/api/v1/teams',
         {
           method: editingTeam ? 'PATCH' : 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: form.name.trim(), description: form.description.trim() }),
+          body: JSON.stringify(payload),
         },
       );
       if (response.status === 401) {
@@ -147,6 +225,13 @@ export function TeamsPage() {
     }
   };
 
+  const renderTier = (tier?: SupportTier) =>
+    tier ? (
+      <StatusTag variant="neutral" label={t(`teams.tier.${tier}`)} />
+    ) : (
+      <span className="text-zinc-500">—</span>
+    );
+
   return (
     <PageContent>
       <PageHeader
@@ -160,6 +245,19 @@ export function TeamsPage() {
       />
 
       {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
+
+      <div className="mb-4 max-w-xs">
+        <Select
+          id="teams-workspace-filter"
+          label={t('teams.workspace_filter')}
+          value={workspaceFilter}
+          options={[
+            { value: 'all', label: t('teams.workspace_all') },
+            ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
+          ]}
+          onChange={setWorkspaceFilter}
+        />
+      </div>
 
       {loading ? (
         <p className="text-sm text-zinc-600">{t('teams.loading')}</p>
@@ -184,6 +282,27 @@ export function TeamsPage() {
                   {team.name}
                 </Link>
               ),
+            },
+            {
+              key: 'workspace',
+              header: t('teams.column.workspace'),
+              cellClassName: 'text-zinc-700',
+              render: (team) => {
+                const workspace = workspaceById.get(team.workspace_id);
+                if (!workspace) {
+                  return '—';
+                }
+                return (
+                  <Link to={`/workspaces/${workspace.id}`} className="text-accent hover:underline">
+                    {workspace.name}
+                  </Link>
+                );
+              },
+            },
+            {
+              key: 'tier',
+              header: t('teams.column.tier'),
+              render: (team) => renderTier(team.support_tier),
             },
             {
               key: 'description',
@@ -222,9 +341,25 @@ export function TeamsPage() {
         primaryLabel={t('teams.save')}
         secondaryLabel={t('teams.cancel')}
         onPrimary={() => void saveTeam()}
-        primaryDisabled={!form.name.trim() || saving}
+        primaryDisabled={!form.name.trim() || saving || (!editingTeam && !form.workspace_id)}
         primaryLoading={saving}
       >
+        {!editingTeam ? (
+          <Select
+            id="team-workspace"
+            label={t('teams.workspace_label')}
+            value={form.workspace_id}
+            options={workspaceOptions}
+            onChange={(value) => setForm((f) => ({ ...f, workspace_id: value }))}
+          />
+        ) : null}
+        <Select
+          id="team-support-tier"
+          label={t('teams.tier_label')}
+          value={form.support_tier}
+          options={tierOptions}
+          onChange={(value) => setForm((f) => ({ ...f, support_tier: value }))}
+        />
         <Input label={t('teams.name_label')} value={form.name} onChange={(value) => setForm((f) => ({ ...f, name: value }))} />
         <Input
           label={t('teams.description_label')}

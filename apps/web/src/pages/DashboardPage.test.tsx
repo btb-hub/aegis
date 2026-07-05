@@ -123,6 +123,32 @@ describe('DashboardPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'CPU' }));
   });
 
+  it('shows previous period values when compare is enabled', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...overviewPayload,
+          mtta: {
+            ...overviewPayload.mtta,
+            previous: { mean_seconds: 90, count: 2, series: [] },
+          },
+          mttr: {
+            ...overviewPayload.mttr,
+            previous: { mean_seconds: 240, count: 1, series: [] },
+          },
+        }),
+      }),
+    );
+
+    renderDashboard();
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Previous period/i).length).toBeGreaterThan(0);
+    });
+  });
+
   it('shows unauthorized message', async () => {
     vi.stubGlobal(
       'fetch',

@@ -49,21 +49,28 @@ type teamRepoMock struct {
 	authMockSessions
 	teams       map[uuid.UUID]db.Team
 	memberships map[uuid.UUID]map[uuid.UUID]db.TeamMembership
+	workspaces  map[uuid.UUID]db.Workspace
 }
 
 func newTeamRepoMock() *teamRepoMock {
+	defaultWorkspaceID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
 	return &teamRepoMock{
 		authMockUsers:    *newAuthMockUsers(),
 		authMockSessions: authMockSessions{byHash: map[string]db.Session{}},
 		teams:            map[uuid.UUID]db.Team{},
 		memberships:      map[uuid.UUID]map[uuid.UUID]db.TeamMembership{},
+		workspaces: map[uuid.UUID]db.Workspace{
+			defaultWorkspaceID: {ID: defaultWorkspaceID, Name: "Default", Slug: "default"},
+		},
 	}
 }
 
-func (m *teamRepoMock) ListTeams(ctx context.Context) ([]db.Team, error) {
+func (m *teamRepoMock) ListTeamsFiltered(ctx context.Context, workspaceID uuid.UUID) ([]db.Team, error) {
 	items := make([]db.Team, 0, len(m.teams))
 	for _, team := range m.teams {
-		items = append(items, team)
+		if workspaceID == uuid.Nil || team.WorkspaceID == workspaceID {
+			items = append(items, team)
+		}
 	}
 	return items, nil
 }
@@ -76,11 +83,13 @@ func (m *teamRepoMock) GetTeam(ctx context.Context, id uuid.UUID) (db.Team, erro
 	return team, nil
 }
 
-func (m *teamRepoMock) CreateTeam(ctx context.Context, name, description string) (db.Team, error) {
+func (m *teamRepoMock) CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	team := db.Team{
 		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
 		Name:        name,
 		Description: description,
+		SupportTier: supportTier,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -88,13 +97,14 @@ func (m *teamRepoMock) CreateTeam(ctx context.Context, name, description string)
 	return team, nil
 }
 
-func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string) (db.Team, error) {
+func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	team, ok := m.teams[id]
 	if !ok {
 		return db.Team{}, pgx.ErrNoRows
 	}
 	team.Name = name
 	team.Description = description
+	team.SupportTier = supportTier
 	m.teams[id] = team
 	return team, nil
 }
@@ -166,6 +176,14 @@ func (m *teamRepoMock) RemoveTeamMember(ctx context.Context, teamID, userID uuid
 	return nil
 }
 
+func (m *teamRepoMock) GetWorkspace(_ context.Context, id uuid.UUID) (db.Workspace, error) {
+	item, ok := m.workspaces[id]
+	if !ok {
+		return db.Workspace{}, pgx.ErrNoRows
+	}
+	return item, nil
+}
+
 func (env *teamTestEnv) sessionForRole(t *testing.T, role string) string {
 	t.Helper()
 	userID := uuid.New()
@@ -188,7 +206,7 @@ func TestTeamsListRequiresSession(t *testing.T) {
 func TestTeamsCreateForbiddenForMember(t *testing.T) {
 	env := setupTeamRouter(t)
 	token := env.sessionForRole(t, "member")
-	body, _ := json.Marshal(map[string]string{"name": "Platform"})
+	body, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -200,7 +218,7 @@ func TestTeamsCreateForbiddenForMember(t *testing.T) {
 func TestTeamsCreateForbiddenForViewer(t *testing.T) {
 	env := setupTeamRouter(t)
 	token := env.sessionForRole(t, "viewer")
-	body, _ := json.Marshal(map[string]string{"name": "Platform"})
+	body, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -212,7 +230,7 @@ func TestTeamsCreateForbiddenForViewer(t *testing.T) {
 func TestTeamsCreateAllowedForAdmin(t *testing.T) {
 	env := setupTeamRouter(t)
 	token := env.sessionForRole(t, "admin")
-	body, _ := json.Marshal(map[string]string{"name": "Platform", "description": "Core"})
+	body, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform", "description": "Core"})
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -224,7 +242,7 @@ func TestTeamsCreateAllowedForAdmin(t *testing.T) {
 func TestTeamsListAllowedForViewer(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	body, _ := json.Marshal(map[string]string{"name": "Platform"})
+	body, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(body))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -258,7 +276,7 @@ func TestTeamMembersAdminFlow(t *testing.T) {
 	_, err = env.repo.CreateSession(context.Background(), adminID, hash, time.Now().Add(time.Hour))
 	require.NoError(t, err)
 
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -294,7 +312,7 @@ func TestTeamMembersAdminFlow(t *testing.T) {
 func TestTeamMembersAddForbiddenForMember(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -329,7 +347,7 @@ func TestGetTeamInvalidID(t *testing.T) {
 func TestGetTeamSuccess(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -369,7 +387,7 @@ func TestListMembersNotFoundTeam(t *testing.T) {
 func TestAddMemberInvalidUserID(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -399,7 +417,7 @@ func TestSessionTokenBearerHeader(t *testing.T) {
 func TestUpdateTeamAdmin(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -421,7 +439,7 @@ func TestUpdateTeamAdmin(t *testing.T) {
 func TestDeleteTeamAdmin(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -444,7 +462,7 @@ func TestUpdateMemberAdmin(t *testing.T) {
 	memberID := uuid.New()
 	env.repo.users[memberID] = db.User{ID: memberID, DisplayName: "Member"}
 
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -486,7 +504,7 @@ func TestTeamsCreateInvalidBody(t *testing.T) {
 func TestTeamsCreateValidationError(t *testing.T) {
 	env := setupTeamRouter(t)
 	token := env.sessionForRole(t, "admin")
-	body, _ := json.Marshal(map[string]string{"name": "   "})
+	body, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "   "})
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -498,7 +516,7 @@ func TestTeamsCreateValidationError(t *testing.T) {
 func TestUpdateTeamValidationError(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -530,7 +548,7 @@ func TestDeleteTeamNotFound(t *testing.T) {
 func TestRemoveMemberNotFound(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -550,7 +568,7 @@ func TestRemoveMemberNotFound(t *testing.T) {
 func TestUpdateMemberInvalidBody(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -571,7 +589,7 @@ func TestUpdateMemberInvalidBody(t *testing.T) {
 func TestAddMemberUnknownUser(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -593,7 +611,7 @@ func TestAddMemberUnknownUser(t *testing.T) {
 func TestUpdateMemberNotFoundHandler(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -627,7 +645,7 @@ func TestUpdateMemberInvalidUserIDParam(t *testing.T) {
 func TestAddMemberInvalidBody(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -651,7 +669,7 @@ func TestUpdateMemberInvalidRoleHandler(t *testing.T) {
 	memberID := uuid.New()
 	env.repo.users[memberID] = db.User{ID: memberID, DisplayName: "Member"}
 
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -702,7 +720,7 @@ func TestUpdateTeamInvalidBody(t *testing.T) {
 func TestDeleteTeamForbiddenForViewer(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
-	createBody, _ := json.Marshal(map[string]string{"name": "Platform"})
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
 	wCreate := httptest.NewRecorder()
 	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
 	reqCreate.Header.Set("Content-Type", "application/json")
@@ -718,6 +736,89 @@ func TestDeleteTeamForbiddenForViewer(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: viewerToken})
 	env.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestTeamsListWithWorkspaceFilter(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	workspaceID := uuid.New()
+	env.repo.workspaces[workspaceID] = db.Workspace{ID: workspaceID, Name: "Platform", Slug: "platform"}
+	createBody, _ := json.Marshal(map[string]string{
+		"workspace_id": workspaceID.String(),
+		"name":         "Platform L2",
+		"support_tier": "l2",
+	})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+
+	wList := httptest.NewRecorder()
+	reqList := httptest.NewRequest(http.MethodGet, "/api/v1/teams?workspace_id="+workspaceID.String(), nil)
+	reqList.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wList, reqList)
+	require.Equal(t, http.StatusOK, wList.Code)
+}
+
+func TestTeamsListInvalidWorkspaceFilter(t *testing.T) {
+	env := setupTeamRouter(t)
+	token := env.sessionForRole(t, "admin")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/teams?workspace_id=bad", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestTeamsUpdateSupportTier(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	createBody, _ := json.Marshal(map[string]string{
+		"workspace_id": "00000000-0000-0000-0000-000000000001",
+		"name":         "Platform L2",
+	})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	var team map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &team))
+
+	patchBody, _ := json.Marshal(map[string]string{"name": "Platform L2", "support_tier": "l2"})
+	wPatch := httptest.NewRecorder()
+	reqPatch := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+team["id"].(string), bytes.NewReader(patchBody))
+	reqPatch.Header.Set("Content-Type", "application/json")
+	reqPatch.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wPatch, reqPatch)
+	require.Equal(t, http.StatusOK, wPatch.Code)
+}
+
+func TestTeamsCreateWithUnknownWorkspace(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	body, _ := json.Marshal(map[string]any{
+		"name":         "Orphan team",
+		"workspace_id": uuid.New().String(),
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestDeleteTeamInvalidID(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/teams/not-a-uuid", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func sessionTokenPair() (string, string, error) {

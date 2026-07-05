@@ -8,52 +8,68 @@ import (
 )
 
 func (s *Store) ListTeams(ctx context.Context) ([]Team, error) {
-	const q = `SELECT id, name, description, created_at, updated_at FROM teams ORDER BY name`
-	rows, err := s.pool.Query(ctx, q)
+	return s.ListTeamsFiltered(ctx, uuid.Nil)
+}
+
+func (s *Store) ListTeamsFiltered(ctx context.Context, workspaceID uuid.UUID) ([]Team, error) {
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if workspaceID == uuid.Nil {
+		const q = `
+SELECT id, workspace_id, name, description, support_tier, created_at, updated_at
+FROM teams
+ORDER BY name`
+		rows, err = s.pool.Query(ctx, q)
+	} else {
+		const q = `
+SELECT id, workspace_id, name, description, support_tier, created_at, updated_at
+FROM teams
+WHERE workspace_id = $1
+ORDER BY name`
+		rows, err = s.pool.Query(ctx, q, workspaceID)
+	}
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var teams []Team
-	for rows.Next() {
-		var team Team
-		if err := rows.Scan(&team.ID, &team.Name, &team.Description, &team.CreatedAt, &team.UpdatedAt); err != nil {
-			return nil, err
-		}
-		teams = append(teams, team)
-	}
-	return teams, rows.Err()
+	return scanTeams(rows)
 }
 
 func (s *Store) GetTeam(ctx context.Context, id uuid.UUID) (Team, error) {
-	const q = `SELECT id, name, description, created_at, updated_at FROM teams WHERE id = $1`
-	var team Team
-	err := s.pool.QueryRow(ctx, q, id).Scan(&team.ID, &team.Name, &team.Description, &team.CreatedAt, &team.UpdatedAt)
-	return team, err
-}
-
-func (s *Store) CreateTeam(ctx context.Context, name, description string) (Team, error) {
 	const q = `
-INSERT INTO teams (name, description)
-VALUES ($1, $2)
-RETURNING id, name, description, created_at, updated_at`
+SELECT id, workspace_id, name, description, support_tier, created_at, updated_at
+FROM teams
+WHERE id = $1`
 	var team Team
-	err := s.pool.QueryRow(ctx, q, name, description).Scan(
-		&team.ID, &team.Name, &team.Description, &team.CreatedAt, &team.UpdatedAt,
+	err := s.pool.QueryRow(ctx, q, id).Scan(
+		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier, &team.CreatedAt, &team.UpdatedAt,
 	)
 	return team, err
 }
 
-func (s *Store) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string) (Team, error) {
+func (s *Store) CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (Team, error) {
+	const q = `
+INSERT INTO teams (workspace_id, name, description, support_tier)
+VALUES ($1, $2, $3, $4)
+RETURNING id, workspace_id, name, description, support_tier, created_at, updated_at`
+	var team Team
+	err := s.pool.QueryRow(ctx, q, workspaceID, name, description, supportTier).Scan(
+		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier, &team.CreatedAt, &team.UpdatedAt,
+	)
+	return team, err
+}
+
+func (s *Store) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (Team, error) {
 	const q = `
 UPDATE teams
-SET name = $2, description = $3, updated_at = now()
+SET name = $2, description = $3, support_tier = $4, updated_at = now()
 WHERE id = $1
-RETURNING id, name, description, created_at, updated_at`
+RETURNING id, workspace_id, name, description, support_tier, created_at, updated_at`
 	var team Team
-	err := s.pool.QueryRow(ctx, q, id, name, description).Scan(
-		&team.ID, &team.Name, &team.Description, &team.CreatedAt, &team.UpdatedAt,
+	err := s.pool.QueryRow(ctx, q, id, name, description, supportTier).Scan(
+		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier, &team.CreatedAt, &team.UpdatedAt,
 	)
 	return team, err
 }
@@ -130,6 +146,13 @@ func (s *Store) RemoveTeamMember(ctx context.Context, teamID, userID uuid.UUID) 
 		return pgx.ErrNoRows
 	}
 	return nil
+}
+
+func (s *Store) GetTeamWorkspaceID(ctx context.Context, teamID uuid.UUID) (uuid.UUID, error) {
+	const q = `SELECT workspace_id FROM teams WHERE id = $1`
+	var workspaceID uuid.UUID
+	err := s.pool.QueryRow(ctx, q, teamID).Scan(&workspaceID)
+	return workspaceID, err
 }
 
 func IsNotFound(err error) bool {

@@ -198,3 +198,75 @@ func TestIncidentsTimelineNotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, w.Code)
 	_ = repo
 }
+
+func TestIntegrationsUpsertWithWorkspace(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	workspaceID := uuid.New()
+	body, _ := json.Marshal(map[string]any{
+		"kind":         "jira",
+		"name":         "Platform Jira",
+		"enabled":      true,
+		"workspace_id": workspaceID.String(),
+		"config":       map[string]string{"project_key": "OPS"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/integrations", bytes.NewReader(body))
+	req.AddCookie(admin)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusCreated, w.Code)
+}
+
+func TestIntegrationsUpsertInvalidWorkspaceID(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	body, _ := json.Marshal(map[string]any{
+		"kind":         "jira",
+		"name":         "Platform Jira",
+		"enabled":      true,
+		"workspace_id": "bad",
+		"config":       map[string]string{"project_key": "OPS"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/integrations", bytes.NewReader(body))
+	req.AddCookie(admin)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	_ = repo
+}
+
+func TestIntegrationsDeleteIntegration(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	id := uuid.New()
+	repo.integrations[id] = db.Integration{ID: id, Kind: "jira", Name: "Jira", Config: []byte(`{"project_key":"OPS"}`), Enabled: true}
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/integrations/"+id.String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNoContent, w.Code)
+}
+
+func TestIntegrationsDeleteNotFound(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/integrations/"+uuid.New().String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code)
+	_ = repo
+}
+
+func TestIntegrationsTestInvalidID(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/integrations/not-a-uuid/test", nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	_ = repo
+}

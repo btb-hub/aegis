@@ -62,12 +62,32 @@ type Alert struct {
 	ReceivedAt  time.Time `json:"received_at"`
 }
 
-type Team struct {
+type Workspace struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type Team struct {
+	ID          uuid.UUID  `json:"id"`
+	WorkspaceID uuid.UUID  `json:"workspace_id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	SupportTier *string    `json:"support_tier,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+type EscalationPath struct {
+	ID             uuid.UUID `json:"id"`
+	FromTeamID     uuid.UUID `json:"from_team_id"`
+	ToTeamID       uuid.UUID `json:"to_team_id"`
+	WorkspaceID    uuid.UUID `json:"workspace_id"`
+	CrossWorkspace bool      `json:"cross_workspace"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type TeamMembership struct {
@@ -173,13 +193,14 @@ type TimelineEvent struct {
 }
 
 type Integration struct {
-	ID        uuid.UUID `json:"id"`
-	Kind      string    `json:"kind"`
-	Name      string    `json:"name"`
-	Config    []byte    `json:"config"`
-	Enabled   bool      `json:"enabled"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          uuid.UUID  `json:"id"`
+	Kind        string     `json:"kind"`
+	Name        string     `json:"name"`
+	Config      []byte     `json:"config"`
+	Enabled     bool       `json:"enabled"`
+	WorkspaceID *uuid.UUID `json:"workspace_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type Notification struct {

@@ -1,0 +1,2 @@
+ALTER TABLE teams DROP COLUMN IF EXISTS workspace_id;
+DROP TABLE IF EXISTS workspaces;

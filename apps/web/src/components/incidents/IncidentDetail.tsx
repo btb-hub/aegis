@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '../../lib/formatDate';
 import type { Incident } from '../../lib/incidentTypes';
+import { bounceLabelKey, handoffLabelKey } from '../../lib/teamTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
 import { SeverityTag } from '../ui/SeverityTag';
 import { StatusTag, alertStatusVariant, incidentStatusVariant } from '../ui/StatusTag';
 
@@ -16,6 +18,8 @@ export type HandoffTeamOption = {
 type IncidentDetailProps = {
   incident: Incident;
   teams: HandoffTeamOption[];
+  owningTeamName?: string;
+  owningTier?: string;
   canBounce: boolean;
   onAcknowledge: (incidentId: string) => void;
   onResolve: (incidentId: string) => void;
@@ -26,6 +30,8 @@ type IncidentDetailProps = {
 export function IncidentDetail({
   incident,
   teams,
+  owningTeamName,
+  owningTier,
   canBounce,
   onAcknowledge,
   onResolve,
@@ -39,9 +45,24 @@ export function IncidentDetail({
   const [handoffNote, setHandoffNote] = useState('');
   const [bounceNote, setBounceNote] = useState('');
 
+  useEffect(() => {
+    setTargetTeamId(teams[0]?.id ?? '');
+  }, [teams, incident.id]);
+
+  const teamOptions = useMemo(
+    () => teams.map((team) => ({ value: team.id, label: team.name })),
+    [teams],
+  );
+
+  const handoffLabel = t(handoffLabelKey(owningTier));
+  const bounceLabel = t(bounceLabelKey(owningTier));
+  const handoffHeading = t(`${handoffLabelKey(owningTier)}_heading`, { defaultValue: handoffLabel });
+  const bounceHeading = t(`${bounceLabelKey(owningTier)}_heading`, { defaultValue: bounceLabel });
+
   const canAcknowledge = incident.status === 'open';
   const canResolve = incident.status === 'open' || incident.status === 'acknowledged';
   const canHandoff = incident.status !== 'resolved' && teams.length > 0;
+  const showHandoffUnavailable = incident.status !== 'resolved' && teams.length === 0;
 
   return (
     <div className="space-y-6 rounded-md border border-zinc-200 bg-white p-6">
@@ -56,6 +77,17 @@ export function IncidentDetail({
               variant={incidentStatusVariant(incident.status)}
               label={t(`incidents.status.${incident.status}`)}
             />
+            {owningTeamName ? (
+              <span className="text-sm text-zinc-700">
+                {t('incidents.owning_team', { name: owningTeamName })}
+              </span>
+            ) : null}
+            {owningTier ? (
+              <StatusTag
+                variant="neutral"
+                label={t(`teams.tier.${owningTier}`, { defaultValue: owningTier.toUpperCase() })}
+              />
+            ) : null}
             <h2 className="text-2xl font-semibold">{incident.title}</h2>
           </div>
           <p className="text-sm text-zinc-600">{incident.id}</p>
@@ -79,35 +111,31 @@ export function IncidentDetail({
           ) : null}
           {canHandoff ? (
             <Button variant="secondary" onClick={() => setShowHandoff((open) => !open)}>
-              {t('incidents.handoff')}
+              {handoffLabel}
             </Button>
           ) : null}
           {canBounce && incident.status !== 'resolved' ? (
             <Button variant="secondary" onClick={() => setShowBounce((open) => !open)}>
-              {t('incidents.bounce')}
+              {bounceLabel}
             </Button>
           ) : null}
         </div>
       </div>
 
+      {showHandoffUnavailable ? (
+        <p className="text-sm text-zinc-600">{t('incidents.no_handoff_targets')}</p>
+      ) : null}
+
       {showHandoff ? (
         <section className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-          <h3 className="text-sm font-semibold">{t('incidents.handoff_heading')}</h3>
-          <label className="block space-y-1 text-sm">
-            <span>{t('incidents.handoff_team_label')}</span>
-            <select
-              aria-label={t('incidents.handoff_team_label')}
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2"
-              value={targetTeamId}
-              onChange={(event) => setTargetTeamId(event.target.value)}
-            >
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <h3 className="text-sm font-semibold">{handoffHeading}</h3>
+          <Select
+            id="handoff-target-team"
+            label={t('incidents.handoff_team_label')}
+            value={targetTeamId}
+            options={teamOptions}
+            onChange={setTargetTeamId}
+          />
           <Input
             label={t('incidents.handoff_note_label')}
             value={handoffNote}
@@ -127,7 +155,7 @@ export function IncidentDetail({
 
       {showBounce ? (
         <section className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-          <h3 className="text-sm font-semibold">{t('incidents.bounce_heading')}</h3>
+          <h3 className="text-sm font-semibold">{bounceHeading}</h3>
           <Input
             label={t('incidents.bounce_note_label')}
             value={bounceNote}

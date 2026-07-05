@@ -48,6 +48,11 @@ describe('TeamsPage', () => {
           provider: 'google',
         });
       }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Default', slug: 'default', description: '', created_at: '', updated_at: '' }],
+        });
+      }
       if (url === '/api/v1/teams' && init?.method === 'POST') {
         return jsonResponse({ id: 'team-new', name: 'Platform', description: 'Core infra' }, 201);
       }
@@ -76,7 +81,11 @@ describe('TeamsPage', () => {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Platform', description: 'Core infra' }),
+      body: JSON.stringify({
+        name: 'Platform',
+        description: 'Core infra',
+        workspace_id: '00000000-0000-0000-0000-000000000001',
+      }),
     });
   });
 
@@ -92,6 +101,9 @@ describe('TeamsPage', () => {
           locale: 'en',
           provider: 'google',
         });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
       }
       if (url === '/api/v1/teams') {
         return jsonResponse({ items: [] });
@@ -129,6 +141,9 @@ describe('TeamsPage', () => {
           locale: 'en',
           provider: 'google',
         });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
       }
       if (url === '/api/v1/teams/team-1' && init?.method === 'PATCH') {
         return jsonResponse({ ...existingTeam, name: 'Platform L2' });
@@ -175,6 +190,9 @@ describe('TeamsPage', () => {
           provider: 'google',
         });
       }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
       if (url === '/api/v1/teams/team-1' && init?.method === 'DELETE') {
         return jsonResponse({}, 204);
       }
@@ -198,6 +216,76 @@ describe('TeamsPage', () => {
     });
   });
 
+  it('filters teams by workspace and shows support tier', async () => {
+    const defaultWorkspace = {
+      id: '00000000-0000-0000-0000-000000000001',
+      name: 'Default',
+      slug: 'default',
+      description: '',
+      created_at: '',
+      updated_at: '',
+    };
+    const platformTeam = {
+      id: 'team-1',
+      workspace_id: defaultWorkspace.id,
+      name: 'Platform L2',
+      description: '',
+      support_tier: 'l2',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [defaultWorkspace] });
+      }
+      if (url.startsWith('/api/v1/teams?workspace_id=')) {
+        return jsonResponse({ items: [platformTeam] });
+      }
+      if (url === '/api/v1/teams/team-1' && init?.method === 'PATCH') {
+        return jsonResponse({ ...platformTeam, support_tier: 'l3' });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [platformTeam] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('L2')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Workspace'), { target: { value: defaultWorkspace.id } });
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        `/api/v1/teams?workspace_id=${defaultWorkspace.id}`,
+        expect.any(Object),
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit team' }));
+    fireEvent.change(screen.getByLabelText('Support tier'), { target: { value: 'l3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Team updated')).toBeInTheDocument();
+    });
+  });
+
   it('shows load error when teams fetch fails', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -210,6 +298,9 @@ describe('TeamsPage', () => {
           locale: 'en',
           provider: 'google',
         });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
       }
       if (url === '/api/v1/teams') {
         return jsonResponse({}, 500);
