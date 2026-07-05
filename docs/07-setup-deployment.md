@@ -184,6 +184,51 @@ make seed-dev
 
 Re-run after schema changes or to reset profile fields to the canonical seed values.
 
+## Alert simulator (local testing)
+
+Send realistic monitoring alerts through the webhook to exercise routing, incidents, and paging
+without Grafana or Alertmanager:
+
+```bash
+# Terminal 1–2: api + worker (see Native dev above)
+make dev-api
+make dev-worker
+
+# Terminal 3: one random alert
+make simulate-alert
+
+# Or run continuously (default every 30s)
+make dev-simulator
+```
+
+**Prerequisites:** api and worker running; a routing rule that matches simulator labels (default
+`team=platform`). If you have alerts but no incidents, run `make seed-demo` to create the rule and
+re-queue failed worker jobs.
+
+```bash
+make seed-demo   # creates team=platform routing rule + replays failed process_alert jobs
+```
+
+| Variable | Purpose |
+|----------|---------|
+| `WEBHOOK_SECRET` | Required — same as API |
+| `PUBLIC_URL` or `AEGIS_WEBHOOK_URL` | Webhook base (default `http://localhost:8080/api/v1/alerts/webhook`) |
+| `ALERT_SIM_INTERVAL` | Loop interval when running without flags (default `30s`) |
+| `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Labels for routing (default `platform`) |
+
+**CLI flags:**
+
+```bash
+go run ./apps/api/cmd/alert-simulator -list              # scenario catalog
+go run ./apps/api/cmd/alert-simulator -scenario high_cpu # one scenario
+go run ./apps/api/cmd/alert-simulator -all               # every scenario once
+go run ./apps/api/cmd/alert-simulator -once              # random alert
+go run ./apps/api/cmd/alert-simulator -interval 1m       # continuous loop
+```
+
+Built-in scenarios include high CPU, disk full, OOM kills, HTTP 5xx spikes, DB connection pool
+exhaustion, certificate expiry, queue backlog, replication lag, and DNS failures.
+
 ## Setup wizard (Phase 6)
 
 Route: `/setup` in the web app (multi-step wizard; progress in `localStorage`).

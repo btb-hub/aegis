@@ -1,7 +1,7 @@
 .PHONY: lint type test tidy migrate-up migrate-down migrate-docker \
-	setup setup-local install deps seed-dev \
+	setup setup-local install deps seed-dev seed-demo \
 	up up-detached down logs ps \
-	dev-db dev-db-down dev-api dev-worker dev-web
+	dev-db dev-db-down dev-api dev-worker dev-web dev-simulator simulate-alert
 
 GO_PKGS := ./pkg/... ./apps/api/... ./apps/worker/...
 
@@ -30,7 +30,7 @@ type:
 	cd apps/worker && go build -o ../../bin/worker ./cmd/worker
 	cd apps/web && npm run typecheck
 
-GO_PKG_PKGS := ./alertparse/... ./apperrors/... ./config/... ./i18n/... ./integrations/... ./locale/... ./oncall/... ./rbac/... ./routing/... ./sessiontoken/...
+GO_PKG_PKGS := ./alertparse/... ./alertsim/... ./apperrors/... ./config/... ./i18n/... ./integrations/... ./locale/... ./oncall/... ./rbac/... ./routing/... ./sessiontoken/...
 GO_API_PKGS := ./internal/handler/... ./internal/middleware/... ./internal/service/...
 GO_WORKER_PKGS := ./internal/processor/...
 
@@ -110,3 +110,12 @@ dev-web:
 
 seed-dev:
 	$(LOAD_ENV) go run ./apps/api/cmd/seed-dev
+
+dev-simulator:
+	$(LOAD_ENV) go run ./apps/api/cmd/alert-simulator
+
+simulate-alert:
+	$(LOAD_ENV) go run ./apps/api/cmd/alert-simulator -once
+
+seed-demo:
+	$(LOAD_ENV) go run ./apps/api/cmd/seed-demo
