@@ -75,6 +75,10 @@ func (m *handoffMockRepo) ListTimelineEvents(context.Context, uuid.UUID) ([]db.T
 	return m.events, nil
 }
 
+func (m *handoffMockRepo) HasEscalationPath(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return true, nil
+}
+
 func TestHandoffServiceHandoff(t *testing.T) {
 	incidentID := uuid.New()
 	teamID := uuid.New()
@@ -223,4 +227,21 @@ func TestHandoffServiceStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, stats.Count)
 	require.Equal(t, 120.0, stats.MedianResponseSeconds)
+}
+
+func TestHandoffErrorMappers(t *testing.T) {
+	incidentErr := mapHandoffIncidentError(pgx.ErrNoRows)
+	appErr, ok := incidentErr.(*apperrors.Error)
+	require.True(t, ok)
+	require.Equal(t, "NOT_FOUND", appErr.Code)
+
+	teamErr := mapHandoffTeamError(pgx.ErrNoRows)
+	appErr, ok = teamErr.(*apperrors.Error)
+	require.True(t, ok)
+	require.Equal(t, "NOT_FOUND", appErr.Code)
+
+	transitionErr := mapHandoffTransitionError(pgx.ErrNoRows, "handed off")
+	appErr, ok = transitionErr.(*apperrors.Error)
+	require.True(t, ok)
+	require.Equal(t, "CONFLICT", appErr.Code)
 }

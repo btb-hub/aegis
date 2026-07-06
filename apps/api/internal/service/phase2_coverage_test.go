@@ -101,7 +101,7 @@ func TestIntegrationServiceTestSlackSuccess(t *testing.T) {
 func TestIntegrationServiceUpsertDefaultName(t *testing.T) {
 	repo := &integrationMockRepo{}
 	svc := NewIntegrationService(repo, "http://localhost:8080")
-	item, err := svc.Upsert(context.Background(), "slack", "", json.RawMessage(`{}`), true)
+	item, err := svc.Upsert(context.Background(), "slack", "", json.RawMessage(`{}`), true, nil)
 	require.NoError(t, err)
 	require.Equal(t, "slack", item.Name)
 }

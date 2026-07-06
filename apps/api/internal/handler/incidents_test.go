@@ -42,6 +42,7 @@ type phase2HandlerRepo struct {
 	onCallLoadErr     error
 	escalationStats   db.EscalationStats
 	escalationErr     error
+	escalationPaths   []db.EscalationPath
 	alertRepo         *authMockAlertRepo
 	bounceFails       bool
 }
@@ -199,8 +200,8 @@ func (m *phase2HandlerRepo) GetIntegration(_ context.Context, id uuid.UUID) (db.
 	}
 	return item, nil
 }
-func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool) (db.Integration, error) {
-	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error) {
+	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	m.integrations[item.ID] = item
 	return item, nil
 }
@@ -223,6 +224,10 @@ func (m *phase2HandlerRepo) ListIntegrations(ctx context.Context) ([]db.Integrat
 }
 func (m *phase2HandlerRepo) ListEnabledIntegrations(context.Context) ([]integrations.IntegrationRow, error) {
 	return nil, nil
+}
+
+func (m *phase2HandlerRepo) GetWorkspace(_ context.Context, id uuid.UUID) (db.Workspace, error) {
+	return db.Workspace{ID: id, Name: "Default", Slug: "default"}, nil
 }
 
 func (m *phase2HandlerRepo) GetTeam(_ context.Context, id uuid.UUID) (db.Team, error) {
@@ -278,6 +283,15 @@ func (m *phase2HandlerRepo) BounceIncident(_ context.Context, input db.BounceInc
 }
 
 func (m *phase2HandlerRepo) EnqueueHandoffNotify(context.Context, uuid.UUID) error { return nil }
+
+func (m *phase2HandlerRepo) HasEscalationPath(_ context.Context, fromTeamID, toTeamID uuid.UUID) (bool, error) {
+	for _, path := range m.escalationPaths {
+		if path.FromTeamID == fromTeamID && path.ToTeamID == toTeamID {
+			return true, nil
+		}
+	}
+	return len(m.escalationPaths) == 0, nil
+}
 
 func (m *phase2HandlerRepo) HandoffStats(context.Context, time.Time, time.Time) (db.HandoffStats, error) {
 	if m.handoffStatsErr != nil {

@@ -8,11 +8,35 @@ import { TeamDetailPage } from './TeamDetailPage';
 
 const team = {
   id: 'team-1',
+  workspace_id: '00000000-0000-0000-0000-000000000001',
   name: 'Platform',
   description: 'Core infra',
+  support_tier: 'l2',
   created_at: '2026-07-01T00:00:00Z',
   updated_at: '2026-07-01T00:00:00Z',
 };
+
+function mockTeamDetailFetch(url: string, init?: RequestInit, extra?: Record<string, unknown>) {
+  if (url.includes('/escalation-paths/outgoing') || url.includes('/escalation-paths/incoming')) {
+    return jsonResponse({ items: [] });
+  }
+  if (url === '/api/v1/teams') {
+    return jsonResponse({ items: [team] });
+  }
+  if (url === '/api/v1/teams/team-1/members' && init?.method === 'POST') {
+    return jsonResponse(extra?.createdMember ?? {}, 201);
+  }
+  if (url.startsWith('/api/v1/users?')) {
+    return jsonResponse({ items: [directoryUser] });
+  }
+  if (url === '/api/v1/teams/team-1/members') {
+    return jsonResponse({ items: extra?.members ?? [] });
+  }
+  if (url === '/api/v1/teams/team-1') {
+    return jsonResponse(extra?.team ?? team);
+  }
+  return null;
+}
 
 const directoryUser = {
   id: 'user-2',
@@ -67,28 +91,19 @@ describe('TeamDetailPage', () => {
           provider: 'google',
         });
       }
-      if (url === '/api/v1/teams/team-1/members' && init?.method === 'POST') {
-        return jsonResponse(
-          {
-            id: 'member-2',
-            team_id: 'team-1',
-            user_id: 'user-2',
-            team_role: 'member',
-            email: 'bob@example.com',
-            display_name: 'Bob',
-            created_at: '2026-07-01T00:00:00Z',
-          },
-          201,
-        );
-      }
-      if (url.startsWith('/api/v1/users?')) {
-        return jsonResponse({ items: [directoryUser] });
-      }
-      if (url === '/api/v1/teams/team-1/members') {
-        return jsonResponse({ items: [] });
-      }
-      if (url === '/api/v1/teams/team-1') {
-        return jsonResponse(team);
+      const mocked = mockTeamDetailFetch(url, init, {
+        createdMember: {
+          id: 'member-2',
+          team_id: 'team-1',
+          user_id: 'user-2',
+          team_role: 'member',
+          email: 'bob@example.com',
+          display_name: 'Bob',
+          created_at: '2026-07-01T00:00:00Z',
+        },
+      });
+      if (mocked) {
+        return mocked;
       }
       return jsonResponse({}, 404);
     });
@@ -146,11 +161,9 @@ describe('TeamDetailPage', () => {
       if (url === '/api/v1/teams/team-1/members/user-1' && init?.method === 'PATCH') {
         return jsonResponse({ ...member, team_role: 'lead' });
       }
-      if (url === '/api/v1/teams/team-1/members') {
-        return jsonResponse({ items: [member] });
-      }
-      if (url === '/api/v1/teams/team-1') {
-        return jsonResponse(team);
+      const mocked = mockTeamDetailFetch(url, init, { members: [member] });
+      if (mocked) {
+        return mocked;
       }
       return jsonResponse({}, 404);
     });
@@ -198,11 +211,9 @@ describe('TeamDetailPage', () => {
       if (url === '/api/v1/teams/team-1/members/user-1' && init?.method === 'DELETE') {
         return jsonResponse({}, 204);
       }
-      if (url === '/api/v1/teams/team-1/members') {
-        return jsonResponse({ items: [member] });
-      }
-      if (url === '/api/v1/teams/team-1') {
-        return jsonResponse(team);
+      const mocked = mockTeamDetailFetch(url, init, { members: [member] });
+      if (mocked) {
+        return mocked;
       }
       return jsonResponse({}, 404);
     });
@@ -233,6 +244,12 @@ describe('TeamDetailPage', () => {
           provider: 'google',
         });
       }
+      if (url.includes('/escalation-paths/outgoing') || url.includes('/escalation-paths/incoming')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [] });
+      }
       if (url === '/api/v1/teams/team-1') {
         return jsonResponse({}, 404);
       }
@@ -246,6 +263,163 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Could not load team');
+    });
+  });
+
+  it('adds an escalation path for admin users', async () => {
+    const l3Team = {
+      id: 'team-l3',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+      name: 'Platform L3',
+      description: '',
+      support_tier: 'l3',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url.includes('/escalation-paths') && init?.method === 'POST') {
+        return jsonResponse({
+          id: 'path-1',
+          from_team_id: 'team-1',
+          to_team_id: 'team-l3',
+          workspace_id: '00000000-0000-0000-0000-000000000001',
+          cross_workspace: false,
+          created_at: '2026-07-01T00:00:00Z',
+        }, 201);
+      }
+      if (url.includes('/escalation-paths/outgoing')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/escalation-paths/incoming')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, l3Team] });
+      }
+      if (url === '/api/v1/teams/team-1/members') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams/team-1') {
+        return jsonResponse(team);
+      }
+      if (url.includes('/workspaces/')) {
+        return jsonResponse({
+          id: '00000000-0000-0000-0000-000000000001',
+          name: 'Default',
+          slug: 'default',
+          description: '',
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Add path' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add path' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Escalation path added')).toBeInTheDocument();
+    });
+  });
+
+  it('updates support tier and removes an outgoing path', async () => {
+    const l3Team = {
+      id: 'team-l3',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+      name: 'Platform L3',
+      description: '',
+      support_tier: 'l3',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+    const outgoingPath = {
+      id: 'path-1',
+      from_team_id: 'team-1',
+      to_team_id: 'team-l3',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+      cross_workspace: false,
+      created_at: '2026-07-01T00:00:00Z',
+    };
+    let outgoingPaths = [outgoingPath];
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/teams/team-1' && init?.method === 'PATCH') {
+        return jsonResponse({ ...team, support_tier: 'l3' });
+      }
+      if (url === '/api/v1/escalation-paths/path-1' && init?.method === 'DELETE') {
+        outgoingPaths = [];
+        return jsonResponse({}, 204);
+      }
+      if (url.includes('/escalation-paths/outgoing')) {
+        return jsonResponse({ items: outgoingPaths });
+      }
+      if (url.includes('/escalation-paths/incoming')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, l3Team] });
+      }
+      if (url === '/api/v1/teams/team-1/members') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams/team-1') {
+        return jsonResponse(team);
+      }
+      if (url.includes('/workspaces/')) {
+        return jsonResponse({
+          id: '00000000-0000-0000-0000-000000000001',
+          name: 'Default',
+          slug: 'default',
+          description: '',
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Open workspace' })).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Support tier'), { target: { value: 'l3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save tier' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Support tier updated')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Escalation path removed')).toBeInTheDocument();
     });
   });
 });

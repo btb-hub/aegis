@@ -60,5 +60,23 @@ services:
     depends_on:
       - api
 
+  alert-simulator:
+    profiles: ["dev"]
+    build:
+      context: ..
+      dockerfile: devtools/alert-simulator/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      AEGIS_API_URL: http://api:8080
+      AEGIS_WEBHOOK_URL: http://api:8080/api/v1/alerts/webhook
+    depends_on:
+      api:
+        condition: service_started
+      worker:
+        condition: service_started
+    restart: on-failure
+    command: ["-bootstrap", "-interval", "30s"]
+
 volumes:
   pgdata:

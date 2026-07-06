@@ -115,12 +115,90 @@ describe('App', () => {
     expect(await screen.findByText('Search, filter, group, and export alert history')).toBeInTheDocument();
   });
 
-  it('acknowledges and resolves incidents from the demo list', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({}),
-    } as Response);
+  it('acknowledges and resolves incidents from the API', async () => {
+    let incidentStatus: 'open' | 'acknowledged' | 'resolved' = 'open';
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'user-1',
+            email: 'alice@example.com',
+            display_name: 'Alice',
+            role: 'admin',
+            locale: 'en',
+            provider: 'google',
+          }),
+        } as Response;
+      }
+      if (url.includes('/acknowledge') && init?.method === 'POST') {
+        incidentStatus = 'acknowledged';
+        return { ok: true, status: 204, json: async () => ({}) } as Response;
+      }
+      if (url.includes('/resolve') && init?.method === 'POST') {
+        incidentStatus = 'resolved';
+        return { ok: true, status: 204, json: async () => ({}) } as Response;
+      }
+      if (url.includes('/timeline')) {
+        return { ok: true, json: async () => ({ items: [] }) } as Response;
+      }
+      if (url.includes('/handoff-targets')) {
+        return { ok: true, json: async () => ({ items: [] }) } as Response;
+      }
+      if (url.includes('/teams/team-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 'team-1',
+            workspace_id: '00000000-0000-0000-0000-000000000001',
+            name: 'Platform L2',
+            description: '',
+            support_tier: 'l2',
+            created_at: '',
+            updated_at: '',
+          }),
+        } as Response;
+      }
+      if (url.includes('/incidents/11111111')) {
+        return {
+          ok: true,
+          json: async () => ({
+            incident: {
+              id: '11111111-1111-1111-1111-111111111111',
+              team_id: 'team-1',
+              status: incidentStatus,
+              severity: 'critical',
+              title: 'CPU high on api-1',
+              fingerprint: 'fp-1',
+              created_at: '2026-06-26T10:00:00Z',
+            },
+            alerts: [],
+          }),
+        } as Response;
+      }
+      if (url.includes('/api/v1/incidents')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [
+              {
+                id: '11111111-1111-1111-1111-111111111111',
+                team_id: 'team-1',
+                status: incidentStatus,
+                severity: 'critical',
+                title: 'CPU high on api-1',
+                fingerprint: 'fp-1',
+                created_at: '2026-06-26T10:00:00Z',
+              },
+            ],
+          }),
+        } as Response;
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as Response;
+    });
 
     renderApp('/incidents');
 

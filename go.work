@@ -4,4 +4,5 @@ use (
 	./pkg
 	./apps/api
 	./apps/worker
+	./devtools/alert-simulator
 )

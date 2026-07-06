@@ -10,6 +10,8 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 
 **Phases 0–7 are complete** on `main` ([PR #15](https://github.com/btb-hub/aegis/pull/15), Phase 7).
 
+**Phases 0–9 are complete** on `main` (latest: [PR #21](https://github.com/btb-hub/aegis/pull/21), Phase 9).
+
 | Phase | Epic | Merged |
 |-------|------|--------|
 | 0, 3.5 | [EPIC-01](./epics/EPIC-01-foundation.md) | (foundation PRs) |
@@ -19,8 +21,9 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 | 5 | [EPIC-06](./epics/EPIC-06-l2-l3.md) | PR #12 |
 | 6 | [EPIC-07](./epics/EPIC-07-analytics-setup.md) | PR #13 |
 | 7 | [EPIC-08](./epics/EPIC-08-dev-auth.md) | PR #15 |
-| 8 | [EPIC-09](./epics/EPIC-09-teams-users-shifts.md) | — |
-| 9 | [EPIC-10](./epics/EPIC-10-ui-polish.md) | — |
+| 8 | [EPIC-09](./epics/EPIC-09-teams-users-shifts.md) | PR #20 |
+| 9 | [EPIC-10](./epics/EPIC-10-ui-polish.md) | PR #21 |
+| 10 | [EPIC-11](./epics/EPIC-11-support-levels-workspaces.md) | — |
 
 ## Guiding order
 
@@ -124,7 +127,7 @@ handoff analytics work.*
 
 **Next story:** none on Phase 7 — see Phase 8 below.
 
-## Phase 8 — Teams, users & shifts setup *(In progress)*
+## Phase 8 — Teams, users & shifts setup *(Done — PR #20)*
 
 *Exit: admin creates a team, adds SSO-like users, defines a rotation and overrides in the UI; shifts
 calendar shows live on-call data; local dev can seed realistic users without OIDC.*
@@ -141,9 +144,9 @@ userinfo is still stubbed; there is no user directory API or dev seeds.
 
 → Epic: [EPIC-09 Teams, users & shifts setup](./epics/EPIC-09-teams-users-shifts.md)
 
-**Next story:** EPIC-09 complete — all Phase 8 stories done on branch `feat/epic-9-teams-users-shifts`.
+**Next story:** none — Phase 8 complete.
 
-## Phase 9 — UI polish
+## Phase 9 — UI polish *(Done — PR #21)*
 
 *Exit: Alerts workspace matches the design-system filter bar; shared layout/table components exist;
 every route uses consistent page headers, breadcrumbs, and spacing.*
@@ -159,7 +162,29 @@ use misaligned ad-hoc layouts, raw native controls, and inconsistent typography 
 
 → Epic: [EPIC-10 UI polish](./epics/EPIC-10-ui-polish.md)
 
-**Next story:** none — EPIC-10 in review on branch `feat/epic-10-ui-polish`.
+**Next story:** none — Phase 9 complete.
+
+## Phase 10 — Support levels, workspaces & incident wiring
+
+*Exit: incidents page uses the real API (handoff persists on refresh); teams have L1/L2/L3/NOC tiers in
+workspaces; admins configure escalation paths and routing rules; per-workspace Jira project keys work;
+shared timeline unchanged (REQ-L2L3-03).*
+
+**Why now:** Phase 5 shipped handoff APIs and Phase 8 wired teams/shifts, but incidents still run on
+demo fixtures in `App.tsx` — **Send to L3** updates local state only. Teams have no support tier or
+project grouping, so L2 and L3 are indistinguishable and handoff targets are hard-coded.
+
+- Wire incidents list/detail to API (ack, resolve, handoff, bounce).
+- Introduce **workspaces** (project scope within one deployment — not full multi-tenant SaaS).
+- Team **support tiers** (L1 / L2 / L3 / NOC) and **escalation paths** with tier adjacency validation.
+- **Per-workspace integrations** — Jira `project_key` override per workspace.
+- **Routing rules UI** — workspace-scoped alert routing admin.
+- **Shared timeline policy** — REQ-L2L3-03 unchanged; regression tests for all tiers.
+- Admin UI + setup wizard for workspace, escalation, and routing configuration.
+
+→ Epic: [EPIC-11 Support levels & workspaces](./epics/EPIC-11-support-levels-workspaces.md)
+
+**Next story:** [AEG-078](./epics/EPIC-11-support-levels-workspaces.md) — Incidents page wired to API.
 
 ## Later (post-MVP, not now)
 

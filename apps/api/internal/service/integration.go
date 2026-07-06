@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/db"
@@ -16,9 +17,10 @@ import (
 type IntegrationRepository interface {
 	ListIntegrations(ctx context.Context) ([]db.Integration, error)
 	GetIntegration(ctx context.Context, id uuid.UUID) (db.Integration, error)
-	UpsertIntegration(ctx context.Context, kind, name string, config json.RawMessage, enabled bool) (db.Integration, error)
+	UpsertIntegration(ctx context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error)
 	DeleteIntegration(ctx context.Context, id uuid.UUID) error
 	ListEnabledIntegrations(ctx context.Context) ([]integrations.IntegrationRow, error)
+	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
 }
 
 type IntegrationService struct {
@@ -34,7 +36,7 @@ func (s *IntegrationService) List(ctx context.Context) ([]db.Integration, error)
 	return s.repo.ListIntegrations(ctx)
 }
 
-func (s *IntegrationService) Upsert(ctx context.Context, kind, name string, config json.RawMessage, enabled bool) (db.Integration, error) {
+func (s *IntegrationService) Upsert(ctx context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error) {
 	switch kind {
 	case "jira", "slack", "express":
 	default:
@@ -43,11 +45,34 @@ func (s *IntegrationService) Upsert(ctx context.Context, kind, name string, conf
 	if name == "" {
 		name = kind
 	}
-	item, err := s.repo.UpsertIntegration(ctx, kind, name, config, enabled)
+	if workspaceID != nil {
+		if _, err := s.repo.GetWorkspace(ctx, *workspaceID); err != nil {
+			return db.Integration{}, mapWorkspaceError(err)
+		}
+		if err := validateWorkspaceIntegrationConfig(kind, config, workspaceID != nil); err != nil {
+			return db.Integration{}, err
+		}
+	}
+	item, err := s.repo.UpsertIntegration(ctx, kind, name, config, enabled, workspaceID)
 	if err != nil {
 		return db.Integration{}, err
 	}
 	return item, nil
+}
+
+func validateWorkspaceIntegrationConfig(kind string, config json.RawMessage, isWorkspace bool) error {
+	if !isWorkspace || kind != "jira" {
+		return nil
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(config, &cfg); err != nil {
+		return apperrors.Validation("invalid integration config", nil)
+	}
+	projectKey, _ := cfg["project_key"].(string)
+	if strings.TrimSpace(projectKey) == "" {
+		return apperrors.Validation("project_key is required for workspace Jira integration", nil)
+	}
+	return nil
 }
 
 func (s *IntegrationService) Delete(ctx context.Context, id uuid.UUID) error {
@@ -108,7 +133,7 @@ func (s *IntegrationService) buildRegistry(_ context.Context, items []db.Integra
 func IntegrationJSON(item db.Integration) map[string]any {
 	var config map[string]any
 	_ = json.Unmarshal(item.Config, &config)
-	return map[string]any{
+	out := map[string]any{
 		"id":         item.ID.String(),
 		"kind":       item.Kind,
 		"name":       item.Name,
@@ -117,6 +142,10 @@ func IntegrationJSON(item db.Integration) map[string]any {
 		"created_at": item.CreatedAt,
 		"updated_at": item.UpdatedAt,
 	}
+	if item.WorkspaceID != nil {
+		out["workspace_id"] = item.WorkspaceID.String()
+	}
+	return out
 }
 
 func mapIntegrationError(err error) error {

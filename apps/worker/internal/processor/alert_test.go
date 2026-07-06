@@ -139,7 +139,10 @@ func (m *alertMockStore) GetUserByID(context.Context, uuid.UUID) (db.User, error
 	return db.User{}, nil
 }
 func (m *alertMockStore) EnqueueEscalation(context.Context, uuid.UUID, time.Time) error { return nil }
-func (m *alertMockStore) ListEnabledIntegrations(context.Context) ([]integrations.IntegrationRow, error) {
+func (m *alertMockStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *alertMockStore) ListEnabledIntegrationsForWorkspace(context.Context, uuid.UUID) ([]integrations.IntegrationRow, error) {
 	return nil, nil
 }
 

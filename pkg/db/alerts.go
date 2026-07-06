@@ -106,6 +106,13 @@ func alertListFromClause(params ListAlertsParams) alertListQuery {
 	return q
 }
 
+func appendAlertListCondition(from alertListQuery, condition string) alertListQuery {
+	if strings.Contains(from.sql, " WHERE ") {
+		return alertListQuery{sql: from.sql + " AND " + condition, args: from.args}
+	}
+	return alertListQuery{sql: from.sql + " WHERE " + condition, args: from.args}
+}
+
 type AlertGroupBy struct {
 	Severity bool
 	LabelKey string
@@ -304,14 +311,15 @@ func (s *Store) AlertAnalytics(ctx context.Context, params ListAlertsParams, lab
 
 	topLabels := []LabelCount{}
 	if labelKey != "" {
-		args := append(append([]any{}, from.args...), labelKey)
 		labelPos := len(from.args) + 1
+		labelFrom := appendAlertListCondition(from, fmt.Sprintf("labels ? $%d", labelPos))
+		args := append(append([]any{}, labelFrom.args...), labelKey)
 		labelSQL := fmt.Sprintf(`
 SELECT $%d::text AS label_key, COALESCE(labels->>$%d, '') AS label_value, COUNT(*)::int AS label_count
-%s AND labels ? $%d
+%s
 GROUP BY label_value
 ORDER BY label_count DESC
-LIMIT 10`, labelPos, labelPos, from.sql, labelPos)
+LIMIT 10`, labelPos, labelPos, labelFrom.sql)
 		labelRows, err := s.pool.Query(ctx, labelSQL, args...)
 		if err != nil {
 			return AlertAnalytics{}, err

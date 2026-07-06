@@ -135,6 +135,26 @@ Numbered requirements win over stories. Stories reference these IDs.
 
 ---
 
+## §7 Support levels & workspaces *(Phase 10 — planned)*
+
+| ID | Requirement |
+|----|-------------|
+| REQ-SLV-01 | Workspaces group teams within one deployment; every team belongs to exactly one workspace. |
+| REQ-SLV-02 | Teams may have support tier L1, L2, L3, NOC, or unset. |
+| REQ-SLV-03 | Escalation paths define allowed tier-adjacent targets; API rejects others. |
+| REQ-SLV-04 | Incident list/detail/ack/resolve/handoff/bounce use the API; timeline persists across refresh. |
+| REQ-SLV-05 | Escalation picker shows only configured targets for the incident's owning team. |
+| REQ-SLV-06 | Teams UI displays workspace and support tier; admin can configure escalation paths. |
+| REQ-SLV-07 | Setup wizard includes workspace and escalation setup step. |
+| REQ-SLV-08 | L1 and NOC tiers participate in escalation chain (NOC→L1/L2, L1→L2, L2→L3). |
+| REQ-SLV-09 | Integrations may be scoped to a workspace; Jira uses workspace `project_key` when set. |
+| REQ-SLV-10 | Routing rules manageable in UI per workspace. |
+| REQ-SLV-11 | Timeline visibility unchanged (REQ-L2L3-03): all tiers see identical events; no role filtering. |
+
+Full design: [`features/support-levels-and-workspaces.md`](./features/support-levels-and-workspaces.md).
+
+---
+
 ## References
 
 - Feature specs: [`features/`](./features/)

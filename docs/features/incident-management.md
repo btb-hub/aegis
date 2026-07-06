@@ -45,7 +45,12 @@ States: `open`, `acknowledged`, `resolved`. Transitions logged to `timeline_even
 - Incident list with status filters.
 - Detail: timeline, linked alerts, Jira link, ack/resolve actions.
 
+**Current gap (Phase 10):** The web incidents page still uses in-memory demo data in `App.tsx`.
+Acknowledge, resolve, and handoff update React state only — they do not call the API. Wiring is
+tracked in [EPIC-11](../../backlog/epics/EPIC-11-support-levels-workspaces.md) (AEG-078).
+
 ## References
 
 - Epic: [`EPIC-04-incidents`](../../backlog/epics/EPIC-04-incidents.md)
+- Phase 10: [`EPIC-11-support-levels-workspaces`](../../backlog/epics/EPIC-11-support-levels-workspaces.md)
 - Integrations: [`../integrations/`](../integrations/)

@@ -13,16 +13,17 @@ import (
 )
 
 type TeamRepository interface {
-	ListTeams(ctx context.Context) ([]db.Team, error)
+	ListTeamsFiltered(ctx context.Context, workspaceID uuid.UUID) ([]db.Team, error)
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
-	CreateTeam(ctx context.Context, name, description string) (db.Team, error)
-	UpdateTeam(ctx context.Context, id uuid.UUID, name, description string) (db.Team, error)
+	CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error)
+	UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error)
 	DeleteTeam(ctx context.Context, id uuid.UUID) error
 	ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]db.TeamMember, error)
 	AddTeamMember(ctx context.Context, teamID, userID uuid.UUID, teamRole string) (db.TeamMembership, error)
 	UpdateTeamMemberRole(ctx context.Context, teamID, userID uuid.UUID, teamRole string) (db.TeamMembership, error)
 	RemoveTeamMember(ctx context.Context, teamID, userID uuid.UUID) error
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
+	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
 }
 
 type TeamService struct {
@@ -33,16 +34,27 @@ func NewTeamService(repo TeamRepository) *TeamService {
 	return &TeamService{repo: repo}
 }
 
-func (s *TeamService) ListTeams(ctx context.Context) ([]db.Team, error) {
-	return s.repo.ListTeams(ctx)
+func (s *TeamService) ListTeams(ctx context.Context, workspaceID *uuid.UUID) ([]db.Team, error) {
+	filter := uuid.Nil
+	if workspaceID != nil {
+		filter = *workspaceID
+	}
+	return s.repo.ListTeamsFiltered(ctx, filter)
 }
 
-func (s *TeamService) CreateTeam(ctx context.Context, name, description string) (db.Team, error) {
+func (s *TeamService) CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return db.Team{}, apperrors.Validation("team name is required", nil)
 	}
-	team, err := s.repo.CreateTeam(ctx, name, strings.TrimSpace(description))
+	if _, err := s.repo.GetWorkspace(ctx, workspaceID); err != nil {
+		return db.Team{}, mapWorkspaceError(err)
+	}
+	tier, err := normalizeSupportTier(supportTier)
+	if err != nil {
+		return db.Team{}, err
+	}
+	team, err := s.repo.CreateTeam(ctx, workspaceID, name, strings.TrimSpace(description), tier)
 	if err != nil {
 		return db.Team{}, mapTeamError(err)
 	}
@@ -57,12 +69,16 @@ func (s *TeamService) GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error
 	return team, nil
 }
 
-func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string) (db.Team, error) {
+func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return db.Team{}, apperrors.Validation("team name is required", nil)
 	}
-	team, err := s.repo.UpdateTeam(ctx, id, name, strings.TrimSpace(description))
+	tier, err := normalizeSupportTier(supportTier)
+	if err != nil {
+		return db.Team{}, err
+	}
+	team, err := s.repo.UpdateTeam(ctx, id, name, strings.TrimSpace(description), tier)
 	if err != nil {
 		return db.Team{}, mapTeamError(err)
 	}
@@ -144,6 +160,22 @@ func (s *TeamService) RemoveMember(ctx context.Context, teamID, userID uuid.UUID
 	return nil
 }
 
+func normalizeSupportTier(tier *string) (*string, error) {
+	if tier == nil {
+		return nil, nil
+	}
+	value := strings.TrimSpace(*tier)
+	if value == "" {
+		return nil, nil
+	}
+	switch value {
+	case "l1", "l2", "l3", "noc":
+		return &value, nil
+	default:
+		return nil, apperrors.Validation("support_tier must be l1, l2, l3, noc, or empty", nil)
+	}
+}
+
 func normalizeTeamRole(teamRole string) (string, error) {
 	if teamRole == "" {
 		return "member", nil
@@ -183,13 +215,18 @@ func mapTeamError(err error) error {
 }
 
 func TeamJSON(team db.Team) map[string]any {
-	return map[string]any{
-		"id":          team.ID.String(),
-		"name":        team.Name,
-		"description": team.Description,
-		"created_at":  team.CreatedAt,
-		"updated_at":  team.UpdatedAt,
+	out := map[string]any{
+		"id":           team.ID.String(),
+		"workspace_id": team.WorkspaceID.String(),
+		"name":         team.Name,
+		"description":  team.Description,
+		"created_at":   team.CreatedAt,
+		"updated_at":   team.UpdatedAt,
 	}
+	if team.SupportTier != nil {
+		out["support_tier"] = *team.SupportTier
+	}
+	return out
 }
 
 func TeamMemberJSON(member db.TeamMember) map[string]any {

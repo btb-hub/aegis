@@ -184,6 +184,66 @@ make seed-dev
 
 Re-run after schema changes or to reset profile fields to the canonical seed values.
 
+## Alert simulator (dev only)
+
+The alert simulator lives under `devtools/alert-simulator/` — it is **not** shipped in production
+binaries. It integrates with Aegis through the public **alert webhook** and **HTTP API** (dev auth
+for bootstrap).
+
+```bash
+# Terminal 1–2: api + worker (see Native dev above)
+make dev-api
+make dev-worker
+
+# Terminal 3: ensure routing via API (requires DEV_AUTH_ENABLED=true)
+make dev-simulator-bootstrap
+
+# Send one random alert
+make simulate-alert
+
+# Or run continuously (default every 30s)
+make dev-simulator
+```
+
+**Prerequisites:** api and worker running; `WEBHOOK_SECRET` in `.env`; routing rule matching
+simulator labels (default `team=platform`). Run `make dev-simulator-bootstrap` once on a fresh
+setup — it creates the Platform team and routing rule through `/api/v1/teams` and
+`/api/v1/routing-rules`.
+
+| Variable | Purpose |
+|----------|---------|
+| `WEBHOOK_SECRET` | Required — same as API |
+| `AEGIS_API_URL` | API base for bootstrap (default `PUBLIC_URL` or `http://localhost:8080`) |
+| `AEGIS_WEBHOOK_URL` | Full webhook URL (default `{API}/api/v1/alerts/webhook`) |
+| `ALERT_SIM_INTERVAL` | Loop interval when running without flags (default `30s`) |
+| `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Labels for routing (default `platform`) |
+
+**CLI flags:**
+
+```bash
+go run ./devtools/alert-simulator/cmd/alert-simulator -list
+go run ./devtools/alert-simulator/cmd/alert-simulator -bootstrap-only
+go run ./devtools/alert-simulator/cmd/alert-simulator -scenario high_cpu
+go run ./devtools/alert-simulator/cmd/alert-simulator -once
+go run ./devtools/alert-simulator/cmd/alert-simulator -interval 1m
+```
+
+**Docker (optional dev profile):**
+
+```bash
+make up-dev              # full stack + alert simulator (foreground)
+make up-dev-detached     # same, detached
+```
+
+Or:
+
+```bash
+docker compose -f deploy/docker-compose.yml --profile dev up --build
+```
+
+Built-in scenarios include high CPU, disk full, OOM kills, HTTP 5xx spikes, DB connection pool
+exhaustion, certificate expiry, queue backlog, replication lag, and DNS failures.
+
 ## Setup wizard (Phase 6)
 
 Route: `/setup` in the web app (multi-step wizard; progress in `localStorage`).

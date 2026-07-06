@@ -141,7 +141,7 @@ func (s *flowAlertStore) GetUserByID(context.Context, uuid.UUID) (db.User, error
 func (s *flowAlertStore) EnqueueEscalation(context.Context, uuid.UUID, time.Time) error {
 	return s.enqueueErr
 }
-func (s *flowAlertStore) ListEnabledIntegrations(context.Context) ([]integrations.IntegrationRow, error) {
+func (s *flowAlertStore) ListEnabledIntegrationsForWorkspace(context.Context, uuid.UUID) ([]integrations.IntegrationRow, error) {
 	if s.listIntegrationsErr != nil {
 		return nil, s.listIntegrationsErr
 	}
@@ -149,6 +149,9 @@ func (s *flowAlertStore) ListEnabledIntegrations(context.Context) ([]integration
 		{ID: s.jiraIntegration.ID, Kind: "jira", Config: s.jiraIntegration.Config, Enabled: true},
 		{ID: s.slackIntegration.ID, Kind: "slack", Config: s.slackIntegration.Config, Enabled: true},
 	}, nil
+}
+func (s *flowAlertStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
 }
 
 func TestAlertProcessorEnqueueEscalationError(t *testing.T) {

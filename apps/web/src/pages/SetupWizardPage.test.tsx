@@ -172,6 +172,65 @@ describe('SetupWizardPage', () => {
     });
   });
 
+  it('creates workspace structure with L2/L3 teams and escalation path', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((input: RequestInfo, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes('/healthz')) {
+          return Promise.resolve({ ok: true });
+        }
+        if (url === '/api/v1/workspaces' && init?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ id: 'ws-1', name: 'Platform', slug: 'platform' }),
+          });
+        }
+        if (url.includes('/workspaces/ws-1/escalation-paths') && init?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              id: 'path-1',
+              from_team_id: 'team-l2',
+              to_team_id: 'team-l3',
+              workspace_id: 'ws-1',
+              cross_workspace: false,
+              created_at: '',
+            }),
+          });
+        }
+        if (url.includes('/teams') && init?.method === 'POST') {
+          const body = JSON.parse(String(init.body)) as { name: string; support_tier?: string };
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              id: body.support_tier === 'l3' ? 'team-l3' : 'team-l2',
+              name: body.name,
+              description: '',
+            }),
+          });
+        }
+        if (url.includes('/integrations')) {
+          return Promise.resolve({ ok: true, json: async () => ({ items: [] }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ items: [] }) });
+      }),
+    );
+
+    renderWizard();
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    fireEvent.change(screen.getByLabelText('Workspace name'), { target: { value: 'Platform' } });
+    fireEvent.change(screen.getByLabelText('L2 team name'), { target: { value: 'Platform L2' } });
+    fireEvent.change(screen.getByLabelText('L3 team name'), { target: { value: 'Platform L3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create L2/L3 teams and path' }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Platform L2 and Platform L3 created with escalation path/i)).toBeInTheDocument();
+    });
+  });
+
   it('shows connector errors', async () => {
     vi.stubGlobal(
       'fetch',

@@ -29,7 +29,8 @@ type AlertStore interface {
 	CreateNotification(ctx context.Context, incidentID, integrationID uuid.UUID, status, externalRef string) (db.Notification, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	EnqueueEscalation(ctx context.Context, incidentID uuid.UUID, runAt time.Time) error
-	ListEnabledIntegrations(ctx context.Context) ([]integrations.IntegrationRow, error)
+	GetTeamWorkspaceID(ctx context.Context, teamID uuid.UUID) (uuid.UUID, error)
+	ListEnabledIntegrationsForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]integrations.IntegrationRow, error)
 }
 
 type AlertProcessor struct {
@@ -127,7 +128,7 @@ func (p *AlertProcessor) Handle(ctx context.Context, job Job) error {
 		return err
 	}
 
-	return p.notifyIntegrations(ctx, incident, assigneeID)
+	return p.notifyIntegrations(ctx, incident, assigneeID, teamID)
 }
 
 func (p *AlertProcessor) matchTeam(ctx context.Context, labels map[string]string) (uuid.UUID, error) {
@@ -154,8 +155,8 @@ func (p *AlertProcessor) matchTeam(ctx context.Context, labels map[string]string
 	return uuid.Parse(teamRaw)
 }
 
-func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Incident, assigneeID *uuid.UUID) error {
-	reg, err := p.loadRegistry(ctx)
+func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Incident, assigneeID *uuid.UUID, teamID uuid.UUID) error {
+	reg, err := p.loadRegistry(ctx, teamID)
 	if err != nil {
 		return err
 	}
@@ -219,8 +220,12 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 	return nil
 }
 
-func (p *AlertProcessor) loadRegistry(ctx context.Context) (*integrations.Registry, error) {
-	rows, err := p.store.ListEnabledIntegrations(ctx)
+func (p *AlertProcessor) loadRegistry(ctx context.Context, teamID uuid.UUID) (*integrations.Registry, error) {
+	workspaceID, err := p.store.GetTeamWorkspaceID(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := p.store.ListEnabledIntegrationsForWorkspace(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
