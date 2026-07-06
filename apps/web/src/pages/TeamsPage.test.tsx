@@ -124,6 +124,7 @@ describe('TeamsPage', () => {
   it('lists teams and edits one as admin', async () => {
     const existingTeam = {
       id: 'team-1',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
       name: 'Platform',
       description: 'Core',
       created_at: '2026-07-01T00:00:00Z',
@@ -143,7 +144,20 @@ describe('TeamsPage', () => {
         });
       }
       if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
+        return jsonResponse({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000001',
+              name: 'Default',
+              slug: 'default',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
       }
       if (url === '/api/v1/teams/team-1' && init?.method === 'PATCH') {
         return jsonResponse({ ...existingTeam, name: 'Platform L2' });

@@ -260,7 +260,7 @@ func TestExportAlertsUnknownTeam(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 
 	r := gin.New()
@@ -294,7 +294,7 @@ func TestExportAlertsRepoError(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &failExportAlertRepo{authMockAlertRepo: authMockAlertRepo{id: uuid.New()}})
 
 	r := gin.New()

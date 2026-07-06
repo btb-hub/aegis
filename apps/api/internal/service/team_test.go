@@ -78,6 +78,18 @@ func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, descr
 	return team, nil
 }
 
+func (m *teamRepoMock) MoveTeamsToWorkspace(_ context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
+	for _, teamID := range teamIDs {
+		team, ok := m.teams[teamID]
+		if !ok {
+			return pgx.ErrNoRows
+		}
+		team.WorkspaceID = workspaceID
+		m.teams[teamID] = team
+	}
+	return nil
+}
+
 func (m *teamRepoMock) DeleteTeam(ctx context.Context, id uuid.UUID) error {
 	if _, ok := m.teams[id]; !ok {
 		return pgx.ErrNoRows
@@ -160,7 +172,7 @@ func errUniqueViolation(constraint string) error {
 }
 
 func TestCreateTeamRequiresName(t *testing.T) {
-	svc := NewTeamService(newTeamRepoMock())
+	svc := NewTeamService(newTeamRepoMock(), nil)
 	_, err := svc.CreateTeam(context.Background(), testWorkspaceID, "  ", "", nil)
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
@@ -168,7 +180,7 @@ func TestCreateTeamRequiresName(t *testing.T) {
 }
 
 func TestCreateTeamSuccess(t *testing.T) {
-	svc := NewTeamService(newTeamRepoMock())
+	svc := NewTeamService(newTeamRepoMock(), nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "Core infra", nil)
 	require.NoError(t, err)
 	require.Equal(t, "Platform", team.Name)
@@ -176,7 +188,7 @@ func TestCreateTeamSuccess(t *testing.T) {
 
 func TestAddMemberUnknownUser(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 
@@ -188,7 +200,7 @@ func TestAddMemberUnknownUser(t *testing.T) {
 
 func TestAddMemberSuccess(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	userID := uuid.New()
@@ -202,7 +214,7 @@ func TestAddMemberSuccess(t *testing.T) {
 
 func TestAddMemberInvalidRole(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	userID := uuid.New()
@@ -230,7 +242,7 @@ func TestMapTeamErrorNotFound(t *testing.T) {
 
 func TestListTeams(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	_, err := svc.CreateTeam(context.Background(), testWorkspaceID, "A", "", nil)
 	require.NoError(t, err)
 	_, err = svc.CreateTeam(context.Background(), testWorkspaceID, "B", "", nil)
@@ -243,7 +255,7 @@ func TestListTeams(t *testing.T) {
 
 func TestAddMemberDuplicateConflict(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	userID := uuid.New()
@@ -259,7 +271,7 @@ func TestAddMemberDuplicateConflict(t *testing.T) {
 
 func TestListMembersTeamNotFound(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	_, err := svc.ListMembers(context.Background(), uuid.New())
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
@@ -268,7 +280,7 @@ func TestListMembersTeamNotFound(t *testing.T) {
 
 func TestAddMemberDefaultRole(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	userID := uuid.New()
@@ -281,7 +293,7 @@ func TestAddMemberDefaultRole(t *testing.T) {
 
 func TestUpdateMemberNotFound(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 
@@ -292,8 +304,8 @@ func TestUpdateMemberNotFound(t *testing.T) {
 }
 
 func TestUpdateTeamNotFound(t *testing.T) {
-	svc := NewTeamService(newTeamRepoMock())
-	_, err := svc.UpdateTeam(context.Background(), uuid.New(), "Core", "", nil)
+	svc := NewTeamService(newTeamRepoMock(), nil)
+	_, err := svc.UpdateTeam(context.Background(), uuid.New(), "Core", "", nil, nil)
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, "NOT_FOUND", appErr.Code)
@@ -301,7 +313,7 @@ func TestUpdateTeamNotFound(t *testing.T) {
 
 func TestUpdateMemberInvalidRole(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	userID := uuid.New()
@@ -322,7 +334,7 @@ func TestMapTeamErrorPassthrough(t *testing.T) {
 
 func TestListMembersEmptyTeam(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 
@@ -333,11 +345,11 @@ func TestListMembersEmptyTeam(t *testing.T) {
 
 func TestUpdateAndDeleteTeam(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 
-	updated, err := svc.UpdateTeam(context.Background(), team.ID, "Core", "desc", nil)
+	updated, err := svc.UpdateTeam(context.Background(), team.ID, "Core", "desc", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, "Core", updated.Name)
 
@@ -347,7 +359,7 @@ func TestUpdateAndDeleteTeam(t *testing.T) {
 
 func TestUpdateMemberAndRemoveMember(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	userID := uuid.New()
@@ -365,7 +377,7 @@ func TestUpdateMemberAndRemoveMember(t *testing.T) {
 }
 
 func TestGetTeamNotFound(t *testing.T) {
-	svc := NewTeamService(newTeamRepoMock())
+	svc := NewTeamService(newTeamRepoMock(), nil)
 	_, err := svc.GetTeam(context.Background(), uuid.New())
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
@@ -386,7 +398,7 @@ func TestTeamJSONHelpers(t *testing.T) {
 
 func TestListTeamsFilteredByWorkspace(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	otherWorkspace := uuid.New()
 	_, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Default team", "", nil)
 	require.NoError(t, err)
@@ -401,11 +413,11 @@ func TestListTeamsFilteredByWorkspace(t *testing.T) {
 
 func TestUpdateTeamSupportTier(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform L2", "", nil)
 	require.NoError(t, err)
 	tier := "l2"
-	updated, err := svc.UpdateTeam(context.Background(), team.ID, team.Name, team.Description, &tier)
+	updated, err := svc.UpdateTeam(context.Background(), team.ID, team.Name, team.Description, &tier, nil)
 	require.NoError(t, err)
 	require.NotNil(t, updated.SupportTier)
 	require.Equal(t, "l2", *updated.SupportTier)
@@ -413,7 +425,7 @@ func TestUpdateTeamSupportTier(t *testing.T) {
 
 func TestCreateTeamWorkspaceNotFound(t *testing.T) {
 	repo := &teamRepoMockMissingWorkspace{teamRepoMock: *newTeamRepoMock()}
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	_, err := svc.CreateTeam(context.Background(), uuid.New(), "Orphan", "", nil)
 	require.Error(t, err)
 	var appErr *apperrors.Error
@@ -431,7 +443,7 @@ func (m *teamRepoMockMissingWorkspace) GetWorkspace(_ context.Context, _ uuid.UU
 
 func TestListMembersEmptySliceWhenNil(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	members, err := svc.ListMembers(context.Background(), team.ID)
@@ -448,7 +460,7 @@ func TestHandoffErrorMapperPassthrough(t *testing.T) {
 
 func TestCreateTeamInvalidSupportTier(t *testing.T) {
 	repo := newTeamRepoMock()
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	bad := "invalid"
 	_, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", &bad)
 	require.Error(t, err)
@@ -463,7 +475,7 @@ func TestNormalizeSupportTierEmptyString(t *testing.T) {
 
 func TestListMembersNilSliceFromRepo(t *testing.T) {
 	repo := &teamRepoMockNilMembers{teamRepoMock: *newTeamRepoMock()}
-	svc := NewTeamService(repo)
+	svc := NewTeamService(repo, nil)
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	members, err := svc.ListMembers(context.Background(), team.ID)
@@ -477,4 +489,158 @@ type teamRepoMockNilMembers struct {
 
 func (m *teamRepoMockNilMembers) ListTeamMembers(context.Context, uuid.UUID) ([]db.TeamMember, error) {
 	return nil, nil
+}
+
+type teamMoveTestRepo struct {
+	*teamRepoMock
+	paths []db.EscalationPath
+}
+
+func newTeamMoveTestRepo() *teamMoveTestRepo {
+	return &teamMoveTestRepo{teamRepoMock: newTeamRepoMock()}
+}
+
+func (m *teamMoveTestRepo) ListEscalationPathsFromTeam(_ context.Context, fromTeamID uuid.UUID) ([]db.EscalationPath, error) {
+	var out []db.EscalationPath
+	for _, path := range m.paths {
+		if path.FromTeamID == fromTeamID {
+			out = append(out, path)
+		}
+	}
+	return out, nil
+}
+
+func (m *teamMoveTestRepo) ListEscalationPathsToTeam(_ context.Context, toTeamID uuid.UUID) ([]db.EscalationPath, error) {
+	var out []db.EscalationPath
+	for _, path := range m.paths {
+		if path.ToTeamID == toTeamID {
+			out = append(out, path)
+		}
+	}
+	return out, nil
+}
+
+func (m *teamMoveTestRepo) ListEscalationPathsByWorkspace(context.Context, uuid.UUID) ([]db.EscalationPath, error) {
+	return m.paths, nil
+}
+
+func (m *teamMoveTestRepo) ReplaceEscalationPaths(_ context.Context, _ uuid.UUID, paths []db.EscalationPath) error {
+	m.paths = paths
+	return nil
+}
+
+func (m *teamMoveTestRepo) AddEscalationPath(_ context.Context, path db.EscalationPath) (db.EscalationPath, error) {
+	path.ID = uuid.New()
+	m.paths = append(m.paths, path)
+	return path, nil
+}
+
+func (m *teamMoveTestRepo) DeleteEscalationPath(_ context.Context, id uuid.UUID) error {
+	for i, path := range m.paths {
+		if path.ID == id {
+			m.paths = append(m.paths[:i], m.paths[i+1:]...)
+			return nil
+		}
+	}
+	return pgx.ErrNoRows
+}
+
+func (m *teamMoveTestRepo) HasEscalationPath(_ context.Context, fromTeamID, toTeamID uuid.UUID) (bool, error) {
+	for _, path := range m.paths {
+		if path.FromTeamID == fromTeamID && path.ToTeamID == toTeamID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *teamMoveTestRepo) ListHandoffTargetTeams(_ context.Context, fromTeamID uuid.UUID) ([]db.Team, error) {
+	var out []db.Team
+	for _, path := range m.paths {
+		if path.FromTeamID == fromTeamID {
+			if team, ok := m.teams[path.ToTeamID]; ok {
+				out = append(out, team)
+			}
+		}
+	}
+	return out, nil
+}
+
+func TestMoveTeamsToWorkspaceSuccess(t *testing.T) {
+	repo := newTeamMoveTestRepo()
+	esc := NewEscalationService(repo)
+	svc := NewTeamService(repo, esc)
+	targetWS := uuid.New()
+	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform L2", "", nil)
+	require.NoError(t, err)
+
+	moved, err := svc.MoveTeamsToWorkspace(context.Background(), targetWS, []uuid.UUID{team.ID, team.ID})
+	require.NoError(t, err)
+	require.Len(t, moved, 1)
+	require.Equal(t, targetWS, repo.teams[team.ID].WorkspaceID)
+}
+
+func TestMoveTeamsToWorkspaceBlocked(t *testing.T) {
+	repo := newTeamMoveTestRepo()
+	esc := NewEscalationService(repo)
+	svc := NewTeamService(repo, esc)
+	targetWS := uuid.New()
+	otherWS := uuid.New()
+	l2, err := svc.CreateTeam(context.Background(), testWorkspaceID, "L2", "", tierPtr("l2"))
+	require.NoError(t, err)
+	l3 := db.Team{ID: uuid.New(), WorkspaceID: otherWS, Name: "L3", SupportTier: tierPtr("l3")}
+	repo.teams[l3.ID] = l3
+	repo.paths = []db.EscalationPath{{
+		ID: uuid.New(), FromTeamID: l2.ID, ToTeamID: l3.ID, CrossWorkspace: false,
+	}}
+
+	_, err = svc.MoveTeamsToWorkspace(context.Background(), targetWS, []uuid.UUID{l2.ID})
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "CONFLICT", appErr.Code)
+	require.Equal(t, testWorkspaceID, repo.teams[l2.ID].WorkspaceID)
+}
+
+func TestMoveTeamsToWorkspaceEmpty(t *testing.T) {
+	svc := NewTeamService(newTeamRepoMock(), nil)
+	_, err := svc.MoveTeamsToWorkspace(context.Background(), uuid.New(), nil)
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+}
+
+func TestUpdateTeamChangesWorkspace(t *testing.T) {
+	repo := newTeamMoveTestRepo()
+	svc := NewTeamService(repo, NewEscalationService(repo))
+	targetWS := uuid.New()
+	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
+	require.NoError(t, err)
+
+	updated, err := svc.UpdateTeam(context.Background(), team.ID, team.Name, team.Description, nil, &targetWS)
+	require.NoError(t, err)
+	require.Equal(t, "Platform", updated.Name)
+	require.Equal(t, targetWS, repo.teams[team.ID].WorkspaceID)
+}
+
+func TestMoveTeamsToWorkspaceNotFound(t *testing.T) {
+	svc := NewTeamService(newTeamRepoMock(), nil)
+	_, err := svc.MoveTeamsToWorkspace(context.Background(), testWorkspaceID, []uuid.UUID{uuid.New()})
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "NOT_FOUND", appErr.Code)
+}
+
+func TestMoveTeamsToWorkspaceUnknownWorkspace(t *testing.T) {
+	repo := &teamRepoMockMissingWorkspace{teamRepoMock: *newTeamRepoMock()}
+	svc := NewTeamService(repo, nil)
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: testWorkspaceID, Name: "Platform"}
+	_, err := svc.MoveTeamsToWorkspace(context.Background(), uuid.New(), []uuid.UUID{teamID})
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "NOT_FOUND", appErr.Code)
 }

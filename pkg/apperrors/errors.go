@@ -49,3 +49,12 @@ func NotFound(resource string) *Error {
 func Conflict(message string) *Error {
 	return New("CONFLICT", message, http.StatusConflict)
 }
+
+func ConflictWithDetails(message string, details map[string]any) *Error {
+	return &Error{
+		Code:       "CONFLICT",
+		Message:    message,
+		Details:    details,
+		StatusCode: http.StatusConflict,
+	}
+}

@@ -14,15 +14,16 @@ import { TeamDetailPage } from './pages/TeamDetailPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { TeamShiftsRoute } from './pages/TeamShiftsRoute';
 import { WorkspaceDetailPage } from './pages/WorkspaceDetailPage';
+import { WorkspacesPage } from './pages/WorkspacesPage';
 
 function pageFromPath(pathname: string): AppPage {
   if (pathname.includes('/shifts')) {
     return 'shifts';
   }
-  if (pathname.startsWith('/teams')) {
-    return 'teams';
-  }
   if (pathname.startsWith('/workspaces')) {
+    return 'workspaces';
+  }
+  if (pathname.startsWith('/teams')) {
     return 'teams';
   }
   if (pathname.startsWith('/setup')) {
@@ -71,6 +72,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <TeamDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workspaces"
+          element={
+            <ProtectedRoute>
+              <WorkspacesPage />
             </ProtectedRoute>
           }
         />

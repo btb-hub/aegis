@@ -51,6 +51,21 @@ func (m *workspaceRepoMock) UpdateWorkspace(_ context.Context, id uuid.UUID, nam
 	return item, nil
 }
 
+func (m *workspaceRepoMock) ListWorkspacesWithCounts(_ context.Context) ([]db.WorkspaceSummary, error) {
+	items := make([]db.WorkspaceSummary, 0, len(m.items))
+	for _, item := range m.items {
+		items = append(items, db.WorkspaceSummary{Workspace: item})
+	}
+	return items, nil
+}
+
+func (m *workspaceRepoMock) GetWorkspaceUsage(_ context.Context, id uuid.UUID) (db.WorkspaceUsage, error) {
+	if _, ok := m.items[id]; !ok {
+		return db.WorkspaceUsage{}, pgx.ErrNoRows
+	}
+	return db.WorkspaceUsage{}, nil
+}
+
 func (m *workspaceRepoMock) DeleteWorkspace(_ context.Context, id uuid.UUID) error {
 	if _, ok := m.items[id]; !ok {
 		return pgx.ErrNoRows
@@ -459,4 +474,152 @@ type escalationRepoMockNilPaths struct {
 
 func (m *escalationRepoMockNilPaths) ListEscalationPathsByWorkspace(context.Context, uuid.UUID) ([]db.EscalationPath, error) {
 	return nil, nil
+}
+
+func TestWorkspaceListWithCounts(t *testing.T) {
+	wsID := uuid.New()
+	repo := &workspaceRepoMockWithCounts{
+		workspaceRepoMock: workspaceRepoMock{items: map[uuid.UUID]db.Workspace{wsID: {ID: wsID, Name: "Platform"}}},
+		summaries: []db.WorkspaceSummary{{
+			Workspace: db.Workspace{ID: wsID, Name: "Platform", Slug: "platform"},
+			TeamCount: 2, RoutingRuleCount: 1,
+		}},
+	}
+	svc := NewWorkspaceService(repo)
+	items, err := svc.ListWithCounts(context.Background())
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, 2, items[0].TeamCount)
+}
+
+type workspaceRepoMockWithCounts struct {
+	workspaceRepoMock
+	summaries []db.WorkspaceSummary
+}
+
+func (m *workspaceRepoMockWithCounts) ListWorkspacesWithCounts(context.Context) ([]db.WorkspaceSummary, error) {
+	return m.summaries, nil
+}
+
+func TestWorkspaceDeleteDefaultForbidden(t *testing.T) {
+	repo := &workspaceRepoMock{items: map[uuid.UUID]db.Workspace{
+		db.DefaultWorkspaceID: {ID: db.DefaultWorkspaceID, Name: "Default", Slug: "default"},
+	}}
+	svc := NewWorkspaceService(repo)
+	err := svc.Delete(context.Background(), db.DefaultWorkspaceID)
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "FORBIDDEN", appErr.Code)
+}
+
+func TestWorkspaceDeleteNotEmpty(t *testing.T) {
+	wsID := uuid.New()
+	repo := &workspaceRepoMockWithUsage{
+		workspaceRepoMock: workspaceRepoMock{items: map[uuid.UUID]db.Workspace{wsID: {ID: wsID, Name: "Platform"}}},
+		usage:             db.WorkspaceUsage{TeamCount: 1},
+	}
+	svc := NewWorkspaceService(repo)
+	err := svc.Delete(context.Background(), wsID)
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "CONFLICT", appErr.Code)
+}
+
+func TestWorkspaceDeleteSuccess(t *testing.T) {
+	wsID := uuid.New()
+	repo := &workspaceRepoMock{items: map[uuid.UUID]db.Workspace{wsID: {ID: wsID, Name: "Platform", Slug: "platform"}}}
+	svc := NewWorkspaceService(repo)
+	err := svc.Delete(context.Background(), wsID)
+	require.NoError(t, err)
+	_, err = svc.Get(context.Background(), wsID)
+	require.Error(t, err)
+}
+
+type workspaceRepoMockWithUsage struct {
+	workspaceRepoMock
+	usage db.WorkspaceUsage
+}
+
+func (m *workspaceRepoMockWithUsage) GetWorkspaceUsage(context.Context, uuid.UUID) (db.WorkspaceUsage, error) {
+	return m.usage, nil
+}
+
+func TestWorkspaceSummaryJSON(t *testing.T) {
+	wsID := uuid.New()
+	out := WorkspaceSummaryJSON(db.WorkspaceSummary{
+		Workspace:        db.Workspace{ID: wsID, Name: "Platform", Slug: "platform"},
+		TeamCount:        3,
+		RoutingRuleCount: 2,
+	})
+	require.Equal(t, 3, out["team_count"])
+	require.Equal(t, 2, out["routing_rule_count"])
+}
+
+func TestBlockedTeamsForWorkspaceMoveCoMove(t *testing.T) {
+	defaultWS := db.DefaultWorkspaceID
+	targetWS := uuid.New()
+	l2ID := uuid.New()
+	l3ID := uuid.New()
+	repo := &escalationRepoMock{
+		teams: map[uuid.UUID]db.Team{
+			l2ID: {ID: l2ID, WorkspaceID: defaultWS, SupportTier: tierPtr("l2")},
+			l3ID: {ID: l3ID, WorkspaceID: defaultWS, SupportTier: tierPtr("l3")},
+		},
+		paths: []db.EscalationPath{{
+			ID: uuid.New(), FromTeamID: l2ID, ToTeamID: l3ID, CrossWorkspace: false,
+		}},
+	}
+	svc := NewEscalationService(repo)
+	blocked, err := svc.BlockedTeamsForWorkspaceMove(context.Background(), targetWS, []uuid.UUID{l2ID, l3ID})
+	require.NoError(t, err)
+	require.Empty(t, blocked)
+}
+
+func TestBlockedTeamsForWorkspaceMoveSingleBlocked(t *testing.T) {
+	defaultWS := db.DefaultWorkspaceID
+	targetWS := uuid.New()
+	otherWS := uuid.New()
+	l2ID := uuid.New()
+	l3ID := uuid.New()
+	repo := &escalationRepoMock{
+		teams: map[uuid.UUID]db.Team{
+			l2ID: {ID: l2ID, WorkspaceID: defaultWS, SupportTier: tierPtr("l2")},
+			l3ID: {ID: l3ID, WorkspaceID: otherWS, SupportTier: tierPtr("l3")},
+		},
+		paths: []db.EscalationPath{{
+			ID: uuid.New(), FromTeamID: l2ID, ToTeamID: l3ID, CrossWorkspace: false,
+		}},
+	}
+	svc := NewEscalationService(repo)
+	blocked, err := svc.BlockedTeamsForWorkspaceMove(context.Background(), targetWS, []uuid.UUID{l2ID})
+	require.NoError(t, err)
+	require.NotEmpty(t, blocked[l2ID])
+}
+
+func TestBlockedTeamsForWorkspaceMoveAlreadyInTarget(t *testing.T) {
+	targetWS := uuid.New()
+	l2ID := uuid.New()
+	repo := &escalationRepoMock{
+		teams: map[uuid.UUID]db.Team{
+			l2ID: {ID: l2ID, WorkspaceID: targetWS, SupportTier: tierPtr("l2")},
+		},
+	}
+	svc := NewEscalationService(repo)
+	_, err := svc.BlockedTeamsForWorkspaceMove(context.Background(), targetWS, []uuid.UUID{l2ID})
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+}
+
+func TestBlockedTeamsJSON(t *testing.T) {
+	pathID := uuid.New()
+	l2ID := uuid.New()
+	items := BlockedTeamsJSON(map[uuid.UUID][]db.EscalationPath{
+		l2ID: {{ID: pathID, FromTeamID: l2ID, ToTeamID: uuid.New()}},
+	})
+	require.Len(t, items, 1)
+	require.Equal(t, l2ID.String(), items[0]["team_id"])
 }

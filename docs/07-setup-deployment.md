@@ -248,11 +248,14 @@ exhaustion, certificate expiry, queue backlog, replication lag, and DNS failures
 
 Route: `/setup` in the web app (multi-step wizard; progress in `localStorage`).
 
+**Workspace step (Phase 11):** Primary path is **Workspaces** (`/workspaces`) — create a project and assign existing teams. The wizard keeps a **Quick setup** shortcut (workspace + L2/L3 + escalation path in one click) for greenfield installs. If a non-default workspace already has teams, the step can be skipped.
+
 1. **Health** — `GET /healthz` on the API (≈ 2 min)
 2. **OIDC** — sign in via `/login` and confirm `GET /auth/me` (≈ 30–60 min with IdP app registration, or use **Dev sign in** locally when `DEV_AUTH_ENABLED=true`)
-3. **Integrations** — save + test Jira, Slack, eXpress via `/api/v1/integrations` (≈ 2–4 h depending on credentials)
-4. **Test alert** — `POST /api/v1/setup/test-alert` from the wizard (≈ 5 min)
-5. **Dashboard** — open `/dashboard` and confirm the five widgets load
+3. **Workspace & teams** — open **Workspaces** or use quick L2/L3 setup in the wizard (≈ 15–30 min)
+4. **Integrations** — save + test Jira, Slack, eXpress via `/api/v1/integrations` (≈ 2–4 h depending on credentials)
+5. **Test alert** — `POST /api/v1/setup/test-alert` from the wizard (≈ 5 min)
+6. **Dashboard** — open `/dashboard` and confirm the five widgets load
 
 Target: **≤ 1 working day** for an engineer with IdP and connector credentials ready (NFR-1). Without pre-provisioned credentials, allow half a day for OAuth app setup and token issuance.
 

@@ -36,7 +36,7 @@ func setupRouter(t *testing.T) (*gin.Engine, *service.AuthService) {
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	health := service.NewHealthService(nil)
 
 	r := gin.New()
@@ -201,6 +201,9 @@ func (e *emptyTeamRepo) CreateTeam(ctx context.Context, workspaceID uuid.UUID, n
 }
 func (e *emptyTeamRepo) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	return db.Team{}, nil
+}
+func (e *emptyTeamRepo) MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
+	return nil
 }
 func (e *emptyTeamRepo) DeleteTeam(ctx context.Context, id uuid.UUID) error { return nil }
 func (e *emptyTeamRepo) ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]db.TeamMember, error) {

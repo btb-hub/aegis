@@ -205,3 +205,93 @@ func EscalationPathJSON(path db.EscalationPath) map[string]any {
 		"created_at":      path.CreatedAt,
 	}
 }
+
+// BlockedTeamsForWorkspaceMove returns escalation paths that would become invalid if the given
+// teams move to targetWorkspaceID. Simulates all moves together so co-moving related teams succeeds.
+func (s *EscalationService) BlockedTeamsForWorkspaceMove(
+	ctx context.Context,
+	targetWorkspaceID uuid.UUID,
+	teamIDs []uuid.UUID,
+) (map[uuid.UUID][]db.EscalationPath, error) {
+	if len(teamIDs) == 0 {
+		return nil, nil
+	}
+
+	moves := make(map[uuid.UUID]uuid.UUID, len(teamIDs))
+	for _, teamID := range teamIDs {
+		moves[teamID] = targetWorkspaceID
+	}
+
+	blocked := make(map[uuid.UUID][]db.EscalationPath)
+	seenPaths := make(map[uuid.UUID]struct{})
+
+	for _, teamID := range teamIDs {
+		team, err := s.repo.GetTeam(ctx, teamID)
+		if err != nil {
+			return nil, mapEscalationTeamError(err)
+		}
+		if team.WorkspaceID == targetWorkspaceID {
+			return nil, apperrors.Validation("team is already in the target workspace", map[string]any{
+				"team_id": teamID.String(),
+			})
+		}
+
+		outgoing, err := s.repo.ListEscalationPathsFromTeam(ctx, teamID)
+		if err != nil {
+			return nil, err
+		}
+		incoming, err := s.repo.ListEscalationPathsToTeam(ctx, teamID)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, path := range append(outgoing, incoming...) {
+			if _, ok := seenPaths[path.ID]; ok {
+				continue
+			}
+			seenPaths[path.ID] = struct{}{}
+
+			fromTeam, err := s.repo.GetTeam(ctx, path.FromTeamID)
+			if err != nil {
+				return nil, mapEscalationTeamError(err)
+			}
+			toTeam, err := s.repo.GetTeam(ctx, path.ToTeamID)
+			if err != nil {
+				return nil, mapEscalationTeamError(err)
+			}
+
+			fromWS := effectiveTeamWorkspace(fromTeam, moves)
+			toWS := effectiveTeamWorkspace(toTeam, moves)
+			if !path.CrossWorkspace && fromWS != toWS {
+				blocked[teamID] = append(blocked[teamID], path)
+			}
+		}
+	}
+
+	if len(blocked) == 0 {
+		return nil, nil
+	}
+	return blocked, nil
+}
+
+func effectiveTeamWorkspace(team db.Team, moves map[uuid.UUID]uuid.UUID) uuid.UUID {
+	if ws, ok := moves[team.ID]; ok {
+		return ws
+	}
+	return team.WorkspaceID
+}
+
+func BlockedTeamsJSON(blocked map[uuid.UUID][]db.EscalationPath) []map[string]any {
+	items := make([]map[string]any, 0, len(blocked))
+	for teamID, paths := range blocked {
+		pathItems := make([]map[string]any, 0, len(paths))
+		for _, path := range paths {
+			pathItems = append(pathItems, EscalationPathJSON(path))
+		}
+		items = append(items, map[string]any{
+			"team_id": teamID.String(),
+			"paths":   pathItems,
+		})
+	}
+	return items
+}

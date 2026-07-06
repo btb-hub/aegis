@@ -32,7 +32,7 @@ func setupTeamRouter(t *testing.T) *teamTestEnv {
 	repo := newTeamRepoMock()
 	cfg := &config.Config{SessionTTL: time.Hour}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
-	teams := service.NewTeamService(repo)
+	teams := service.NewTeamService(repo, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 
@@ -107,6 +107,18 @@ func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, descr
 	team.SupportTier = supportTier
 	m.teams[id] = team
 	return team, nil
+}
+
+func (m *teamRepoMock) MoveTeamsToWorkspace(_ context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
+	for _, teamID := range teamIDs {
+		team, ok := m.teams[teamID]
+		if !ok {
+			return pgx.ErrNoRows
+		}
+		team.WorkspaceID = workspaceID
+		m.teams[teamID] = team
+	}
+	return nil
 }
 
 func (m *teamRepoMock) DeleteTeam(ctx context.Context, id uuid.UUID) error {
@@ -434,6 +446,36 @@ func TestUpdateTeamAdmin(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
 	env.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestUpdateTeamWorkspaceID(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	targetWS := uuid.New()
+	env.repo.workspaces[targetWS] = db.Workspace{ID: targetWS, Name: "Data", Slug: "data"}
+
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+
+	var team map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &team))
+
+	patchBody, _ := json.Marshal(map[string]string{
+		"name":         "Platform",
+		"workspace_id": targetWS.String(),
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+team["id"].(string), bytes.NewReader(patchBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, targetWS, env.repo.teams[uuid.MustParse(team["id"].(string))].WorkspaceID)
 }
 
 func TestDeleteTeamAdmin(t *testing.T) {

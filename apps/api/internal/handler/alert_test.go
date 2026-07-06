@@ -84,7 +84,7 @@ func TestListAlertsWithTeamFilter(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(teamRepo)
+	teams := service.NewTeamService(teamRepo, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, alertRepo)
 
 	r := gin.New()
@@ -107,7 +107,7 @@ func TestListAlertsUnknownTeam(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 
 	r := gin.New()
@@ -134,7 +134,7 @@ func TestListAlertsRepoError(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &failListAlertRepo{})
 
 	r := gin.New()
@@ -216,6 +216,7 @@ func (r *teamLookupRepo) CreateTeam(_ context.Context, workspaceID uuid.UUID, na
 func (r *teamLookupRepo) UpdateTeam(context.Context, uuid.UUID, string, string, *string) (db.Team, error) {
 	return db.Team{}, nil
 }
+func (r *teamLookupRepo) MoveTeamsToWorkspace(context.Context, uuid.UUID, []uuid.UUID) error { return nil }
 func (r *teamLookupRepo) DeleteTeam(context.Context, uuid.UUID) error { return nil }
 func (r *teamLookupRepo) ListTeamMembers(context.Context, uuid.UUID) ([]db.TeamMember, error) {
 	return nil, nil
@@ -302,7 +303,7 @@ func TestListAlertsGroupRepoError(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &failGroupAlertRepo{})
 
 	r := gin.New()
@@ -385,7 +386,7 @@ func TestExportAlertsWithTeamFilter(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(teamRepo)
+	teams := service.NewTeamService(teamRepo, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, alertRepo)
 
 	r := gin.New()
@@ -407,7 +408,7 @@ func TestListAlertsAnalyticsError(t *testing.T) {
 	users := newAuthMockUsers()
 	sessions := &authMockSessions{byHash: map[string]db.Session{}}
 	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &failAnalyticsAlertRepo{})
 
 	r := gin.New()

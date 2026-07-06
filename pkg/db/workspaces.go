@@ -8,6 +8,61 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+var DefaultWorkspaceID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+type WorkspaceSummary struct {
+	Workspace
+	TeamCount        int
+	RoutingRuleCount int
+}
+
+type WorkspaceUsage struct {
+	TeamCount           int
+	EscalationPathCount int
+	IntegrationCount    int
+}
+
+func (s *Store) ListWorkspacesWithCounts(ctx context.Context) ([]WorkspaceSummary, error) {
+	const q = `
+SELECT w.id, w.name, w.slug, w.description, w.created_at, w.updated_at,
+       COUNT(DISTINCT t.id)::int AS team_count,
+       COUNT(DISTINCT rr.id)::int AS routing_rule_count
+FROM workspaces w
+LEFT JOIN teams t ON t.workspace_id = w.id
+LEFT JOIN routing_rules rr ON rr.team_id = t.id
+GROUP BY w.id
+ORDER BY w.name`
+	rows, err := s.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []WorkspaceSummary
+	for rows.Next() {
+		var item WorkspaceSummary
+		if err := rows.Scan(
+			&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedAt, &item.UpdatedAt,
+			&item.TeamCount, &item.RoutingRuleCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) GetWorkspaceUsage(ctx context.Context, id uuid.UUID) (WorkspaceUsage, error) {
+	const q = `
+SELECT
+  (SELECT COUNT(*)::int FROM teams WHERE workspace_id = $1),
+  (SELECT COUNT(*)::int FROM escalation_paths WHERE workspace_id = $1),
+  (SELECT COUNT(*)::int FROM integrations WHERE workspace_id = $1)`
+	var usage WorkspaceUsage
+	err := s.pool.QueryRow(ctx, q, id).Scan(&usage.TeamCount, &usage.EscalationPathCount, &usage.IntegrationCount)
+	return usage, err
+}
+
 func (s *Store) ListWorkspaces(ctx context.Context) ([]Workspace, error) {
 	const q = `
 SELECT id, name, slug, description, created_at, updated_at

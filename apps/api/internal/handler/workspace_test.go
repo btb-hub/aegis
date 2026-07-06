@@ -83,6 +83,65 @@ func (m *workspaceEscalationRepoMock) UpdateWorkspace(_ context.Context, id uuid
 	return item, nil
 }
 
+func (m *workspaceEscalationRepoMock) ListWorkspacesWithCounts(_ context.Context) ([]db.WorkspaceSummary, error) {
+	if m.listWorkspacesErr != nil {
+		return nil, m.listWorkspacesErr
+	}
+	items := make([]db.WorkspaceSummary, 0, len(m.workspaces))
+	for _, item := range m.workspaces {
+		summary := db.WorkspaceSummary{Workspace: item}
+		for _, team := range m.teams {
+			if team.WorkspaceID == item.ID {
+				summary.TeamCount++
+			}
+		}
+		for _, path := range m.paths {
+			if path.WorkspaceID == item.ID {
+				summary.RoutingRuleCount++
+			}
+		}
+		items = append(items, summary)
+	}
+	return items, nil
+}
+
+func (m *workspaceEscalationRepoMock) GetWorkspaceUsage(_ context.Context, id uuid.UUID) (db.WorkspaceUsage, error) {
+	var usage db.WorkspaceUsage
+	for _, team := range m.teams {
+		if team.WorkspaceID == id {
+			usage.TeamCount++
+		}
+	}
+	for _, path := range m.paths {
+		if path.WorkspaceID == id {
+			usage.EscalationPathCount++
+		}
+	}
+	return usage, nil
+}
+
+func (m *workspaceEscalationRepoMock) ListTeamsFiltered(_ context.Context, workspaceID uuid.UUID) ([]db.Team, error) {
+	var items []db.Team
+	for _, team := range m.teams {
+		if workspaceID == uuid.Nil || team.WorkspaceID == workspaceID {
+			items = append(items, team)
+		}
+	}
+	return items, nil
+}
+
+func (m *workspaceEscalationRepoMock) MoveTeamsToWorkspace(_ context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
+	for _, teamID := range teamIDs {
+		team, ok := m.teams[teamID]
+		if !ok {
+			return pgx.ErrNoRows
+		}
+		team.WorkspaceID = workspaceID
+		m.teams[teamID] = team
+	}
+	return nil
+}
+
 func (m *workspaceEscalationRepoMock) DeleteWorkspace(_ context.Context, id uuid.UUID) error {
 	if _, ok := m.workspaces[id]; !ok {
 		return pgx.ErrNoRows
@@ -97,6 +156,56 @@ func (m *workspaceEscalationRepoMock) GetTeam(_ context.Context, id uuid.UUID) (
 		return db.Team{}, pgx.ErrNoRows
 	}
 	return team, nil
+}
+
+func (m *workspaceEscalationRepoMock) CreateTeam(_ context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
+	team := db.Team{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		Name:        name,
+		Description: description,
+		SupportTier: supportTier,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	m.teams[team.ID] = team
+	return team, nil
+}
+
+func (m *workspaceEscalationRepoMock) UpdateTeam(_ context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
+	team, ok := m.teams[id]
+	if !ok {
+		return db.Team{}, pgx.ErrNoRows
+	}
+	team.Name = name
+	team.Description = description
+	team.SupportTier = supportTier
+	m.teams[id] = team
+	return team, nil
+}
+
+func (m *workspaceEscalationRepoMock) DeleteTeam(_ context.Context, id uuid.UUID) error {
+	if _, ok := m.teams[id]; !ok {
+		return pgx.ErrNoRows
+	}
+	delete(m.teams, id)
+	return nil
+}
+
+func (m *workspaceEscalationRepoMock) ListTeamMembers(context.Context, uuid.UUID) ([]db.TeamMember, error) {
+	return []db.TeamMember{}, nil
+}
+
+func (m *workspaceEscalationRepoMock) AddTeamMember(context.Context, uuid.UUID, uuid.UUID, string) (db.TeamMembership, error) {
+	return db.TeamMembership{}, nil
+}
+
+func (m *workspaceEscalationRepoMock) UpdateTeamMemberRole(context.Context, uuid.UUID, uuid.UUID, string) (db.TeamMembership, error) {
+	return db.TeamMembership{}, nil
+}
+
+func (m *workspaceEscalationRepoMock) RemoveTeamMember(context.Context, uuid.UUID, uuid.UUID) error {
+	return nil
 }
 
 func (m *workspaceEscalationRepoMock) ListEscalationPathsByWorkspace(_ context.Context, workspaceID uuid.UUID) ([]db.EscalationPath, error) {
@@ -188,12 +297,13 @@ func setupWorkspaceRouter(t *testing.T) *workspaceTestEnv {
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	workspaces := service.NewWorkspaceService(repo)
 	escalation := service.NewEscalationService(repo)
+	teams := service.NewTeamService(repo, escalation)
 	health := service.NewHealthService(nil)
 
 	r := gin.New()
 	NewHealthHandler(health).Register(r)
 	NewAuthHandler(auth, "http://localhost:3000").Register(r)
-	NewWorkspaceHandler(workspaces, auth).Register(r)
+	NewWorkspaceHandler(workspaces, teams, auth).Register(r)
 	NewEscalationHandler(escalation, auth).Register(r)
 	return &workspaceTestEnv{router: r, repo: repo, auth: auth}
 }
@@ -299,6 +409,9 @@ func TestWorkspacesCRUDAndEscalationPaths(t *testing.T) {
 	reqPatch.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
 	env.router.ServeHTTP(wPatch, reqPatch)
 	require.Equal(t, http.StatusOK, wPatch.Code)
+
+	delete(env.repo.teams, l2ID)
+	delete(env.repo.teams, l3ID)
 
 	wDelete := httptest.NewRecorder()
 	reqDelete := httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/"+workspaceID, nil)
@@ -566,4 +679,145 @@ func TestWorkspacesCreateValidationError(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
 	env.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestWorkspacesAssignTeams(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+
+	defaultWS := db.DefaultWorkspaceID
+	targetWS := uuid.New()
+	env.repo.workspaces[targetWS] = db.Workspace{ID: targetWS, Name: "Platform", Slug: "platform"}
+	teamID := uuid.New()
+	env.repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: defaultWS, Name: "Core L2", SupportTier: tierPtr("l2")}
+
+	body, _ := json.Marshal(map[string]any{"team_ids": []string{teamID.String()}})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+targetWS.String()+"/teams", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, targetWS, env.repo.teams[teamID].WorkspaceID)
+}
+
+func TestWorkspacesAssignTeamsBlockedByEscalationPath(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+
+	defaultWS := db.DefaultWorkspaceID
+	targetWS := uuid.New()
+	otherWS := uuid.New()
+	env.repo.workspaces[targetWS] = db.Workspace{ID: targetWS, Name: "Platform", Slug: "platform"}
+	env.repo.workspaces[otherWS] = db.Workspace{ID: otherWS, Name: "Other", Slug: "other"}
+
+	l2ID := uuid.New()
+	l3ID := uuid.New()
+	env.repo.teams[l2ID] = db.Team{ID: l2ID, WorkspaceID: defaultWS, Name: "L2", SupportTier: tierPtr("l2")}
+	env.repo.teams[l3ID] = db.Team{ID: l3ID, WorkspaceID: otherWS, Name: "L3", SupportTier: tierPtr("l3")}
+	env.repo.paths = []db.EscalationPath{{
+		ID: uuid.New(), WorkspaceID: defaultWS, FromTeamID: l2ID, ToTeamID: l3ID, CrossWorkspace: false,
+	}}
+
+	body, _ := json.Marshal(map[string]any{"team_ids": []string{l2ID.String()}})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+targetWS.String()+"/teams", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusConflict, w.Code)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	details, ok := resp["details"].(map[string]any)
+	require.True(t, ok)
+	require.NotNil(t, details["blocked_teams"])
+}
+
+func TestWorkspacesDeleteNotEmpty(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	workspaceID := uuid.New()
+	env.repo.workspaces[workspaceID] = db.Workspace{ID: workspaceID, Name: "Platform", Slug: "platform"}
+	teamID := uuid.New()
+	env.repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: workspaceID, Name: "Team"}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/"+workspaceID.String(), nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestWorkspacesDeleteDefaultForbidden(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/workspaces/"+db.DefaultWorkspaceID.String(), nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestWorkspacesAssignTeamsValidation(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	workspaceID := uuid.New()
+	env.repo.workspaces[workspaceID] = db.Workspace{ID: workspaceID, Name: "Platform", Slug: "platform"}
+
+	wInvalid := httptest.NewRecorder()
+	reqInvalid := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+workspaceID.String()+"/teams", bytes.NewBufferString(`{`))
+	reqInvalid.Header.Set("Content-Type", "application/json")
+	reqInvalid.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wInvalid, reqInvalid)
+	require.Equal(t, http.StatusBadRequest, wInvalid.Code)
+
+	wEmpty := httptest.NewRecorder()
+	reqEmpty := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+workspaceID.String()+"/teams", bytes.NewReader([]byte(`{"team_ids":[]}`)))
+	reqEmpty.Header.Set("Content-Type", "application/json")
+	reqEmpty.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wEmpty, reqEmpty)
+	require.Equal(t, http.StatusBadRequest, wEmpty.Code)
+
+	wBad := httptest.NewRecorder()
+	reqBad := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+workspaceID.String()+"/teams", bytes.NewReader([]byte(`{"team_ids":["not-a-uuid"]}`)))
+	reqBad.Header.Set("Content-Type", "application/json")
+	reqBad.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wBad, reqBad)
+	require.Equal(t, http.StatusBadRequest, wBad.Code)
+}
+
+func TestWorkspacesAssignTeamsForbiddenForMember(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	token := env.sessionForRole(t, "member")
+	body, _ := json.Marshal(map[string]any{"team_ids": []string{uuid.New().String()}})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workspaces/"+uuid.New().String()+"/teams", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestWorkspacesListIncludesCounts(t *testing.T) {
+	env := setupWorkspaceRouter(t)
+	token := env.sessionForRole(t, "member")
+	workspaceID := uuid.New()
+	env.repo.workspaces[workspaceID] = db.Workspace{ID: workspaceID, Name: "Platform", Slug: "platform"}
+	env.repo.teams[uuid.New()] = db.Team{ID: uuid.New(), WorkspaceID: workspaceID, Name: "L2"}
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	items := body["items"].([]any)
+	require.NotEmpty(t, items)
+	first := items[0].(map[string]any)
+	require.Contains(t, first, "team_count")
+	require.Contains(t, first, "routing_rule_count")
 }

@@ -107,12 +107,22 @@ func (h *TeamHandler) updateTeam(c *gin.Context) {
 		Name        string  `json:"name"`
 		Description string  `json:"description"`
 		SupportTier *string `json:"support_tier"`
+		WorkspaceID *string `json:"workspace_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
 		return
 	}
-	team, err := h.teams.UpdateTeam(c.Request.Context(), id, body.Name, body.Description, body.SupportTier)
+	var workspaceID *uuid.UUID
+	if body.WorkspaceID != nil && *body.WorkspaceID != "" {
+		parsed, err := uuid.Parse(*body.WorkspaceID)
+		if err != nil {
+			WriteError(c, apperrors.Validation("workspace_id must be a valid uuid", nil))
+			return
+		}
+		workspaceID = &parsed
+	}
+	team, err := h.teams.UpdateTeam(c.Request.Context(), id, body.Name, body.Description, body.SupportTier, workspaceID)
 	if err != nil {
 		WriteError(c, err)
 		return
