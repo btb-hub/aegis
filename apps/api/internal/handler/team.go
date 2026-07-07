@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
@@ -104,14 +105,31 @@ func (h *TeamHandler) updateTeam(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name        string  `json:"name"`
-		Description string  `json:"description"`
+		Name        *string `json:"name"`
+		Description *string `json:"description"`
 		SupportTier *string `json:"support_tier"`
 		WorkspaceID *string `json:"workspace_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
 		return
+	}
+	current, err := h.teams.GetTeam(c.Request.Context(), id)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	name := current.Name
+	if body.Name != nil {
+		name = strings.TrimSpace(*body.Name)
+	}
+	description := current.Description
+	if body.Description != nil {
+		description = strings.TrimSpace(*body.Description)
+	}
+	supportTier := current.SupportTier
+	if body.SupportTier != nil {
+		supportTier = body.SupportTier
 	}
 	var workspaceID *uuid.UUID
 	if body.WorkspaceID != nil && *body.WorkspaceID != "" {
@@ -122,7 +140,7 @@ func (h *TeamHandler) updateTeam(c *gin.Context) {
 		}
 		workspaceID = &parsed
 	}
-	team, err := h.teams.UpdateTeam(c.Request.Context(), id, body.Name, body.Description, body.SupportTier, workspaceID)
+	team, err := h.teams.UpdateTeam(c.Request.Context(), id, name, description, supportTier, workspaceID)
 	if err != nil {
 		WriteError(c, err)
 		return

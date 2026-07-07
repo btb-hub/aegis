@@ -448,6 +448,79 @@ func TestUpdateTeamAdmin(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestUpdateTeamSupportTierOnly(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	createBody, _ := json.Marshal(map[string]string{
+		"workspace_id": "00000000-0000-0000-0000-000000000001",
+		"name":         "Ops",
+		"description":  "Core on-call",
+	})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+
+	var team map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &team))
+	teamID := team["id"].(string)
+
+	tier := "l3"
+	patchBody, _ := json.Marshal(map[string]any{"support_tier": tier})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+teamID, bytes.NewReader(patchBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	updated := env.repo.teams[uuid.MustParse(teamID)]
+	require.Equal(t, "Ops", updated.Name)
+	require.Equal(t, "Core on-call", updated.Description)
+	require.NotNil(t, updated.SupportTier)
+	require.Equal(t, "l3", *updated.SupportTier)
+}
+
+func TestUpdateTeamRejectsEmptyName(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	createBody, _ := json.Marshal(map[string]string{
+		"workspace_id": "00000000-0000-0000-0000-000000000001",
+		"name":         "Ops",
+	})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+
+	var team map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &team))
+
+	patchBody, _ := json.Marshal(map[string]string{"name": "   "})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+team["id"].(string), bytes.NewReader(patchBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestUpdateTeamNotFound(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	patchBody, _ := json.Marshal(map[string]string{"name": "Missing"})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+uuid.New().String(), bytes.NewReader(patchBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestUpdateTeamWorkspaceID(t *testing.T) {
 	env := setupTeamRouter(t)
 	adminToken := env.sessionForRole(t, "admin")
