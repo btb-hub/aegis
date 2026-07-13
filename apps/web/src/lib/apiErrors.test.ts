@@ -11,6 +11,19 @@ describe('resolveApiErrorMessage', () => {
   });
 
   it('returns fallback for unknown messages', () => {
-    expect(resolveApiErrorMessage(t, { message: 'something else' }, 'fallback')).toBe('fallback');
+    expect(resolveApiErrorMessage(t, { message: 'something else' }, 'fallback')).toBe('something else');
+  });
+
+  it('maps handoff no on-call with team name', () => {
+    expect(
+      resolveApiErrorMessage(
+        (key, options) => `${key}:${JSON.stringify(options)}`,
+        {
+          message: 'target team has no one on call',
+          details: { team_name: 'Helpdesk' },
+        },
+        'fallback',
+      ),
+    ).toBe('errors.handoff_no_on_call_named:{"team":"Helpdesk"}');
   });
 });

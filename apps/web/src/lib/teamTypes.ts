@@ -30,6 +30,19 @@ export function handoffLabelKey(tier?: string): string {
   }
 }
 
+export function handoffTeamLabelKey(tier?: string): string {
+  switch (tier) {
+    case 'noc':
+      return 'incidents.handoff_team_label_l1';
+    case 'l1':
+      return 'incidents.handoff_team_label_l2';
+    case 'l2':
+      return 'incidents.handoff_team_label_l3';
+    default:
+      return 'incidents.handoff_team_label';
+  }
+}
+
 export function bounceLabelKey(tier?: string): string {
   switch (tier) {
     case 'l1':

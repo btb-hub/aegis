@@ -13,11 +13,14 @@ import {
   fetchIncidentDetail,
   fetchIncidents,
   handoffIncident,
+  IncidentApiError,
   resolveIncident,
   type HandoffTarget,
 } from '../lib/incidentsApi';
 import type { Incident, IncidentStatus } from '../lib/incidentTypes';
 import { fetchTeam } from '../lib/shiftsApi';
+import { resolveApiErrorMessage } from '../lib/apiErrors';
+import { validEscalationTargetTiers, type SupportTier } from '../lib/teamTypes';
 
 export function IncidentsPage() {
   const { t } = useTranslation();
@@ -83,7 +86,18 @@ export function IncidentsPage() {
           return;
         }
         setSelectedIncident(detail);
-        setHandoffTargets(handoffTargetList);
+        const allowedTiers = team?.support_tier
+          ? validEscalationTargetTiers(team.support_tier as SupportTier)
+          : [];
+        const filteredTargets =
+          allowedTiers.length === 0
+            ? handoffTargetList
+            : handoffTargetList.filter(
+                (target) =>
+                  target.support_tier &&
+                  allowedTiers.includes(target.support_tier as SupportTier),
+              );
+        setHandoffTargets(filteredTargets);
         setOwningTeamName(team?.name);
         setOwningTier(team?.support_tier);
       } catch {
@@ -105,7 +119,23 @@ export function IncidentsPage() {
   const refreshDetail = useCallback(async (incidentId: string) => {
     const detail = await fetchIncidentDetail(incidentId);
     setSelectedIncident(detail);
-    setHandoffTargets(await fetchHandoffTargets(detail.teamId));
+    const [handoffTargetList, team] = await Promise.all([
+      fetchHandoffTargets(detail.teamId),
+      fetchTeam(detail.teamId).catch(() => null),
+    ]);
+    const allowedTiers = team?.support_tier
+      ? validEscalationTargetTiers(team.support_tier as SupportTier)
+      : [];
+    const filteredTargets =
+      allowedTiers.length === 0
+        ? handoffTargetList
+        : handoffTargetList.filter(
+            (target) =>
+              target.support_tier && allowedTiers.includes(target.support_tier as SupportTier),
+          );
+    setHandoffTargets(filteredTargets);
+    setOwningTeamName(team?.name);
+    setOwningTier(team?.support_tier);
     await loadList();
   }, [loadList]);
 
@@ -122,8 +152,12 @@ export function IncidentsPage() {
     try {
       await action();
       await refreshDetail(incidentId);
-    } catch {
-      setActionError(t('incidents.action_error'));
+    } catch (error) {
+      if (error instanceof IncidentApiError) {
+        setActionError(resolveApiErrorMessage(t, error.body, t('incidents.action_error')));
+      } else {
+        setActionError(t('incidents.action_error'));
+      }
     }
   };
 
@@ -159,7 +193,11 @@ export function IncidentsPage() {
           ) : selectedIncident ? (
             <IncidentDetail
               incident={selectedIncident}
-              teams={handoffTargets.map((team) => ({ id: team.id, name: team.name }))}
+              teams={handoffTargets.map((team) => ({
+                id: team.id,
+                name: team.name,
+                supportTier: team.support_tier,
+              }))}
               owningTeamName={owningTeamName}
               owningTier={owningTier}
               canBounce={canBounce}

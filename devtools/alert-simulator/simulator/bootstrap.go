@@ -15,21 +15,45 @@ import (
 
 const defaultWorkspaceID = "00000000-0000-0000-0000-000000000001"
 
+// TierDemo describes a demo team and routing rule for one support tier.
+type TierDemo struct {
+	Label    string // routing label value (team=noc, team=ops, …)
+	Name     string // team display name
+	Tier     string // support_tier (noc, l1, l2, l3)
+	Priority int    // routing rule priority
+}
+
+// TierDemos returns the full tier ladder used by bootstrap and scenario routing.
+func TierDemos() []TierDemo {
+	return []TierDemo{
+		{Label: "noc", Name: "NOC", Tier: "noc", Priority: 40},
+		{Label: "l1", Name: "Helpdesk", Tier: "l1", Priority: 30},
+		{Label: "ops", Name: "Ops", Tier: "l2", Priority: 20},
+		{Label: "platform", Name: "Platform", Tier: "l3", Priority: 10},
+	}
+}
+
 // BootstrapOptions configure demo routing setup via the Aegis HTTP API.
 type BootstrapOptions struct {
 	APIBaseURL   string
 	TeamLabelKey string
-	TeamLabel    string
-	TeamName     string
+}
+
+// BootstrappedTeam describes one ensured team and routing rule.
+type BootstrappedTeam struct {
+	TeamID        string
+	TeamName      string
+	TeamLabel     string
+	Tier          string
+	RoutingRuleID string
+	CreatedTeam   bool
+	CreatedRule   bool
 }
 
 // BootstrapResult describes what was ensured during bootstrap.
 type BootstrapResult struct {
-	TeamID        string
-	TeamName      string
-	RoutingRuleID string
-	CreatedTeam   bool
-	CreatedRule   bool
+	Teams        []BootstrappedTeam
+	CreatedPaths int
 }
 
 // AegisAPI is a minimal HTTP client for dev bootstrap and health checks.
@@ -93,16 +117,10 @@ func (a *AegisAPI) DevLogin(ctx context.Context) error {
 	return nil
 }
 
-// EnsureDemoRouting creates a Platform team and routing rule through the public API.
+// EnsureDemoRouting ensures demo teams for every support tier, routing rules, and escalation paths.
 func EnsureDemoRouting(ctx context.Context, api *AegisAPI, opts BootstrapOptions) (BootstrapResult, error) {
 	if opts.TeamLabelKey == "" {
 		opts.TeamLabelKey = "team"
-	}
-	if opts.TeamLabel == "" {
-		opts.TeamLabel = "platform"
-	}
-	if opts.TeamName == "" {
-		opts.TeamName = "Platform"
 	}
 
 	if err := api.DevLogin(ctx); err != nil {
@@ -113,31 +131,88 @@ func EnsureDemoRouting(ctx context.Context, api *AegisAPI, opts BootstrapOptions
 	if err != nil {
 		return BootstrapResult{}, err
 	}
+
+	result := BootstrapResult{}
+	teamByLabel := map[string]string{}
+
+	for _, demo := range TierDemos() {
+		bt, err := api.ensureTierDemo(ctx, demo, opts.TeamLabelKey, rules)
+		if err != nil {
+			return BootstrapResult{}, err
+		}
+		result.Teams = append(result.Teams, bt)
+		teamByLabel[demo.Label] = bt.TeamID
+	}
+
+	paths, err := api.listEscalationPaths(ctx)
+	if err != nil {
+		return BootstrapResult{}, err
+	}
+	existingPaths := map[string]struct{}{}
+	for _, p := range paths {
+		existingPaths[p.FromTeamID+"->"+p.ToTeamID] = struct{}{}
+	}
+
+	chain := []struct{ from, to string }{
+		{"noc", "l1"},
+		{"l1", "ops"},
+		{"ops", "platform"},
+	}
+	for _, link := range chain {
+		fromID := teamByLabel[link.from]
+		toID := teamByLabel[link.to]
+		if fromID == "" || toID == "" {
+			continue
+		}
+		key := fromID + "->" + toID
+		if _, ok := existingPaths[key]; ok {
+			continue
+		}
+		if err := api.createEscalationPath(ctx, fromID, toID); err != nil {
+			return BootstrapResult{}, err
+		}
+		result.CreatedPaths++
+		existingPaths[key] = struct{}{}
+	}
+
+	return result, nil
+}
+
+func (a *AegisAPI) ensureTierDemo(
+	ctx context.Context,
+	demo TierDemo,
+	labelKey string,
+	rules []routingRuleItem,
+) (BootstrappedTeam, error) {
 	for _, rule := range rules {
-		if rule.MatchLabels[opts.TeamLabelKey] == opts.TeamLabel {
-			return BootstrapResult{
+		if rule.MatchLabels[labelKey] == demo.Label {
+			return BootstrappedTeam{
 				TeamID:        rule.TeamID,
-				TeamName:      opts.TeamName,
+				TeamName:      demo.Name,
+				TeamLabel:     demo.Label,
+				Tier:          demo.Tier,
 				RoutingRuleID: rule.ID,
 			}, nil
 		}
 	}
 
-	teamID, createdTeam, err := api.findOrCreateTeam(ctx, opts.TeamName)
+	teamID, createdTeam, err := a.findOrCreateTeam(ctx, demo.Name, demo.Tier)
 	if err != nil {
-		return BootstrapResult{}, err
+		return BootstrappedTeam{}, err
 	}
 
-	ruleID, err := api.createRoutingRule(ctx, teamID, map[string]string{
-		opts.TeamLabelKey: opts.TeamLabel,
-	}, 10)
+	ruleID, err := a.createRoutingRule(ctx, teamID, map[string]string{
+		labelKey: demo.Label,
+	}, demo.Priority)
 	if err != nil {
-		return BootstrapResult{}, err
+		return BootstrappedTeam{}, err
 	}
 
-	return BootstrapResult{
+	return BootstrappedTeam{
 		TeamID:        teamID,
-		TeamName:      opts.TeamName,
+		TeamName:      demo.Name,
+		TeamLabel:     demo.Label,
+		Tier:          demo.Tier,
 		RoutingRuleID: ruleID,
 		CreatedTeam:   createdTeam,
 		CreatedRule:   true,
@@ -155,6 +230,12 @@ type teamItem struct {
 	Name string `json:"name"`
 }
 
+type escalationPathItem struct {
+	ID         string `json:"id"`
+	FromTeamID string `json:"from_team_id"`
+	ToTeamID   string `json:"to_team_id"`
+}
+
 func (a *AegisAPI) listRoutingRules(ctx context.Context) ([]routingRuleItem, error) {
 	var payload struct {
 		Items []routingRuleItem `json:"items"`
@@ -165,7 +246,18 @@ func (a *AegisAPI) listRoutingRules(ctx context.Context) ([]routingRuleItem, err
 	return payload.Items, nil
 }
 
-func (a *AegisAPI) findOrCreateTeam(ctx context.Context, name string) (string, bool, error) {
+func (a *AegisAPI) listEscalationPaths(ctx context.Context) ([]escalationPathItem, error) {
+	var payload struct {
+		Items []escalationPathItem `json:"items"`
+	}
+	path := fmt.Sprintf("/api/v1/workspaces/%s/escalation-paths", defaultWorkspaceID)
+	if err := a.getJSON(ctx, path, &payload); err != nil {
+		return nil, fmt.Errorf("list escalation paths: %w", err)
+	}
+	return payload.Items, nil
+}
+
+func (a *AegisAPI) findOrCreateTeam(ctx context.Context, name, tier string) (string, bool, error) {
 	query := url.Values{}
 	query.Set("workspace_id", defaultWorkspaceID)
 	var payload struct {
@@ -180,7 +272,6 @@ func (a *AegisAPI) findOrCreateTeam(ctx context.Context, name string) (string, b
 		}
 	}
 
-	tier := "l2"
 	body, _ := json.Marshal(map[string]any{
 		"workspace_id": defaultWorkspaceID,
 		"name":         name,
@@ -205,6 +296,15 @@ func (a *AegisAPI) createRoutingRule(ctx context.Context, teamID string, labels 
 		return "", err
 	}
 	return created.ID, nil
+}
+
+func (a *AegisAPI) createEscalationPath(ctx context.Context, fromTeamID, toTeamID string) error {
+	body, _ := json.Marshal(map[string]any{
+		"from_team_id": fromTeamID,
+		"to_team_id":   toTeamID,
+	})
+	path := fmt.Sprintf("/api/v1/workspaces/%s/escalation-paths", defaultWorkspaceID)
+	return a.postJSON(ctx, path, body, nil)
 }
 
 func (a *AegisAPI) getJSON(ctx context.Context, path string, dest any) error {

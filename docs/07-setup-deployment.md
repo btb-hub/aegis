@@ -205,10 +205,10 @@ make simulate-alert
 make dev-simulator
 ```
 
-**Prerequisites:** api and worker running; `WEBHOOK_SECRET` in `.env`; routing rule matching
-simulator labels (default `team=platform`). Run `make dev-simulator-bootstrap` once on a fresh
-setup — it creates the Platform team and routing rule through `/api/v1/teams` and
-`/api/v1/routing-rules`.
+**Prerequisites:** api and worker running; `WEBHOOK_SECRET` in `.env`; routing rules for simulator
+team labels. Run `make dev-simulator-bootstrap` once on a fresh setup — it creates NOC, Helpdesk,
+Ops, and Platform teams with routing rules (`team=noc`, `l1`, `ops`, `platform`) and escalation
+paths (NOC→Helpdesk→Ops→Platform) through the HTTP API.
 
 | Variable | Purpose |
 |----------|---------|
@@ -216,7 +216,7 @@ setup — it creates the Platform team and routing rule through `/api/v1/teams` 
 | `AEGIS_API_URL` | API base for bootstrap (default `PUBLIC_URL` or `http://localhost:8080`) |
 | `AEGIS_WEBHOOK_URL` | Full webhook URL (default `{API}/api/v1/alerts/webhook`) |
 | `ALERT_SIM_INTERVAL` | Loop interval when running without flags (default `30s`) |
-| `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Labels for routing (default `platform`) |
+| `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Override labels for all scenarios (default: per-scenario tier routing) |
 
 **CLI flags:**
 

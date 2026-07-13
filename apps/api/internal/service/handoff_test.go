@@ -98,13 +98,14 @@ func TestHandoffServiceHandoffNoOnCall(t *testing.T) {
 	teamID := uuid.New()
 	svc := NewHandoffService(&handoffMockRepo{
 		incident: db.Incident{ID: incidentID, Status: "open"},
-		team:     db.Team{ID: teamID},
+		team:     db.Team{ID: teamID, Name: "Helpdesk"},
 	})
 	_, err := svc.Handoff(context.Background(), incidentID, uuid.New(), teamID, "")
 	require.Error(t, err)
 	appErr, ok := err.(*apperrors.Error)
 	require.True(t, ok)
 	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+	require.Equal(t, "Helpdesk", appErr.Details["team_name"])
 }
 
 func TestHandoffServiceBounceRequiresNote(t *testing.T) {

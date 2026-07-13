@@ -37,7 +37,8 @@ func (s *HandoffService) Handoff(ctx context.Context, incidentID, actorID, toTea
 	if err != nil {
 		return db.Incident{}, mapHandoffIncidentError(err)
 	}
-	if _, err := s.repo.GetTeam(ctx, toTeamID); err != nil {
+	toTeam, err := s.repo.GetTeam(ctx, toTeamID)
+	if err != nil {
 		return db.Incident{}, mapHandoffTeamError(err)
 	}
 
@@ -57,7 +58,10 @@ func (s *HandoffService) Handoff(ctx context.Context, incidentID, actorID, toTea
 		return db.Incident{}, err
 	}
 	if len(onCall) == 0 {
-		return db.Incident{}, apperrors.Validation("target team has no one on call", nil)
+		return db.Incident{}, apperrors.Validation("target team has no one on call", map[string]any{
+			"team_id":   toTeamID.String(),
+			"team_name": toTeam.Name,
+		})
 	}
 
 	incident, _, err = s.repo.HandoffIncident(ctx, db.HandoffIncidentInput{
