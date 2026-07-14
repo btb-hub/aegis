@@ -118,7 +118,7 @@ func setupScheduleRouter(t *testing.T) (*gin.Engine, *scheduleHandlerRepo) {
 	repo := newScheduleHandlerRepo()
 	cfg := &config.Config{SessionTTL: time.Hour}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
-	teams := service.NewTeamService(repo)
+	teams := service.NewTeamService(repo, nil)
 	schedules := service.NewScheduleService(repo)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)

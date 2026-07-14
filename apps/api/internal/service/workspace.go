@@ -14,7 +14,9 @@ import (
 
 type WorkspaceRepository interface {
 	ListWorkspaces(ctx context.Context) ([]db.Workspace, error)
+	ListWorkspacesWithCounts(ctx context.Context) ([]db.WorkspaceSummary, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
+	GetWorkspaceUsage(ctx context.Context, id uuid.UUID) (db.WorkspaceUsage, error)
 	CreateWorkspace(ctx context.Context, name, slug, description string) (db.Workspace, error)
 	UpdateWorkspace(ctx context.Context, id uuid.UUID, name, slug, description string) (db.Workspace, error)
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
@@ -30,6 +32,17 @@ func NewWorkspaceService(repo WorkspaceRepository) *WorkspaceService {
 
 func (s *WorkspaceService) List(ctx context.Context) ([]db.Workspace, error) {
 	return s.repo.ListWorkspaces(ctx)
+}
+
+func (s *WorkspaceService) ListWithCounts(ctx context.Context) ([]db.WorkspaceSummary, error) {
+	items, err := s.repo.ListWorkspacesWithCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []db.WorkspaceSummary{}
+	}
+	return items, nil
 }
 
 func (s *WorkspaceService) Get(ctx context.Context, id uuid.UUID) (db.Workspace, error) {
@@ -73,6 +86,20 @@ func (s *WorkspaceService) Update(ctx context.Context, id uuid.UUID, name, slug,
 }
 
 func (s *WorkspaceService) Delete(ctx context.Context, id uuid.UUID) error {
+	if id == db.DefaultWorkspaceID {
+		return apperrors.Forbidden("default workspace cannot be deleted")
+	}
+	usage, err := s.repo.GetWorkspaceUsage(ctx, id)
+	if err != nil {
+		return mapWorkspaceError(err)
+	}
+	if usage.TeamCount > 0 || usage.EscalationPathCount > 0 || usage.IntegrationCount > 0 {
+		return apperrors.ConflictWithDetails("workspace is not empty", map[string]any{
+			"team_count":            usage.TeamCount,
+			"escalation_path_count": usage.EscalationPathCount,
+			"integration_count":     usage.IntegrationCount,
+		})
+	}
 	if err := s.repo.DeleteWorkspace(ctx, id); err != nil {
 		return mapWorkspaceError(err)
 	}
@@ -99,4 +126,11 @@ func WorkspaceJSON(item db.Workspace) map[string]any {
 		"created_at":  item.CreatedAt,
 		"updated_at":  item.UpdatedAt,
 	}
+}
+
+func WorkspaceSummaryJSON(item db.WorkspaceSummary) map[string]any {
+	out := WorkspaceJSON(item.Workspace)
+	out["team_count"] = item.TeamCount
+	out["routing_rule_count"] = item.RoutingRuleCount
+	return out
 }

@@ -17,15 +17,15 @@ import (
 
 func main() {
 	var (
-		once       = flag.Bool("once", false, "send one random alert and exit")
-		all        = flag.Bool("all", false, "send every built-in scenario once and exit")
-		list       = flag.Bool("list", false, "list scenario ids and exit")
-		scenario   = flag.String("scenario", "", "send a specific scenario by id (see -list)")
-		interval   = flag.Duration("interval", 0, "repeat interval (overrides ALERT_SIM_INTERVAL)")
-		webhook    = flag.String("url", "", "webhook URL (overrides AEGIS_WEBHOOK_URL / PUBLIC_URL)")
-		apiBase    = flag.String("api", "", "Aegis API base URL for bootstrap (overrides AEGIS_API_URL / PUBLIC_URL)")
-		team       = flag.String("team", "", "team label for routing (default: platform)")
-		project    = flag.String("project", "", "project label for routing (default: same as team)")
+		once          = flag.Bool("once", false, "send one random alert and exit")
+		all           = flag.Bool("all", false, "send every built-in scenario once and exit")
+		list          = flag.Bool("list", false, "list scenario ids and exit")
+		scenario      = flag.String("scenario", "", "send a specific scenario by id (see -list)")
+		interval      = flag.Duration("interval", 0, "repeat interval (overrides ALERT_SIM_INTERVAL)")
+		webhook       = flag.String("url", "", "webhook URL (overrides AEGIS_WEBHOOK_URL / PUBLIC_URL)")
+		apiBase       = flag.String("api", "", "Aegis API base URL for bootstrap (overrides AEGIS_API_URL / PUBLIC_URL)")
+		team          = flag.String("team", "", "override team label for all scenarios (default: per-scenario tier routing)")
+		project       = flag.String("project", "", "project label for routing (default: same as team)")
 		bootstrap     = flag.Bool("bootstrap", false, "ensure demo routing via Aegis API before sending alerts")
 		bootstrapOnly = flag.Bool("bootstrap-only", false, "ensure demo routing via Aegis API and exit")
 	)
@@ -33,7 +33,8 @@ func main() {
 
 	if *list {
 		for _, s := range simulator.Catalog() {
-			fmt.Printf("%s\t%s\t[%s] %s\n", s.ID, s.AlertName, s.Severity, s.Summary)
+			routeTeam := simulator.EffectiveRoutingTeam(s, simulator.LabelDefaults{})
+			fmt.Printf("%s\t%s\t[%s] team=%s %s\n", s.ID, s.AlertName, s.Severity, routeTeam, s.Summary)
 		}
 		return
 	}
@@ -79,12 +80,13 @@ func main() {
 	defer stop()
 
 	sendOne := func(s simulator.Scenario) error {
+		routeTeam := simulator.EffectiveRoutingTeam(s, defaults)
 		result, err := client.SendScenario(ctx, s, defaults, "")
 		if err != nil {
 			return fmt.Errorf("%s: %w", s.ID, err)
 		}
-		log.Printf("sent %s (%s) → HTTP %d %s", s.ID, s.AlertName, result.StatusCode, strings.TrimSpace(result.Body))
-		log.Printf("  → alerts on /alerts; incidents on /incidents after worker routes them (needs routing rule team=%q)", cfg.Team)
+		log.Printf("sent %s (%s) team=%s → HTTP %d %s", s.ID, s.AlertName, routeTeam, result.StatusCode, strings.TrimSpace(result.Body))
+		log.Printf("  → alerts on /alerts; incidents on /incidents after worker routes them (routing rule team=%q)", routeTeam)
 		return nil
 	}
 
@@ -112,8 +114,12 @@ func main() {
 		}
 	default:
 		catalog := simulator.Catalog()
-		log.Printf("alert simulator running every %s → %s (team=%s project=%s)", cfg.Interval, cfg.WebhookURL, cfg.Team, cfg.Project)
-		log.Printf("prerequisites: api + worker running; routing rule matching team=%q (run: make dev-simulator-bootstrap)", cfg.Team)
+		if cfg.Team != "" {
+			log.Printf("alert simulator running every %s → %s (all alerts forced to team=%s)", cfg.Interval, cfg.WebhookURL, cfg.Team)
+		} else {
+			log.Printf("alert simulator running every %s → %s (routing across noc/l1/ops/platform per scenario)", cfg.Interval, cfg.WebhookURL)
+		}
+		log.Printf("prerequisites: api + worker running; run: make dev-simulator-bootstrap")
 		ticker := time.NewTicker(cfg.Interval)
 		defer ticker.Stop()
 		for {
@@ -138,18 +144,24 @@ func runBootstrap(cfg simulator.Config) error {
 	}
 	result, err := simulator.EnsureDemoRouting(context.Background(), api, simulator.BootstrapOptions{
 		APIBaseURL: cfg.APIBaseURL,
-		TeamLabel:  cfg.Team,
 	})
 	if err != nil {
 		return err
 	}
-	switch {
-	case result.CreatedTeam && result.CreatedRule:
-		log.Printf("created team %s (%s) and routing rule %s (team=%q)", result.TeamID, result.TeamName, result.RoutingRuleID, cfg.Team)
-	case result.CreatedRule:
-		log.Printf("created routing rule %s for existing team %s (%s)", result.RoutingRuleID, result.TeamID, result.TeamName)
-	default:
-		log.Printf("routing rule already exists for team=%q → team %s (%s)", cfg.Team, result.TeamID, result.TeamName)
+	for _, team := range result.Teams {
+		switch {
+		case team.CreatedTeam && team.CreatedRule:
+			log.Printf("created %s (%s, tier %s) and routing rule %s (team=%q)", team.TeamName, team.TeamID, team.Tier, team.RoutingRuleID, team.TeamLabel)
+		case team.CreatedRule:
+			log.Printf("created routing rule %s for existing team %s (%s, tier %s, team=%q)", team.RoutingRuleID, team.TeamID, team.TeamName, team.Tier, team.TeamLabel)
+		default:
+			log.Printf("routing rule exists for team=%q → %s (%s, tier %s)", team.TeamLabel, team.TeamName, team.TeamID, team.Tier)
+		}
+	}
+	if result.CreatedPaths > 0 {
+		log.Printf("created %d escalation path(s): NOC→Helpdesk→Ops→Platform", result.CreatedPaths)
+	} else {
+		log.Printf("escalation paths already configured (NOC→Helpdesk→Ops→Platform)")
 	}
 	log.Printf("send alerts with: make simulate-alert")
 	return nil

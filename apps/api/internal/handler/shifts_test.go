@@ -107,7 +107,7 @@ func setupShiftsRouter(t *testing.T) *shiftsTestEnv {
 	cfg := &config.Config{SessionTTL: time.Hour}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
 	overrides := service.NewOverrideService(repo)
-	teams := service.NewTeamService(repo)
+	teams := service.NewTeamService(repo, nil)
 	oncall := service.NewOnCallService(repo)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)

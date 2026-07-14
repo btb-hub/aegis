@@ -108,7 +108,7 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 | GET | `/teams` | session | List teams |
 | POST | `/teams` | session + admin | Create team |
 | GET | `/teams/{id}` | session | Team detail |
-| PATCH | `/teams/{id}` | session + admin | Update team |
+| PATCH | `/teams/{id}` | session + admin | Update team (optional `workspace_id` to move team) |
 | DELETE | `/teams/{id}` | session + admin | Delete team |
 | GET | `/teams/{id}/members` | session | List memberships |
 | POST | `/teams/{id}/members` | session + admin | Add member |
@@ -120,6 +120,26 @@ Create team body: `{"name": "Platform", "description": "optional"}`.
 Add member body: `{"user_id": "uuid", "team_role": "member" | "lead"}` (defaults to `member`).
 
 Member response includes `user_id`, `team_role`, `email`, `display_name`.
+
+Update team body: `{"name": "Platform", "description": "optional", "support_tier": "l2" | "l3", "workspace_id": "uuid"}`.
+Moving a team to another workspace is blocked with `409` when escalation paths would cross workspaces without `cross_workspace: true`. Response `details.blocked_teams` lists conflicting paths per team.
+
+## Workspaces (Phase 11)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/workspaces` | session | List workspaces with `team_count` and `routing_rule_count` |
+| GET | `/workspaces/{id}` | session | Workspace detail |
+| POST | `/workspaces` | session + admin | Create workspace |
+| PATCH | `/workspaces/{id}` | session + admin | Update workspace |
+| DELETE | `/workspaces/{id}` | session + admin | Delete empty workspace |
+| POST | `/workspaces/{id}/teams` | session + admin | Move teams to workspace (atomic bulk) |
+
+Create/update body: `{"name": "Platform", "slug": "platform", "description": "optional"}`.
+
+Assign teams body: `{"team_ids": ["uuid", "uuid"]}`. Returns `{"items": [team, ...]}`. On conflict, `409` with `details.blocked_teams`.
+
+Delete rejects the default workspace (`00000000-0000-0000-0000-000000000001`) with `403`. Non-empty workspaces return `409` with usage counts in `details`.
 
 ## Users (Phase 8)
 

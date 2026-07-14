@@ -97,6 +97,7 @@ describe('IncidentDetail', () => {
         <IncidentDetail
           incident={incident}
           teams={teams}
+          owningTier="l2"
           canBounce={false}
           onAcknowledge={vi.fn()}
           onResolve={vi.fn()}
@@ -111,6 +112,27 @@ describe('IncidentDetail', () => {
     fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'needs L3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Hand off' }));
     expect(onHandoff).toHaveBeenCalledWith(incident.id, 'team-l3-b', 'needs L3');
+  });
+
+  it('shows L1 team label when escalating from NOC', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <IncidentDetail
+          incident={incident}
+          teams={[{ id: 'team-l1', name: 'Helpdesk', supportTier: 'l1' }]}
+          owningTier="noc"
+          canBounce={false}
+          onAcknowledge={vi.fn()}
+          onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
+        />
+      </I18nextProvider>,
+    );
+
+    fireEvent.click(screen.getByText('Escalate to L1'));
+    expect(screen.getByLabelText('L1 team')).toBeInTheDocument();
+    expect(screen.getByText('Helpdesk (L1)')).toBeInTheDocument();
   });
 
   it('shows bounce when prior handoff exists', () => {

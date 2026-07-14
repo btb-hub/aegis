@@ -17,6 +17,7 @@ type TeamRepository interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
 	CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error)
 	UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error)
+	MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error
 	DeleteTeam(ctx context.Context, id uuid.UUID) error
 	ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]db.TeamMember, error)
 	AddTeamMember(ctx context.Context, teamID, userID uuid.UUID, teamRole string) (db.TeamMembership, error)
@@ -26,12 +27,17 @@ type TeamRepository interface {
 	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
 }
 
-type TeamService struct {
-	repo TeamRepository
+type TeamMoveValidator interface {
+	BlockedTeamsForWorkspaceMove(ctx context.Context, targetWorkspaceID uuid.UUID, teamIDs []uuid.UUID) (map[uuid.UUID][]db.EscalationPath, error)
 }
 
-func NewTeamService(repo TeamRepository) *TeamService {
-	return &TeamService{repo: repo}
+type TeamService struct {
+	repo          TeamRepository
+	moveValidator TeamMoveValidator
+}
+
+func NewTeamService(repo TeamRepository, moveValidator TeamMoveValidator) *TeamService {
+	return &TeamService{repo: repo, moveValidator: moveValidator}
 }
 
 func (s *TeamService) ListTeams(ctx context.Context, workspaceID *uuid.UUID) ([]db.Team, error) {
@@ -69,20 +75,89 @@ func (s *TeamService) GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error
 	return team, nil
 }
 
-func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
+func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string, workspaceID *uuid.UUID) (db.Team, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return db.Team{}, apperrors.Validation("team name is required", nil)
 	}
+	current, err := s.repo.GetTeam(ctx, id)
+	if err != nil {
+		return db.Team{}, mapTeamError(err)
+	}
 	tier, err := normalizeSupportTier(supportTier)
 	if err != nil {
 		return db.Team{}, err
+	}
+	if workspaceID != nil && *workspaceID != current.WorkspaceID {
+		if err := s.moveTeams(ctx, *workspaceID, []uuid.UUID{id}); err != nil {
+			return db.Team{}, err
+		}
 	}
 	team, err := s.repo.UpdateTeam(ctx, id, name, strings.TrimSpace(description), tier)
 	if err != nil {
 		return db.Team{}, mapTeamError(err)
 	}
 	return team, nil
+}
+
+func (s *TeamService) MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) ([]db.Team, error) {
+	if err := s.moveTeams(ctx, workspaceID, teamIDs); err != nil {
+		return nil, err
+	}
+	unique := dedupeTeamIDs(teamIDs)
+	teams := make([]db.Team, 0, len(unique))
+	for _, teamID := range unique {
+		team, err := s.repo.GetTeam(ctx, teamID)
+		if err != nil {
+			return nil, mapTeamError(err)
+		}
+		teams = append(teams, team)
+	}
+	return teams, nil
+}
+
+func (s *TeamService) moveTeams(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
+	if _, err := s.repo.GetWorkspace(ctx, workspaceID); err != nil {
+		return mapWorkspaceError(err)
+	}
+	unique := dedupeTeamIDs(teamIDs)
+	if len(unique) == 0 {
+		return apperrors.Validation("team_ids must not be empty", nil)
+	}
+	if s.moveValidator != nil {
+		blocked, err := s.moveValidator.BlockedTeamsForWorkspaceMove(ctx, workspaceID, unique)
+		if err != nil {
+			return err
+		}
+		if len(blocked) > 0 {
+			return apperrors.ConflictWithDetails("team workspace move blocked by escalation paths", map[string]any{
+				"blocked_teams": BlockedTeamsJSON(blocked),
+			})
+		}
+	}
+	if err := s.repo.MoveTeamsToWorkspace(ctx, workspaceID, unique); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return apperrors.NotFound("team")
+		}
+		return err
+	}
+	return nil
+}
+
+func dedupeTeamIDs(teamIDs []uuid.UUID) []uuid.UUID {
+	seen := make(map[uuid.UUID]struct{}, len(teamIDs))
+	out := make([]uuid.UUID, 0, len(teamIDs))
+	for _, id := range teamIDs {
+		if id == uuid.Nil {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 func (s *TeamService) DeleteTeam(ctx context.Context, id uuid.UUID) error {

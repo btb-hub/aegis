@@ -65,6 +65,15 @@ describe('AppShell', () => {
     expect(onNavigate).toHaveBeenCalledWith('incidents');
   });
 
+  it('includes Workspaces in navigation', () => {
+    renderShell(
+      <AppShell currentPage="workspaces" onNavigate={vi.fn()}>
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.getByRole('button', { name: 'Workspaces' })).toBeInTheDocument();
+  });
+
   it('shows signed-in user and sign out button', () => {
     const onSignOut = vi.fn().mockResolvedValue(undefined);
     renderShell(

@@ -1,4 +1,17 @@
 import type { Incident, IncidentAlert, TimelineEvent } from './incidentTypes';
+import type { ApiErrorBody } from './apiErrors';
+
+export class IncidentApiError extends Error {
+  readonly status: number;
+  readonly body: ApiErrorBody;
+
+  constructor(message: string, status: number, body: ApiErrorBody) {
+    super(message);
+    this.name = 'IncidentApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
 
 export type ApiIncident = {
   id: string;
@@ -36,7 +49,17 @@ async function parseJson<T>(response: Response): Promise<T> {
 async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { credentials: 'include', ...init });
   if (!response.ok) {
-    throw new Error(`request failed: ${response.status}`);
+    let body: ApiErrorBody = {};
+    try {
+      body = (await response.json()) as ApiErrorBody;
+    } catch {
+      body = {};
+    }
+    throw new IncidentApiError(
+      body.message ?? `request failed: ${response.status}`,
+      response.status,
+      body,
+    );
   }
   if (response.status === 204) {
     return undefined as T;

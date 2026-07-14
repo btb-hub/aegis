@@ -5,6 +5,9 @@ import {
   createWorkspace,
   deleteEscalationPath,
   deleteRoutingRule,
+  assignTeamsToWorkspace,
+  deleteWorkspace,
+  updateWorkspace,
   fetchEscalationPaths,
   fetchIncomingPaths,
   fetchOutgoingPaths,
@@ -34,13 +37,25 @@ describe('workspacesApi', () => {
   it('fetchWorkspaces returns items array', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       jsonResponse({
-        items: [{ id: 'ws-1', name: 'Default', slug: 'default', description: '', created_at: '', updated_at: '' }],
+        items: [
+          {
+            id: 'ws-1',
+            name: 'Default',
+            slug: 'default',
+            description: '',
+            team_count: 3,
+            routing_rule_count: 2,
+            created_at: '',
+            updated_at: '',
+          },
+        ],
       }),
     );
 
     const items = await fetchWorkspaces();
     expect(items).toHaveLength(1);
     expect(items[0].name).toBe('Default');
+    expect(items[0].team_count).toBe(3);
   });
 
   it('fetchWorkspace loads a single workspace', async () => {
@@ -129,7 +144,7 @@ describe('workspacesApi', () => {
   it('throws when response is not ok', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ message: 'bad request' }, 400));
 
-    await expect(fetchWorkspace('missing')).rejects.toThrow('request failed: 400');
+    await expect(fetchWorkspace('missing')).rejects.toThrow('bad request');
   });
 
   it('covers workspace and escalation path helpers', async () => {
@@ -157,5 +172,36 @@ describe('workspacesApi', () => {
 
     const incoming = await fetchIncomingPaths('t2');
     expect(incoming[0].id).toBe('path-in');
+  });
+
+  it('assignTeamsToWorkspace posts team_ids', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({
+        items: [{ id: 'team-1', workspace_id: 'ws-1', name: 'Platform', description: '', created_at: '', updated_at: '' }],
+      }),
+    );
+
+    const teams = await assignTeamsToWorkspace('ws-1', ['team-1']);
+    expect(teams).toHaveLength(1);
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/v1/workspaces/ws-1/teams',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('updateWorkspace and deleteWorkspace call patch and delete', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        jsonResponse({ id: 'ws-1', name: 'Platform Ops', slug: 'platform', description: 'Updated' }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, 204));
+
+    const updated = await updateWorkspace('ws-1', { name: 'Platform Ops', description: 'Updated' });
+    expect(updated.name).toBe('Platform Ops');
+    await deleteWorkspace('ws-1');
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith(
+      '/api/v1/workspaces/ws-1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
   });
 });

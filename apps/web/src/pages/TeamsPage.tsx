@@ -157,6 +157,7 @@ export function TeamsPage() {
         } else {
           payload.support_tier = '';
         }
+        payload.workspace_id = form.workspace_id;
       } else {
         payload.workspace_id = form.workspace_id;
         if (form.support_tier) {
@@ -341,18 +342,16 @@ export function TeamsPage() {
         primaryLabel={t('teams.save')}
         secondaryLabel={t('teams.cancel')}
         onPrimary={() => void saveTeam()}
-        primaryDisabled={!form.name.trim() || saving || (!editingTeam && !form.workspace_id)}
+        primaryDisabled={!form.name.trim() || saving || !form.workspace_id}
         primaryLoading={saving}
       >
-        {!editingTeam ? (
-          <Select
-            id="team-workspace"
-            label={t('teams.workspace_label')}
-            value={form.workspace_id}
-            options={workspaceOptions}
-            onChange={(value) => setForm((f) => ({ ...f, workspace_id: value }))}
-          />
-        ) : null}
+        <Select
+          id="team-workspace"
+          label={t('teams.workspace_label')}
+          value={form.workspace_id}
+          options={workspaceOptions}
+          onChange={(value) => setForm((f) => ({ ...f, workspace_id: value }))}
+        />
         <Select
           id="team-support-tier"
           label={t('teams.tier_label')}

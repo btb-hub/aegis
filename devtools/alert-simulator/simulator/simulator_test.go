@@ -27,11 +27,12 @@ func TestClientSendSuccess(t *testing.T) {
 	scenario, ok := ScenarioByID("disk_full")
 	require.True(t, ok)
 
-	result, err := client.SendScenario(context.Background(), scenario, LabelDefaults{Team: "platform"}, "x")
+	result, err := client.SendScenario(context.Background(), scenario, LabelDefaults{}, "x")
 	require.NoError(t, err)
 	require.Equal(t, http.StatusAccepted, result.StatusCode)
 	require.Equal(t, "test-secret", secret)
 	require.Contains(t, body, "DiskSpaceCritical")
+	require.Contains(t, body, `"team":"platform"`)
 }
 
 func TestLoadConfigDefaults(t *testing.T) {
@@ -43,12 +44,30 @@ func TestLoadConfigDefaults(t *testing.T) {
 	cfg := LoadConfig()
 	require.Equal(t, "http://localhost:9090", cfg.APIBaseURL)
 	require.Equal(t, "http://localhost:9090/api/v1/alerts/webhook", cfg.WebhookURL)
-	require.Equal(t, "platform", cfg.Team)
+	require.Empty(t, cfg.Team)
 }
 
 func TestCatalogHasScenarios(t *testing.T) {
 	items := Catalog()
 	require.GreaterOrEqual(t, len(items), 10)
+}
+
+func TestCatalogCoversAllTierLabels(t *testing.T) {
+	labels := map[string]int{}
+	for _, s := range Catalog() {
+		require.NotEmpty(t, s.RoutingTeam)
+		labels[s.RoutingTeam]++
+	}
+	for _, demo := range TierDemos() {
+		require.Greater(t, labels[demo.Label], 0, "expected scenarios for team=%s", demo.Label)
+	}
+}
+
+func TestEffectiveRoutingTeamOverride(t *testing.T) {
+	scenario, ok := ScenarioByID("cert_expiry")
+	require.True(t, ok)
+	require.Equal(t, "noc", EffectiveRoutingTeam(scenario, LabelDefaults{}))
+	require.Equal(t, "platform", EffectiveRoutingTeam(scenario, LabelDefaults{Team: "platform"}))
 }
 
 func TestDevLoginDoesNotFollowRedirect(t *testing.T) {
@@ -71,7 +90,13 @@ func TestDevLoginDoesNotFollowRedirect(t *testing.T) {
 }
 
 func TestEnsureDemoRoutingViaAPI(t *testing.T) {
-	var teamCreated bool
+	var teamsCreated, rulesCreated, pathsCreated int
+	teamIDs := map[string]string{
+		"NOC":      "team-noc",
+		"Helpdesk": "team-l1",
+		"Ops":      "team-ops",
+		"Platform": "team-platform",
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/auth/dev/login":
@@ -81,11 +106,22 @@ func TestEnsureDemoRoutingViaAPI(t *testing.T) {
 			_, _ = w.Write([]byte(`{"items":[]}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/teams":
 			_, _ = w.Write([]byte(`{"items":[]}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/workspaces/"+defaultWorkspaceID+"/escalation-paths":
+			_, _ = w.Write([]byte(`{"items":[]}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/teams":
-			teamCreated = true
-			_, _ = w.Write([]byte(`{"id":"team-1","name":"Platform"}`))
+			teamsCreated++
+			var body struct {
+				Name string `json:"name"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			id := teamIDs[body.Name]
+			_, _ = w.Write([]byte(`{"id":"` + id + `","name":"` + body.Name + `"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/routing-rules":
-			_, _ = w.Write([]byte(`{"id":"rule-1","team_id":"team-1","match_labels":{"team":"platform"}}`))
+			rulesCreated++
+			_, _ = w.Write([]byte(`{"id":"rule-` + string(rune('0'+rulesCreated)) + `","team_id":"team-1","match_labels":{"team":"platform"}}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/workspaces/"+defaultWorkspaceID+"/escalation-paths":
+			pathsCreated++
+			w.WriteHeader(http.StatusCreated)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -94,12 +130,13 @@ func TestEnsureDemoRoutingViaAPI(t *testing.T) {
 
 	api, err := NewAegisAPI(srv.URL)
 	require.NoError(t, err)
-	result, err := EnsureDemoRouting(context.Background(), api, BootstrapOptions{TeamLabel: "platform"})
+	result, err := EnsureDemoRouting(context.Background(), api, BootstrapOptions{})
 	require.NoError(t, err)
-	require.True(t, teamCreated)
-	require.True(t, result.CreatedTeam)
-	require.True(t, result.CreatedRule)
-	require.Equal(t, "team-1", result.TeamID)
+	require.Equal(t, 4, teamsCreated)
+	require.Equal(t, 4, rulesCreated)
+	require.Equal(t, 3, pathsCreated)
+	require.Len(t, result.Teams, 4)
+	require.Equal(t, 3, result.CreatedPaths)
 }
 
 func TestLoadConfigCustomEnv(t *testing.T) {
@@ -116,9 +153,11 @@ func TestLoadConfigCustomEnv(t *testing.T) {
 
 func TestBuildPayloadValidJSON(t *testing.T) {
 	scenario, _ := ScenarioByID("http_5xx")
-	raw, err := MarshalPayload(BuildPayload(scenario, LabelDefaults{Team: "platform"}, "1"))
+	raw, err := MarshalPayload(BuildPayload(scenario, LabelDefaults{}, "1"))
 	require.NoError(t, err)
 	var decoded map[string]any
 	require.NoError(t, json.Unmarshal(raw, &decoded))
 	require.Equal(t, "firing", decoded["status"])
+	labels := decoded["labels"].(map[string]any)
+	require.Equal(t, "ops", labels["team"])
 }

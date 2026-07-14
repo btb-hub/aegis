@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
+import { Checkbox } from '../components/ui/Checkbox';
 import { DataTable } from '../components/ui/DataTable';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
@@ -14,11 +15,14 @@ import { useAuth } from '../context/AuthContext';
 import { fetchTeams } from '../lib/shiftsApi';
 import type { Team, Workspace } from '../lib/teamTypes';
 import {
+  assignTeamsToWorkspace,
   createRoutingRule,
   deleteRoutingRule,
   fetchRoutingRules,
   fetchWorkspace,
   updateRoutingRule,
+  updateWorkspace,
+  WorkspaceApiError,
   type RoutingRule,
 } from '../lib/workspacesApi';
 
@@ -27,6 +31,12 @@ type RuleFormState = {
   priority: string;
   labelKey: string;
   labelValue: string;
+};
+
+type WorkspaceFormState = {
+  name: string;
+  slug: string;
+  description: string;
 };
 
 const emptyRuleForm: RuleFormState = {
@@ -44,6 +54,7 @@ export function WorkspaceDetailPage() {
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [rules, setRules] = useState<RoutingRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -56,6 +67,16 @@ export function WorkspaceDetailPage() {
   const [deleteTarget, setDeleteTarget] = useState<RoutingRule | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<WorkspaceFormState>({ name: '', slug: '', description: '' });
+  const [editSaving, setEditSaving] = useState(false);
+
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignSearch, setAssignSearch] = useState('');
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
   const teamById = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
   const teamOptions = useMemo(
     () => teams.map((team) => ({ value: team.id, label: team.name })),
@@ -67,22 +88,37 @@ export function WorkspaceDetailPage() {
     [rules, teamById],
   );
 
+  const assignableTeams = useMemo(() => {
+    const query = assignSearch.trim().toLowerCase();
+    return allTeams.filter((team) => {
+      if (team.workspace_id === workspaceId) {
+        return false;
+      }
+      if (!query) {
+        return true;
+      }
+      return team.name.toLowerCase().includes(query);
+    });
+  }, [allTeams, assignSearch, workspaceId]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
       const [workspaceData, teamList, ruleList] = await Promise.all([
         fetchWorkspace(workspaceId),
-        fetchTeams().then((items) => items.filter((team) => team.workspace_id === workspaceId)),
+        fetchTeams(),
         fetchRoutingRules(),
       ]);
       setWorkspace(workspaceData);
-      setTeams(teamList);
+      setAllTeams(teamList);
+      setTeams(teamList.filter((team) => team.workspace_id === workspaceId));
       setRules(ruleList);
     } catch {
       setLoadError(t('workspaces.detail.load_error'));
       setWorkspace(null);
       setTeams([]);
+      setAllTeams([]);
       setRules([]);
     } finally {
       setLoading(false);
@@ -100,6 +136,76 @@ export function WorkspaceDetailPage() {
       team_id: teams[0]?.id ?? '',
     });
     setFormOpen(true);
+  };
+
+  const openEditWorkspace = () => {
+    if (!workspace) {
+      return;
+    }
+    setEditForm({
+      name: workspace.name,
+      slug: workspace.slug,
+      description: workspace.description ?? '',
+    });
+    setEditOpen(true);
+  };
+
+  const openAssign = () => {
+    setAssignSearch('');
+    setSelectedTeamIds([]);
+    setAssignError(null);
+    setAssignOpen(true);
+  };
+
+  const toggleAssignTeam = (teamId: string, checked: boolean) => {
+    setSelectedTeamIds((current) =>
+      checked ? [...current, teamId] : current.filter((id) => id !== teamId),
+    );
+  };
+
+  const saveWorkspaceMeta = async () => {
+    if (!workspace) {
+      return;
+    }
+    setEditSaving(true);
+    setToast(null);
+    try {
+      const updated = await updateWorkspace(workspace.id, {
+        name: editForm.name.trim(),
+        slug: editForm.slug.trim(),
+        description: editForm.description.trim(),
+      });
+      setWorkspace(updated);
+      setToast({ message: t('workspaces.detail.update_success'), variant: 'success' });
+      setEditOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof WorkspaceApiError ? error.message : t('workspaces.detail.update_failed');
+      setToast({ message, variant: 'default' });
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const saveAssignedTeams = async () => {
+    setAssignSaving(true);
+    setAssignError(null);
+    try {
+      await assignTeamsToWorkspace(workspaceId, selectedTeamIds);
+      setToast({ message: t('workspaces.teams.assign_success'), variant: 'success' });
+      setAssignOpen(false);
+      await loadData();
+    } catch (error) {
+      if (error instanceof WorkspaceApiError && error.status === 409) {
+        setAssignError(t('workspaces.teams.assign_blocked'));
+      } else {
+        setAssignError(
+          error instanceof WorkspaceApiError ? error.message : t('workspaces.teams.assign_failed'),
+        );
+      }
+    } finally {
+      setAssignSaving(false);
+    }
   };
 
   const openEdit = (rule: RoutingRule) => {
@@ -185,13 +291,18 @@ export function WorkspaceDetailPage() {
           ariaLabel: t('nav.breadcrumb_label'),
           items: [
             { label: t('nav.platform'), href: '/dashboard' },
-            { label: t('nav.teams'), href: '/teams' },
+            { label: t('nav.workspaces'), href: '/workspaces' },
             { label: workspaceName },
           ],
         }}
         actions={
           isAdmin ? (
-            <Button onClick={openCreate}>{t('workspaces.routing.create')}</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={openEditWorkspace}>
+                {t('workspaces.detail.edit')}
+              </Button>
+              <Button onClick={openCreate}>{t('workspaces.routing.create')}</Button>
+            </div>
           ) : undefined
         }
       />
@@ -201,64 +312,168 @@ export function WorkspaceDetailPage() {
       {loading ? (
         <p className="text-sm text-zinc-600">{t('workspaces.loading')}</p>
       ) : loadError ? null : (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-zinc-900">{t('workspaces.routing.title')}</h2>
-          <p className="text-sm text-zinc-600">{t('workspaces.routing.subtitle')}</p>
-          <DataTable
-            columns={[
-              {
-                key: 'team',
-                header: t('workspaces.routing.column.team'),
-                cellClassName: 'font-medium text-zinc-900',
-                render: (rule) => {
-                  const team = teamById.get(rule.team_id);
-                  if (!team) {
-                    return rule.team_id;
-                  }
-                  return (
+        <div className="space-y-10">
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-900">{t('workspaces.teams.title')}</h2>
+                <p className="text-sm text-zinc-600">{t('workspaces.teams.subtitle')}</p>
+              </div>
+              {isAdmin ? (
+                <Button variant="secondary" onClick={openAssign}>
+                  {t('workspaces.teams.add_existing')}
+                </Button>
+              ) : null}
+            </div>
+            <DataTable
+              columns={[
+                {
+                  key: 'name',
+                  header: t('teams.column.name'),
+                  cellClassName: 'font-medium text-zinc-900',
+                  render: (team) => (
                     <Link to={`/teams/${team.id}`} className="text-accent hover:underline">
                       {team.name}
                     </Link>
-                  );
+                  ),
                 },
-              },
-              {
-                key: 'matchers',
-                header: t('workspaces.routing.column.matchers'),
-                cellClassName: 'text-zinc-700',
-                render: (rule) => formatMatchers(rule),
-              },
-              {
-                key: 'priority',
-                header: t('workspaces.routing.column.priority'),
-                cellClassName: 'text-zinc-700',
-                render: (rule) => rule.priority,
-              },
-              ...(isAdmin
-                ? [
-                    {
-                      key: 'actions',
-                      header: t('workspaces.routing.column.actions'),
-                      render: (rule: RoutingRule) => (
-                        <div className="flex flex-wrap gap-2">
-                          <Button variant="ghost" onClick={() => openEdit(rule)}>
-                            {t('workspaces.routing.edit')}
-                          </Button>
-                          <Button variant="ghost" onClick={() => setDeleteTarget(rule)}>
-                            {t('workspaces.routing.delete')}
-                          </Button>
-                        </div>
-                      ),
-                    },
-                  ]
-                : []),
-            ]}
-            rows={workspaceRules}
-            rowKey={(rule) => rule.id}
-            emptyMessage={t('workspaces.routing.empty')}
-          />
-        </section>
+                {
+                  key: 'tier',
+                  header: t('teams.column.tier'),
+                  cellClassName: 'text-zinc-700',
+                  render: (team) =>
+                    team.support_tier ? t(`teams.tier.${team.support_tier}`) : '—',
+                },
+                {
+                  key: 'description',
+                  header: t('teams.column.description'),
+                  cellClassName: 'text-zinc-700',
+                  render: (team) => team.description || '—',
+                },
+              ]}
+              rows={teams}
+              rowKey={(team) => team.id}
+              emptyMessage={t('workspaces.teams.empty')}
+            />
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-lg font-semibold text-zinc-900">{t('workspaces.routing.title')}</h2>
+            <p className="text-sm text-zinc-600">{t('workspaces.routing.subtitle')}</p>
+            <DataTable
+              columns={[
+                {
+                  key: 'team',
+                  header: t('workspaces.routing.column.team'),
+                  cellClassName: 'font-medium text-zinc-900',
+                  render: (rule) => {
+                    const team = teamById.get(rule.team_id);
+                    // workspaceRules only includes rows whose team_id is in teamById
+                    return (
+                      <Link to={`/teams/${team!.id}`} className="text-accent hover:underline">
+                        {team!.name}
+                      </Link>
+                    );
+                  },
+                },
+                {
+                  key: 'matchers',
+                  header: t('workspaces.routing.column.matchers'),
+                  cellClassName: 'text-zinc-700',
+                  render: (rule) => formatMatchers(rule),
+                },
+                {
+                  key: 'priority',
+                  header: t('workspaces.routing.column.priority'),
+                  cellClassName: 'text-zinc-700',
+                  render: (rule) => rule.priority,
+                },
+                ...(isAdmin
+                  ? [
+                      {
+                        key: 'actions',
+                        header: t('workspaces.routing.column.actions'),
+                        render: (rule: RoutingRule) => (
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="ghost" onClick={() => openEdit(rule)}>
+                              {t('workspaces.routing.edit')}
+                            </Button>
+                            <Button variant="ghost" onClick={() => setDeleteTarget(rule)}>
+                              {t('workspaces.routing.delete')}
+                            </Button>
+                          </div>
+                        ),
+                      },
+                    ]
+                  : []),
+              ]}
+              rows={workspaceRules}
+              rowKey={(rule) => rule.id}
+              emptyMessage={t('workspaces.routing.empty')}
+            />
+          </section>
+        </div>
       )}
+
+      <Modal
+        title={t('workspaces.detail.edit')}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        primaryLabel={t('workspaces.list.save')}
+        secondaryLabel={t('teams.cancel')}
+        onPrimary={() => void saveWorkspaceMeta()}
+        primaryDisabled={!editForm.name.trim() || editSaving}
+        primaryLoading={editSaving}
+      >
+        <Input
+          label={t('workspaces.list.name_label')}
+          value={editForm.name}
+          onChange={(value) => setEditForm((f) => ({ ...f, name: value }))}
+        />
+        <Input
+          label={t('workspaces.list.slug_label')}
+          value={editForm.slug}
+          onChange={(value) => setEditForm((f) => ({ ...f, slug: value }))}
+        />
+        <Input
+          label={t('workspaces.list.description_label')}
+          value={editForm.description}
+          onChange={(value) => setEditForm((f) => ({ ...f, description: value }))}
+        />
+      </Modal>
+
+      <Modal
+        title={t('workspaces.teams.add_existing')}
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        primaryLabel={t('workspaces.teams.move')}
+        secondaryLabel={t('teams.cancel')}
+        onPrimary={() => void saveAssignedTeams()}
+        primaryDisabled={selectedTeamIds.length === 0 || assignSaving}
+        primaryLoading={assignSaving}
+      >
+        <Input
+          label={t('workspaces.teams.search_label')}
+          value={assignSearch}
+          onChange={setAssignSearch}
+        />
+        {assignError ? <Banner variant="warning">{assignError}</Banner> : null}
+        <div className="max-h-64 space-y-2 overflow-y-auto">
+          {assignableTeams.length === 0 ? (
+            <p className="text-sm text-zinc-600">{t('workspaces.teams.no_candidates')}</p>
+          ) : (
+            assignableTeams.map((team) => (
+              <Checkbox
+                key={team.id}
+                id={`assign-team-${team.id}`}
+                label={team.name}
+                checked={selectedTeamIds.includes(team.id)}
+                onChange={(checked) => toggleAssignTeam(team.id, checked)}
+              />
+            ))
+          )}
+        </div>
+      </Modal>
 
       <Modal
         title={t(editingRule ? 'workspaces.routing.edit' : 'workspaces.routing.create')}
@@ -268,10 +483,7 @@ export function WorkspaceDetailPage() {
         secondaryLabel={t('teams.cancel')}
         onPrimary={() => void saveRule()}
         primaryDisabled={
-          !form.team_id ||
-          !form.labelKey.trim() ||
-          !form.labelValue.trim() ||
-          saving
+          !form.team_id || !form.labelKey.trim() || !form.labelValue.trim() || saving
         }
         primaryLoading={saving}
       >

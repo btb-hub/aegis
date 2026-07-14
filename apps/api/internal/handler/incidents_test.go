@@ -347,7 +347,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(repo)
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alertsRepo := &authMockAlertRepo{id: uuid.New()}
 	repo.alertRepo = alertsRepo
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, alertsRepo)

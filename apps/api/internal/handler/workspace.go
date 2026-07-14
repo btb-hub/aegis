@@ -2,20 +2,23 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
+	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 type WorkspaceHandler struct {
 	workspaces *service.WorkspaceService
+	teams      *service.TeamService
 	auth       *service.AuthService
 }
 
-func NewWorkspaceHandler(workspaces *service.WorkspaceService, auth *service.AuthService) *WorkspaceHandler {
-	return &WorkspaceHandler{workspaces: workspaces, auth: auth}
+func NewWorkspaceHandler(workspaces *service.WorkspaceService, teams *service.TeamService, auth *service.AuthService) *WorkspaceHandler {
+	return &WorkspaceHandler{workspaces: workspaces, teams: teams, auth: auth}
 }
 
 func (h *WorkspaceHandler) Register(r gin.IRouter) {
@@ -30,17 +33,18 @@ func (h *WorkspaceHandler) Register(r gin.IRouter) {
 	admin.POST("/workspaces", h.createWorkspace)
 	admin.PATCH("/workspaces/:id", h.updateWorkspace)
 	admin.DELETE("/workspaces/:id", h.deleteWorkspace)
+	admin.POST("/workspaces/:id/teams", h.assignTeams)
 }
 
 func (h *WorkspaceHandler) listWorkspaces(c *gin.Context) {
-	items, err := h.workspaces.List(c.Request.Context())
+	items, err := h.workspaces.ListWithCounts(c.Request.Context())
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
 	out := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		out = append(out, service.WorkspaceJSON(item))
+		out = append(out, service.WorkspaceSummaryJSON(item))
 	}
 	WriteJSON(c, http.StatusOK, gin.H{"items": out})
 }
@@ -111,6 +115,44 @@ func (h *WorkspaceHandler) deleteWorkspace(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (h *WorkspaceHandler) assignTeams(c *gin.Context) {
+	workspaceID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	var body struct {
+		TeamIDs []string `json:"team_ids"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	if len(body.TeamIDs) == 0 {
+		WriteError(c, apperrors.Validation("team_ids must not be empty", nil))
+		return
+	}
+	teamIDs := make([]uuid.UUID, 0, len(body.TeamIDs))
+	for _, raw := range body.TeamIDs {
+		id, err := uuid.Parse(strings.TrimSpace(raw))
+		if err != nil {
+			WriteError(c, apperrors.Validation("team_ids must contain valid UUIDs", nil))
+			return
+		}
+		teamIDs = append(teamIDs, id)
+	}
+	teams, err := h.teams.MoveTeamsToWorkspace(c.Request.Context(), workspaceID, teamIDs)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	items := make([]map[string]any, 0, len(teams))
+	for _, team := range teams {
+		items = append(items, service.TeamJSON(team))
+	}
+	WriteJSON(c, http.StatusOK, gin.H{"items": items})
 }
 
 type EscalationHandler struct {

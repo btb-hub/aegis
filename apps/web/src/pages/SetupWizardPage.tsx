@@ -60,6 +60,20 @@ export function SetupWizardPage() {
   const [createdTeamId, setCreatedTeamId] = useState<string | null>(null);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<string | null>(null);
   const [creatingTeam, setCreatingTeam] = useState(false);
+  const [workspaceStepSkippable, setWorkspaceStepSkippable] = useState(false);
+
+  useEffect(() => {
+    void fetchWorkspaces()
+      .then((items) => {
+        const hasConfiguredWorkspace = items.some(
+          (item) => item.id !== DEFAULT_WORKSPACE_ID && item.team_count > 0,
+        );
+        setWorkspaceStepSkippable(hasConfiguredWorkspace);
+      })
+      .catch(() => {
+        setWorkspaceStepSkippable(false);
+      });
+  }, []);
 
   useEffect(() => {
     saveSetupWizardState({ step, completed: step >= STEP_COUNT - 1 });
@@ -323,20 +337,27 @@ export function SetupWizardPage() {
           <div className="space-y-6">
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-zinc-900">{t('setup.workspace.title')}</h2>
-              <p className="text-sm text-zinc-600">{t('setup.workspace.body')}</p>
+              <p className="text-sm text-zinc-600">{t('setup.workspace.body_manage')}</p>
+              <Link className="inline-flex text-sm text-accent hover:underline" to="/workspaces">
+                {t('setup.workspace.open_workspaces')}
+              </Link>
+              {workspaceStepSkippable ? (
+                <p className="text-sm text-zinc-600">{t('setup.workspace.skip_hint')}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-4 rounded-md border border-dashed border-zinc-200 p-4">
+              <h3 className="font-medium text-zinc-900">{t('setup.workspace.quick_title')}</h3>
+              <p className="text-sm text-zinc-600">{t('setup.workspace.quick_body')}</p>
               <Input
                 label={t('setup.workspace.name_label')}
                 value={workspaceName}
                 onChange={setWorkspaceName}
               />
-            </div>
-
-            <div className="space-y-4 rounded-md border border-zinc-200 p-4">
-              <h3 className="font-medium text-zinc-900">{t('setup.team.escalation_title')}</h3>
-              <p className="text-sm text-zinc-600">{t('setup.team.escalation_body')}</p>
               <Input label={t('setup.team.l2_name_label')} value={l2TeamName} onChange={setL2TeamName} />
               <Input label={t('setup.team.l3_name_label')} value={l3TeamName} onChange={setL3TeamName} />
               <Button
+                variant="secondary"
                 disabled={creatingTeam || !l2TeamName.trim() || !l3TeamName.trim()}
                 onClick={() => void createWorkspaceStructure()}
               >
@@ -349,7 +370,7 @@ export function SetupWizardPage() {
               ) : null}
             </div>
 
-            <div className="space-y-4 rounded-md border border-dashed border-zinc-200 p-4">
+            <div className="space-y-4 rounded-md border border-zinc-200 p-4">
               <h3 className="font-medium text-zinc-900">{t('setup.team.title')}</h3>
               <p className="text-sm text-zinc-600">{t('setup.team.body')}</p>
               <Input label={t('setup.team.name_label')} value={teamName} onChange={setTeamName} />
@@ -445,9 +466,16 @@ export function SetupWizardPage() {
         <Button variant="secondary" disabled={step === 0} onClick={() => setStep((current) => Math.max(0, current - 1))}>
           {t('setup.back')}
         </Button>
-        <Button disabled={step >= STEP_COUNT - 1} onClick={() => setStep((current) => Math.min(STEP_COUNT - 1, current + 1))}>
-          {t('setup.next')}
-        </Button>
+        <div className="flex gap-2">
+          {step === 2 && workspaceStepSkippable ? (
+            <Button variant="secondary" onClick={() => setStep(3)}>
+              {t('setup.workspace.skip_step')}
+            </Button>
+          ) : null}
+          <Button disabled={step >= STEP_COUNT - 1} onClick={() => setStep((current) => Math.min(STEP_COUNT - 1, current + 1))}>
+            {t('setup.next')}
+          </Button>
+        </div>
       </div>
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}

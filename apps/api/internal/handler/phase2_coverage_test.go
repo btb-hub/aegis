@@ -107,7 +107,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(repo)
-	teams := service.NewTeamService(&emptyTeamRepo{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
 	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{id: uuid.New()})
 	health := service.NewHealthService(nil)
 

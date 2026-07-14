@@ -74,6 +74,39 @@ RETURNING id, workspace_id, name, description, support_tier, created_at, updated
 	return team, err
 }
 
+func (s *Store) UpdateTeamWorkspace(ctx context.Context, id, workspaceID uuid.UUID) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE teams SET workspace_id = $2, updated_at = now() WHERE id = $1`, id, workspaceID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
+	if len(teamIDs) == 0 {
+		return nil
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, teamID := range teamIDs {
+		tag, err := tx.Exec(ctx, `UPDATE teams SET workspace_id = $2, updated_at = now() WHERE id = $1`, teamID, workspaceID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return pgx.ErrNoRows
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func (s *Store) DeleteTeam(ctx context.Context, id uuid.UUID) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM teams WHERE id = $1`, id)
 	if err != nil {

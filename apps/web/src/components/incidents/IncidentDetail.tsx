@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime } from '../../lib/formatDate';
 import type { Incident } from '../../lib/incidentTypes';
-import { bounceLabelKey, handoffLabelKey } from '../../lib/teamTypes';
+import { bounceLabelKey, handoffLabelKey, handoffTeamLabelKey } from '../../lib/teamTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -13,6 +13,7 @@ import { StatusTag, alertStatusVariant, incidentStatusVariant } from '../ui/Stat
 export type HandoffTeamOption = {
   id: string;
   name: string;
+  supportTier?: string;
 };
 
 type IncidentDetailProps = {
@@ -50,14 +51,21 @@ export function IncidentDetail({
   }, [teams, incident.id]);
 
   const teamOptions = useMemo(
-    () => teams.map((team) => ({ value: team.id, label: team.name })),
-    [teams],
+    () =>
+      teams.map((team) => ({
+        value: team.id,
+        label: team.supportTier
+          ? `${team.name} (${t(`teams.tier.${team.supportTier}`, { defaultValue: team.supportTier.toUpperCase() })})`
+          : team.name,
+      })),
+    [teams, t],
   );
 
   const handoffLabel = t(handoffLabelKey(owningTier));
   const bounceLabel = t(bounceLabelKey(owningTier));
   const handoffHeading = t(`${handoffLabelKey(owningTier)}_heading`, { defaultValue: handoffLabel });
   const bounceHeading = t(`${bounceLabelKey(owningTier)}_heading`, { defaultValue: bounceLabel });
+  const handoffTeamLabel = t(handoffTeamLabelKey(owningTier));
 
   const canAcknowledge = incident.status === 'open';
   const canResolve = incident.status === 'open' || incident.status === 'acknowledged';
@@ -131,7 +139,7 @@ export function IncidentDetail({
           <h3 className="text-sm font-semibold">{handoffHeading}</h3>
           <Select
             id="handoff-target-team"
-            label={t('incidents.handoff_team_label')}
+            label={handoffTeamLabel}
             value={targetTeamId}
             options={teamOptions}
             onChange={setTargetTeamId}

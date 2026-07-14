@@ -11,6 +11,7 @@ import { Select } from '../components/ui/Select';
 import { StatusTag } from '../components/ui/StatusTag';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
+import { resolveApiErrorMessage } from '../lib/apiErrors';
 import { fetchTeams } from '../lib/shiftsApi';
 import type { Team, TeamMember, TeamRole, UserDirectoryItem } from '../lib/teamTypes';
 import { SUPPORT_TIERS, TEAM_ROLES, validEscalationTargetTiers } from '../lib/teamTypes';
@@ -149,7 +150,9 @@ export function TeamDetailPage() {
       }
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('teams.detail.member_add_failed'));
+        throw new Error(
+          resolveApiErrorMessage(t, body, t('teams.detail.member_add_failed')),
+        );
       }
       setToast({ message: t('teams.detail.member_add_success'), variant: 'success' });
       await loadTeam();
@@ -177,7 +180,9 @@ export function TeamDetailPage() {
       }
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('teams.detail.member_update_failed'));
+        throw new Error(
+          resolveApiErrorMessage(t, body, t('teams.detail.member_update_failed')),
+        );
       }
       setToast({ message: t('teams.detail.member_update_success'), variant: 'success' });
       await loadTeam();
@@ -203,7 +208,9 @@ export function TeamDetailPage() {
       }
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('teams.detail.member_remove_failed'));
+        throw new Error(
+          resolveApiErrorMessage(t, body, t('teams.detail.member_remove_failed')),
+        );
       }
       setToast({ message: t('teams.detail.member_remove_success'), variant: 'success' });
       await loadTeam();
@@ -231,7 +238,7 @@ export function TeamDetailPage() {
       }
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('teams.detail.tier_update_failed'));
+        throw new Error(resolveApiErrorMessage(t, body, t('teams.detail.tier_update_failed')));
       }
       setToast({ message: t('teams.detail.tier_update_success'), variant: 'success' });
       await loadTeam();

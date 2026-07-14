@@ -39,13 +39,7 @@ func LoadConfig() Config {
 	}
 
 	team := strings.TrimSpace(os.Getenv("ALERT_SIM_TEAM"))
-	if team == "" {
-		team = "platform"
-	}
 	project := strings.TrimSpace(os.Getenv("ALERT_SIM_PROJECT"))
-	if project == "" {
-		project = team
-	}
 
 	return Config{
 		APIBaseURL: apiBase,

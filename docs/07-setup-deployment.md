@@ -205,10 +205,10 @@ make simulate-alert
 make dev-simulator
 ```
 
-**Prerequisites:** api and worker running; `WEBHOOK_SECRET` in `.env`; routing rule matching
-simulator labels (default `team=platform`). Run `make dev-simulator-bootstrap` once on a fresh
-setup — it creates the Platform team and routing rule through `/api/v1/teams` and
-`/api/v1/routing-rules`.
+**Prerequisites:** api and worker running; `WEBHOOK_SECRET` in `.env`; routing rules for simulator
+team labels. Run `make dev-simulator-bootstrap` once on a fresh setup — it creates NOC, Helpdesk,
+Ops, and Platform teams with routing rules (`team=noc`, `l1`, `ops`, `platform`) and escalation
+paths (NOC→Helpdesk→Ops→Platform) through the HTTP API.
 
 | Variable | Purpose |
 |----------|---------|
@@ -216,7 +216,7 @@ setup — it creates the Platform team and routing rule through `/api/v1/teams` 
 | `AEGIS_API_URL` | API base for bootstrap (default `PUBLIC_URL` or `http://localhost:8080`) |
 | `AEGIS_WEBHOOK_URL` | Full webhook URL (default `{API}/api/v1/alerts/webhook`) |
 | `ALERT_SIM_INTERVAL` | Loop interval when running without flags (default `30s`) |
-| `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Labels for routing (default `platform`) |
+| `ALERT_SIM_TEAM` / `ALERT_SIM_PROJECT` | Override labels for all scenarios (default: per-scenario tier routing) |
 
 **CLI flags:**
 
@@ -247,34 +247,40 @@ exhaustion, certificate expiry, queue backlog, replication lag, and DNS failures
 ## Configuration model (preferred)
 
 **Configure each area on its own admin page.** Do not require the multi-step setup wizard to change
-one setting (for example Jira credentials).
+one setting (for example Jira credentials or workspace membership).
 
 | Area | Preferred UI | API |
 |------|--------------|-----|
 | Connectors (Jira, Slack, eXpress) | `/integrations` — create, edit, test, enable/disable | `/api/v1/integrations` |
 | Teams / shifts / users | Dedicated pages under the app shell | respective `/api/v1/...` routes |
-| Workspaces / escalation / routing | Dedicated workspace & team admin (as shipped) | workspace / path / routing APIs |
+| Workspaces / escalation / routing | **`/workspaces`** (create, bind teams) + team path admin + workspace routing | workspace / path / routing APIs |
 
 The setup wizard (`/setup`) is an **optional first-run checklist**. It must not gate connector or
-other day-2 configuration. Product decision recorded in
-[`EPIC-13`](../backlog/epics/EPIC-13-integration-admin.md).
+other day-2 configuration. Product decisions:
+[`EPIC-12`](../backlog/epics/EPIC-12-workspace-admin.md) (workspaces),
+[`EPIC-13`](../backlog/epics/EPIC-13-integration-admin.md) (integrations).
+
+**Workspaces:** Primary path is **Workspaces** (`/workspaces`) — create a project and assign existing
+teams. The wizard keeps a **Quick setup** shortcut (workspace + L2/L3 + escalation path in one click)
+for greenfield installs. If a non-default workspace already has teams, the wizard step can be skipped.
 
 ### Suggested independent first-day path (NFR-1)
 
 1. **Health** — `GET /healthz` (≈ 2 min)
 2. **Sign-in** — `/login` (OIDC, or **Dev sign in** when `DEV_AUTH_ENABLED=true`) and confirm `GET /auth/me` (≈ 30–60 min with IdP, or seconds with dev auth)
-3. **Integrations** — open **`/integrations`**, save + test Jira / Slack / eXpress (≈ 2–4 h depending on credentials). Do **not** require `/setup`.
-4. **Test alert** — `POST /api/v1/setup/test-alert` (admin; also reachable from the wizard when used) (≈ 5 min)
-5. **Dashboard** — open `/dashboard` and confirm the five widgets load
+3. **Workspace & teams** — open **`/workspaces`** (or wizard quick L2/L3 setup) (≈ 15–30 min)
+4. **Integrations** — open **`/integrations`**, save + test Jira / Slack / eXpress (≈ 2–4 h depending on credentials). Do **not** require `/setup`.
+5. **Test alert** — `POST /api/v1/setup/test-alert` (admin; also reachable from the wizard when used) (≈ 5 min)
+6. **Dashboard** — open `/dashboard` and confirm the five widgets load
 
 Target: **≤ 1 working day** for an engineer with IdP and connector credentials ready (NFR-1). Without pre-provisioned credentials, allow half a day for OAuth app setup and token issuance.
 
 ## Setup wizard (optional)
 
 Route: `/setup` (multi-step; progress in `localStorage`). Useful as a guided tour for a greenfield
-install. Steps still cover health → OIDC → integrations → test alert → dashboard, but **each
-capability above is also available without the wizard**. Prefer deep links from wizard steps into
-the dedicated admin pages as those pages mature (EPIC-13 for integrations).
+install. Steps still cover health → OIDC → workspace/teams → integrations → test alert → dashboard, but
+**each capability above is also available without the wizard**. Prefer deep links from wizard steps into
+the dedicated admin pages (`/workspaces`, `/integrations` as those pages mature).
 
 ## Production notes (MVP)
 

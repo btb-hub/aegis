@@ -5,7 +5,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import type { AuthUser } from '../../lib/authTypes';
 import { Button } from '../ui/Button';
 
-export type AppPage = 'shifts' | 'teams' | 'incidents' | 'alerts' | 'integrations' | 'dashboard' | 'setup';
+export type AppPage = 'shifts' | 'teams' | 'workspaces' | 'incidents' | 'alerts' | 'integrations' | 'dashboard' | 'setup';
 
 type AppShellProps = {
   children: ReactNode;
@@ -22,6 +22,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
   const navItems: Array<{ id: AppPage; label: string }> = [
     { id: 'shifts', label: t('nav.shifts') },
     { id: 'teams', label: t('nav.teams') },
+    { id: 'workspaces', label: t('nav.workspaces') },
     { id: 'incidents', label: t('nav.incidents') },
     { id: 'alerts', label: t('nav.alerts') },
     { id: 'dashboard', label: t('nav.dashboard') },
