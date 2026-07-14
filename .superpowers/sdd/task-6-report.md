@@ -22,3 +22,14 @@ Result: both packages passed.
 ## Concern
 
 Workspace creation and slot provisioning are separate repository calls, so a slot provisioning error can leave the workspace created. The store operation is idempotent, but atomic creation would require a repository transaction boundary.
+
+## Important finding follow-up
+
+Resolved the non-atomic workspace creation concern. `WorkspaceService.Create` now calls
+`CreateWorkspaceWithSlots`, which inserts the workspace and its Jira, Slack, and eXpress slots in
+one database transaction. Any insert or commit error rolls back the workspace and releases its slug.
+The existing `CreateWorkspace` and `EnsureWorkspaceSlots` methods remain available for bare creation
+and idempotent migration/backfill use.
+
+Verification: `go test ./apps/api/internal/service/ ./apps/api/internal/handler/ ./pkg/db/ -count=1`
+passed.

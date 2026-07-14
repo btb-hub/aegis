@@ -71,6 +71,10 @@ func (m *workspaceEscalationRepoMock) CreateWorkspace(_ context.Context, name, s
 	return item, nil
 }
 
+func (m *workspaceEscalationRepoMock) CreateWorkspaceWithSlots(ctx context.Context, name, slug, description string) (db.Workspace, error) {
+	return m.CreateWorkspace(ctx, name, slug, description)
+}
+
 func (m *workspaceEscalationRepoMock) EnsureWorkspaceSlots(context.Context, uuid.UUID) error {
 	return nil
 }

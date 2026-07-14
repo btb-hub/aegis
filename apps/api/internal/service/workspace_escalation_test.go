@@ -16,6 +16,8 @@ import (
 type workspaceRepoMock struct {
 	items               map[uuid.UUID]db.Workspace
 	slotsProvisionedFor []uuid.UUID
+	atomicCreateCalls   int
+	bareCreateCalls     int
 }
 
 func (m *workspaceRepoMock) ListWorkspaces(ctx context.Context) ([]db.Workspace, error) {
@@ -35,6 +37,14 @@ func (m *workspaceRepoMock) GetWorkspace(_ context.Context, id uuid.UUID) (db.Wo
 }
 
 func (m *workspaceRepoMock) CreateWorkspace(_ context.Context, name, slug, description string) (db.Workspace, error) {
+	m.bareCreateCalls++
+	item := db.Workspace{ID: uuid.New(), Name: name, Slug: slug, Description: description}
+	m.items[item.ID] = item
+	return item, nil
+}
+
+func (m *workspaceRepoMock) CreateWorkspaceWithSlots(_ context.Context, name, slug, description string) (db.Workspace, error) {
+	m.atomicCreateCalls++
 	item := db.Workspace{ID: uuid.New(), Name: name, Slug: slug, Description: description}
 	m.items[item.ID] = item
 	return item, nil
@@ -86,7 +96,9 @@ func TestWorkspaceServiceCreate(t *testing.T) {
 	item, err := svc.Create(context.Background(), "Platform", "platform", "Core")
 	require.NoError(t, err)
 	require.Equal(t, "platform", item.Slug)
-	require.Equal(t, []uuid.UUID{item.ID}, repo.slotsProvisionedFor)
+	require.Equal(t, 1, repo.atomicCreateCalls)
+	require.Zero(t, repo.bareCreateCalls)
+	require.Empty(t, repo.slotsProvisionedFor)
 }
 
 func TestWorkspaceServiceCreateRequiresName(t *testing.T) {
