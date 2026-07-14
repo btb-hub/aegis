@@ -9,6 +9,7 @@ import {
   integrationFormReady,
   type IntegrationConfigForm,
   type IntegrationKind,
+  type IntegrationMode,
 } from '../components/integrations/IntegrationConfigFields';
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
@@ -31,6 +32,8 @@ type IntegrationItem = {
   workspace_id?: string | null;
   config?: Record<string, unknown>;
   config_complete?: boolean;
+  mode?: IntegrationMode;
+  slot_status?: 'ready' | 'needs_setup' | 'using_global' | 'missing' | 'disabled';
 };
 
 type EditorMode = 'create' | 'edit';
@@ -42,11 +45,20 @@ type EditorState = {
   name: string;
   workspace_id: string;
   form: IntegrationConfigForm;
+  integrationMode?: IntegrationMode;
+  savedIntegrationMode?: IntegrationMode;
 };
 
-const emptyEditor = (): EditorState => ({
+const integrationKinds: IntegrationKind[] = ['jira', 'slack', 'express'];
+const kindNames: Record<IntegrationKind, string> = {
+  jira: 'Jira',
+  slack: 'Slack',
+  express: 'eXpress',
+};
+
+const emptyEditor = (kind: IntegrationKind): EditorState => ({
   mode: 'create',
-  kind: 'jira',
+  kind,
   name: '',
   workspace_id: '',
   form: emptyIntegrationConfigForm(),
@@ -68,6 +80,9 @@ export function IntegrationsPage() {
   const [deleteTarget, setDeleteTarget] = useState<IntegrationItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [scopeFilter, setScopeFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const workspaceById = useMemo(
     () => new Map(workspaces.map((workspace) => [workspace.id, workspace])),
@@ -132,7 +147,31 @@ export function IntegrationsPage() {
     }
   };
 
-  const openCreate = () => setEditor(emptyEditor());
+  const missingGlobalKinds = useMemo(() => {
+    const configured = new Set(items.filter((item) => !item.workspace_id).map((item) => item.kind));
+    return integrationKinds.filter((kind) => !configured.has(kind));
+  }, [items]);
+
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        const scope = item.workspace_id ? 'workspace' : 'global';
+        const status = item.workspace_id ? item.slot_status : item.enabled ? 'enabled' : 'disabled';
+        return (
+          (scopeFilter === 'all' || scopeFilter === scope) &&
+          (kindFilter === 'all' || kindFilter === item.kind) &&
+          (statusFilter === 'all' || statusFilter === status)
+        );
+      }),
+    [items, kindFilter, scopeFilter, statusFilter],
+  );
+
+  const openCreate = () => {
+    const kind = missingGlobalKinds[0];
+    if (kind) {
+      setEditor(emptyEditor(kind));
+    }
+  };
 
   const openEdit = (item: IntegrationItem) => {
     const kind = (['jira', 'slack', 'express'].includes(item.kind) ? item.kind : 'jira') as IntegrationKind;
@@ -143,6 +182,31 @@ export function IntegrationsPage() {
       name: item.name,
       workspace_id: item.workspace_id ?? '',
       form: configFormFromItem(kind, item.config),
+      integrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
+      savedIntegrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
+    });
+  };
+
+  const changeIntegrationMode = (mode: IntegrationMode) => {
+    setEditor((current) => {
+      if (!current || current.integrationMode === mode) {
+        return current;
+      }
+      if (
+        current.integrationMode === 'custom' &&
+        mode === 'inherit' &&
+        !window.confirm(t('workspaces.integrations.switch_confirm'))
+      ) {
+        return current;
+      }
+      const form =
+        mode === 'custom'
+          ? emptyIntegrationConfigForm()
+          : {
+              ...emptyIntegrationConfigForm(),
+              project_key: current.form.project_key,
+            };
+      return { ...current, integrationMode: mode, form };
     });
   };
 
@@ -153,12 +217,17 @@ export function IntegrationsPage() {
     setSaving(true);
     setToast(null);
     try {
-      const workspaceOnly = editor.workspace_id !== '' && editor.mode === 'create';
       const editing = editor.mode === 'edit';
-      const config = buildConfigPayload(editor.kind, editor.form, {
-        workspaceOnly: workspaceOnly || (editing && editor.workspace_id !== ''),
-        keepBlankSecrets: editing,
-      });
+      const workspaceMode = editor.integrationMode;
+      const config =
+        workspaceMode === 'inherit'
+          ? editor.kind === 'jira'
+            ? { project_key: editor.form.project_key.trim() }
+            : {}
+          : buildConfigPayload(editor.kind, editor.form, {
+              workspaceOnly: false,
+              keepBlankSecrets: editing && (workspaceMode === undefined || editor.savedIntegrationMode === 'custom'),
+            });
 
       if (editor.mode === 'create') {
         const payload: Record<string, unknown> = {
@@ -167,9 +236,6 @@ export function IntegrationsPage() {
           enabled: true,
           config,
         };
-        if (editor.workspace_id) {
-          payload.workspace_id = editor.workspace_id;
-        }
         const response = await fetch('/api/v1/integrations', {
           method: 'POST',
           credentials: 'include',
@@ -189,10 +255,18 @@ export function IntegrationsPage() {
           method: 'PATCH',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: editor.name.trim() || editor.kind,
-            config,
-          }),
+          body: JSON.stringify(
+            editor.workspace_id
+              ? {
+                  mode: workspaceMode,
+                  enabled: items.find((item) => item.id === editor.id)?.enabled ?? true,
+                  config,
+                }
+              : {
+                  name: editor.name.trim() || editor.kind,
+                  config,
+                },
+          ),
         });
         if (response.status === 401) {
           setToast({ message: t('integrations.sign_in_required'), variant: 'default' });
@@ -280,14 +354,32 @@ export function IntegrationsPage() {
     );
   };
 
+  const renderStatus = (item: IntegrationItem) => {
+    if (item.workspace_id && item.slot_status) {
+      return (
+        <StatusTag
+          variant={item.slot_status === 'ready' || item.slot_status === 'using_global' ? 'resolved' : 'neutral'}
+          label={t(`workspaces.integrations.status_${item.slot_status}`)}
+        />
+      );
+    }
+    return item.enabled ? t('integrations.enabled') : t('integrations.disabled');
+  };
+
   const editorReady =
     editor !== null &&
-    integrationFormReady(editor.kind, editor.form, {
-      workspaceOnly: editor.workspace_id !== '',
-      editing: editor.mode === 'edit',
-    });
+    (editor.integrationMode === 'inherit'
+      ? editor.kind !== 'jira' || editor.form.project_key.trim() !== ''
+      : integrationFormReady(editor.kind, editor.form, {
+          workspaceOnly: false,
+          editing:
+            editor.mode === 'edit' &&
+            (editor.integrationMode === undefined || editor.savedIntegrationMode === 'custom'),
+        }));
 
-  const incompleteCount = items.filter((item) => item.config_complete === false).length;
+  const incompleteCount = items.filter(
+    (item) => item.config_complete === false && (!item.workspace_id || item.mode === 'custom'),
+  ).length;
 
   return (
     <PageContent>
@@ -301,12 +393,57 @@ export function IntegrationsPage() {
             { label: t('nav.integrations') },
           ],
         }}
-        actions={isAdmin ? <Button onClick={openCreate}>{t('integrations.add')}</Button> : undefined}
+        actions={
+          isAdmin && missingGlobalKinds.length > 0 ? (
+            <Button onClick={openCreate}>{t('integrations.add')}</Button>
+          ) : undefined
+        }
       />
 
       {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
       {!loadError && incompleteCount > 0 ? (
         <Banner variant="warning">{t('integrations.incomplete_banner')}</Banner>
+      ) : null}
+
+      {!loading && !loadError && items.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Select
+            id="integration-scope-filter"
+            label={t('integrations.filter.scope')}
+            value={scopeFilter}
+            options={[
+              { value: 'all', label: t('integrations.filter.all_scopes') },
+              { value: 'global', label: t('integrations.scope.global') },
+              { value: 'workspace', label: t('integrations.filter.workspace') },
+            ]}
+            onChange={setScopeFilter}
+          />
+          <Select
+            id="integration-kind-filter"
+            label={t('integrations.filter.kind')}
+            value={kindFilter}
+            options={[
+              { value: 'all', label: t('integrations.filter.all_kinds') },
+              ...integrationKinds.map((kind) => ({ value: kind, label: kindNames[kind] })),
+            ]}
+            onChange={setKindFilter}
+          />
+          <Select
+            id="integration-status-filter"
+            label={t('integrations.filter.status')}
+            value={statusFilter}
+            options={[
+              { value: 'all', label: t('integrations.filter.all_statuses') },
+              { value: 'enabled', label: t('integrations.enabled') },
+              { value: 'disabled', label: t('integrations.disabled') },
+              { value: 'ready', label: t('workspaces.integrations.status_ready') },
+              { value: 'needs_setup', label: t('workspaces.integrations.status_needs_setup') },
+              { value: 'using_global', label: t('workspaces.integrations.status_using_global') },
+              { value: 'missing', label: t('workspaces.integrations.status_missing') },
+            ]}
+            onChange={setStatusFilter}
+          />
+        </div>
       ) : null}
 
       {loading ? (
@@ -344,7 +481,7 @@ export function IntegrationsPage() {
               key: 'status',
               header: t('integrations.column.status'),
               cellClassName: 'text-zinc-700',
-              render: (item) => (item.enabled ? t('integrations.enabled') : t('integrations.disabled')),
+              render: (item) => renderStatus(item),
             },
             {
               key: 'actions',
@@ -370,18 +507,20 @@ export function IntegrationsPage() {
                       >
                         {item.enabled ? t('integrations.disable') : t('integrations.enable')}
                       </Button>
-                      <Button variant="ghost" onClick={() => setDeleteTarget(item)}>
-                        {t('integrations.delete')}
-                      </Button>
+                      {!item.workspace_id ? (
+                        <Button variant="ghost" onClick={() => setDeleteTarget(item)}>
+                          {t('integrations.delete')}
+                        </Button>
+                      ) : null}
                     </>
                   ) : null}
                 </div>
               ),
             },
           ]}
-          rows={items}
+          rows={filteredItems}
           rowKey={(item) => item.id}
-          emptyMessage={t('integrations.empty')}
+          emptyMessage={t('integrations.empty_filtered')}
         />
       )}
 
@@ -401,11 +540,10 @@ export function IntegrationsPage() {
             label={t('integrations.column.kind')}
             value={editor.kind}
             disabled={editor.mode === 'edit'}
-            options={[
-              { value: 'jira', label: 'Jira' },
-              { value: 'slack', label: 'Slack' },
-              { value: 'express', label: 'eXpress' },
-            ]}
+            options={(editor.mode === 'create' ? missingGlobalKinds : integrationKinds).map((kind) => ({
+              value: kind,
+              label: kindNames[kind],
+            }))}
             onChange={(value) =>
               setEditor((current) =>
                 current
@@ -418,39 +556,42 @@ export function IntegrationsPage() {
               )
             }
           />
-          <Input
-            label={t('integrations.column.name')}
-            value={editor.name}
-            onChange={(value) => setEditor((current) => (current ? { ...current, name: value } : current))}
-          />
-          {editor.mode === 'create' ? (
-            <Select
-              id="integration-workspace"
-              label={t('integrations.workspace_label')}
-              value={editor.workspace_id}
-              options={[
-                { value: '', label: t('integrations.scope.global') },
-                ...workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
-              ]}
-              onChange={(value) =>
-                setEditor((current) =>
-                  current
-                    ? {
-                        ...current,
-                        workspace_id: value,
-                        kind: value ? 'jira' : current.kind,
-                        form: emptyIntegrationConfigForm(),
-                      }
-                    : current,
-                )
-              }
+          {!editor.workspace_id ? (
+            <Input
+              label={t('integrations.column.name')}
+              value={editor.name}
+              onChange={(value) => setEditor((current) => (current ? { ...current, name: value } : current))}
             />
+          ) : null}
+          {editor.workspace_id && editor.integrationMode ? (
+            <>
+              <Select
+                id="workspace-integration-mode"
+                label={t('workspaces.integrations.mode')}
+                value={editor.integrationMode}
+                options={[
+                  { value: 'inherit', label: t('workspaces.integrations.mode_inherit') },
+                  { value: 'custom', label: t('workspaces.integrations.mode_custom') },
+                ]}
+                onChange={(value) => changeIntegrationMode(value as IntegrationMode)}
+              />
+              <p className="text-sm text-zinc-600">
+                {t(
+                  editor.integrationMode === 'inherit'
+                    ? 'workspaces.integrations.inherit_help'
+                    : 'workspaces.integrations.custom_help',
+                )}
+              </p>
+            </>
           ) : null}
           <IntegrationConfigFields
             kind={editor.kind}
             form={editor.form}
+            mode={editor.integrationMode}
             workspaceOnly={editor.workspace_id !== ''}
-            editing={editor.mode === 'edit'}
+            editing={
+              editor.mode === 'edit' && (!editor.workspace_id || editor.savedIntegrationMode === 'custom')
+            }
             onChange={(form) => setEditor((current) => (current ? { ...current, form } : current))}
           />
         </Modal>
