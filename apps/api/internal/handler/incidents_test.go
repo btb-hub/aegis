@@ -208,8 +208,8 @@ func (m *phase2HandlerRepo) GetIntegrationByKind(_ context.Context, kind string)
 	}
 	return db.Integration{}, pgx.ErrNoRows
 }
-func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error) {
-	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (db.Integration, error) {
+	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, Mode: mode, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	m.integrations[item.ID] = item
 	return item, nil
 }

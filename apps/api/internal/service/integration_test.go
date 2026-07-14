@@ -16,8 +16,9 @@ import (
 )
 
 type integrationMockRepo struct {
-	items     []db.Integration
-	deleteErr error
+	items          []db.Integration
+	deleteErr      error
+	lastUpsertMode *string
 }
 
 func (m *integrationMockRepo) ListIntegrations(context.Context) ([]db.Integration, error) {
@@ -39,8 +40,9 @@ func (m *integrationMockRepo) GetIntegrationByKind(_ context.Context, kind strin
 	}
 	return db.Integration{}, pgx.ErrNoRows
 }
-func (m *integrationMockRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error) {
-	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID}
+func (m *integrationMockRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (db.Integration, error) {
+	m.lastUpsertMode = mode
+	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, Mode: mode}
 	m.items = append(m.items, item)
 	return item, nil
 }
@@ -132,6 +134,20 @@ func TestIntegrationServiceUpsertSuccess(t *testing.T) {
 	item, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"base_url":"https://jira.example.com","email":"ops@example.com","api_token":"token","project_key":"OPS"}`), true, nil)
 	require.NoError(t, err)
 	require.Equal(t, "jira", item.Kind)
+	require.Nil(t, repo.lastUpsertMode)
+}
+
+func TestIntegrationServiceUpsertWorkspaceUsesInheritMode(t *testing.T) {
+	repo := &integrationMockRepo{}
+	svc := NewIntegrationService(repo, "http://localhost:8080")
+	workspaceID := uuid.New()
+
+	item, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.lastUpsertMode)
+	require.Equal(t, "inherit", *repo.lastUpsertMode)
+	require.Equal(t, "inherit", *item.Mode)
 }
 
 func TestIntegrationServiceUpsertGlobalRequiresCredentials(t *testing.T) {

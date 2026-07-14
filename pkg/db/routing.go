@@ -278,7 +278,7 @@ func (s *Store) GetIntegrationByKindForWorkspace(ctx context.Context, kind strin
 	return global, nil
 }
 
-func (s *Store) UpsertIntegration(ctx context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (Integration, error) {
+func (s *Store) UpsertIntegration(ctx context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (Integration, error) {
 	if workspaceID == nil {
 		const q = `
 INSERT INTO integrations (kind, name, config, enabled, workspace_id, mode)
@@ -295,12 +295,12 @@ RETURNING id, kind, name, config, enabled, workspace_id, mode, created_at, updat
 
 	const q = `
 INSERT INTO integrations (kind, name, config, enabled, workspace_id, mode)
-VALUES ($1, $2, $3, $4, $5, 'inherit')
+VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'inherit'))
 ON CONFLICT (workspace_id, kind) WHERE workspace_id IS NOT NULL DO UPDATE
 SET name = EXCLUDED.name, config = EXCLUDED.config, enabled = EXCLUDED.enabled, mode = EXCLUDED.mode, updated_at = now()
 RETURNING id, kind, name, config, enabled, workspace_id, mode, created_at, updated_at`
 	var item Integration
-	err := s.pool.QueryRow(ctx, q, kind, name, config, enabled, *workspaceID).Scan(
+	err := s.pool.QueryRow(ctx, q, kind, name, config, enabled, *workspaceID, mode).Scan(
 		&item.ID, &item.Kind, &item.Name, &item.Config, &item.Enabled, &item.WorkspaceID, &item.Mode, &item.CreatedAt, &item.UpdatedAt,
 	)
 	return item, err
