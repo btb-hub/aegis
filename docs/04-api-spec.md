@@ -216,11 +216,18 @@ Schedule and override changes materialise on-call slots synchronously for the te
 
 ## Integrations (Phase 2–3)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/integrations` | List/create |
-| GET/PATCH/DELETE | `/integrations/{id}` | CRUD |
-| POST | `/integrations/{id}/test` | Test connection |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/integrations` | session | List connectors. Secret config keys are redacted as `***`. Includes `config_complete`. |
+| POST | `/integrations` | admin | Upsert by `(kind)` globally or `(workspace_id, kind)`. Global rows require full provider credentials; workspace Jira requires `project_key` only. |
+| GET | `/integrations/{id}` | session | Get one connector (secrets redacted). |
+| PATCH | `/integrations/{id}` | admin | Update `name`, `enabled`, and/or `config`. Omitted, blank, or `***` secret fields keep the stored value. |
+| DELETE | `/integrations/{id}` | admin | Delete connector. |
+| POST | `/integrations/{id}/test` | admin | Test connection. Incomplete config returns a validation message (e.g. `jira config incomplete`), not a generic “not configured”. |
+
+Secret config keys redacted in responses: `api_token`, `bot_token`, `signing_secret`, `secret_key`. Non-secret fields (`base_url`, `email`, `project_key`, `issue_type`, `bot_id`, `host`, …) remain visible to admins.
+
+`config_complete` is `true` when the row can be registered as-is (workspace Jira: `project_key` present; global: provider `NewFromJSON` succeeds).
 
 ## eXpress link (Phase 3)
 
