@@ -289,6 +289,102 @@ func TestIntegrationJSONWorkspaceSlotStatus(t *testing.T) {
 	require.Equal(t, "needs_setup", needsSetup["slot_status"])
 }
 
+func TestIntegrationServiceJSONUsesGlobalAvailability(t *testing.T) {
+	workspaceID := uuid.New()
+	inherit := "inherit"
+	global := db.Integration{
+		ID: uuid.New(), Kind: "jira", Name: "Global Jira", Enabled: true,
+		Config: []byte(`{"base_url":"https://jira.example.com","email":"ops@example.com","api_token":"token","project_key":"GLOBAL"}`),
+	}
+	slot := db.Integration{
+		ID: uuid.New(), Kind: "jira", Name: "Workspace Jira", Enabled: true,
+		WorkspaceID: &workspaceID, Mode: &inherit, Config: []byte(`{"project_key":"OPS"}`),
+	}
+
+	t.Run("global row", func(t *testing.T) {
+		svc := NewIntegrationService(&integrationMockRepo{items: []db.Integration{global}}, "http://localhost:8080")
+		out, err := svc.JSON(context.Background(), global)
+		require.NoError(t, err)
+		require.NotContains(t, out, "slot_status")
+	})
+
+	t.Run("workspace slot with global", func(t *testing.T) {
+		svc := NewIntegrationService(&integrationMockRepo{items: []db.Integration{global, slot}}, "http://localhost:8080")
+		out, err := svc.JSON(context.Background(), slot)
+		require.NoError(t, err)
+		require.Equal(t, "using_global", out["slot_status"])
+	})
+
+	t.Run("workspace slot without global", func(t *testing.T) {
+		svc := NewIntegrationService(&integrationMockRepo{items: []db.Integration{slot}}, "http://localhost:8080")
+		out, err := svc.JSON(context.Background(), slot)
+		require.NoError(t, err)
+		require.Equal(t, "missing", out["slot_status"])
+	})
+}
+
+func TestIntegrationJSONWorkspaceSlotStatusVariants(t *testing.T) {
+	workspaceID := uuid.New()
+	custom := "custom"
+	inherit := "inherit"
+
+	tests := []struct {
+		name   string
+		item   db.Integration
+		global bool
+		want   string
+	}{
+		{
+			name: "disabled",
+			item: db.Integration{Kind: "jira", WorkspaceID: &workspaceID, Mode: &inherit, Config: []byte(`{}`)},
+			want: "disabled",
+		},
+		{
+			name: "ready custom",
+			item: db.Integration{
+				Kind: "slack", Enabled: true, WorkspaceID: &workspaceID, Mode: &custom,
+				Config: []byte(`{"bot_token":"token","signing_secret":"secret"}`),
+			},
+			want: "ready",
+		},
+		{
+			name: "missing global",
+			item: db.Integration{Kind: "express", Enabled: true, WorkspaceID: &workspaceID, Mode: &inherit, Config: []byte(`{}`)},
+			want: "missing",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := IntegrationJSON(tt.item, tt.global)
+			require.Equal(t, tt.want, out["slot_status"])
+		})
+	}
+}
+
+func TestIntegrationResolveErrorMessages(t *testing.T) {
+	tests := []struct {
+		reason  string
+		message string
+	}{
+		{reason: "slot_disabled", message: "integration slot is disabled"},
+		{reason: "slot_missing", message: "integration slot is missing"},
+		{reason: "global_disabled", message: "global jira integration is disabled"},
+		{reason: "custom_incomplete", message: "jira config incomplete"},
+		{reason: "unknown", message: "jira integration is unavailable"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.reason, func(t *testing.T) {
+			err := integrationResolveError("jira", tt.reason)
+			var appErr *apperrors.Error
+			require.ErrorAs(t, err, &appErr)
+			require.Contains(t, appErr.Message, tt.message)
+			require.Equal(t, tt.reason, appErr.Details["reason"])
+		})
+	}
+}
+
 func TestIntegrationJSONRedactsSecrets(t *testing.T) {
 	out := IntegrationJSON(db.Integration{
 		ID: uuid.New(), Kind: "slack", Name: "Slack",
@@ -458,7 +554,7 @@ func TestIntegrationServiceTestWorkspaceWithoutGlobal(t *testing.T) {
 func TestIntegrationJSONEmptySecretNotRedacted(t *testing.T) {
 	out := IntegrationJSON(db.Integration{
 		ID: uuid.New(), Kind: "jira", Name: "Jira",
-		Config: []byte(`{"base_url":"https://jira","email":"a@b.c","api_token":"","project_key":"OPS"}`),
+		Config:  []byte(`{"base_url":"https://jira","email":"a@b.c","api_token":"","project_key":"OPS"}`),
 		Enabled: true,
 	})
 	cfg := out["config"].(map[string]any)
