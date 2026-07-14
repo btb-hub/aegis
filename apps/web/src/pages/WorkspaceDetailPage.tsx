@@ -368,12 +368,10 @@ export function WorkspaceDetailPage() {
                   cellClassName: 'font-medium text-zinc-900',
                   render: (rule) => {
                     const team = teamById.get(rule.team_id);
-                    if (!team) {
-                      return rule.team_id;
-                    }
+                    // workspaceRules only includes rows whose team_id is in teamById
                     return (
-                      <Link to={`/teams/${team.id}`} className="text-accent hover:underline">
-                        {team.name}
+                      <Link to={`/teams/${team!.id}`} className="text-accent hover:underline">
+                        {team!.name}
                       </Link>
                     );
                   },

@@ -478,4 +478,224 @@ describe('WorkspaceDetailPage', () => {
       expect(screen.getByText('Teams moved to this workspace')).toBeInTheDocument();
     });
   });
+
+  it('shows blocked assign error on 409', async () => {
+    const otherTeam = {
+      id: 'team-2',
+      workspace_id: '00000000-0000-0000-0000-000000000002',
+      name: 'Data L2',
+      description: '',
+      support_tier: 'l2',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}/teams` && init?.method === 'POST') {
+        return jsonResponse({ message: 'conflict' }, 409);
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, otherTeam] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [routingRule] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add existing teams' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add existing teams' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Data L2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to workspace' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Move blocked by escalation paths. Remove conflicting paths on team detail, then retry.',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('surfaces update failure and empty tier/description dashes', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}` && init?.method === 'PATCH') {
+        return jsonResponse({ message: 'slug invalid' }, 400);
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({
+          items: [{ ...team, support_tier: '', description: '' }],
+        });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({
+          items: [{ ...routingRule, match_labels: {} }],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Edit workspace' })).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit workspace' }));
+    fireEvent.change(screen.getByLabelText('Workspace name'), { target: { value: 'Nope' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save workspace' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('slug invalid')).toBeInTheDocument();
+    });
+  });
+
+  it('filters assign candidates and shows empty state', async () => {
+    const otherTeam = {
+      id: 'team-2',
+      workspace_id: '00000000-0000-0000-0000-000000000002',
+      name: 'Data L2',
+      description: '',
+      support_tier: 'l2',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, otherTeam] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add existing teams' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add existing teams' }));
+    expect(screen.getByRole('checkbox', { name: 'Data L2' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Search teams'), { target: { value: 'zzz' } });
+    await waitFor(() => {
+      expect(screen.getByText('No teams in other workspaces match your search')).toBeInTheDocument();
+    });
+  });
+
+  it('hides admin actions for non-admin members', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'member-1',
+          email: 'member@example.com',
+          display_name: 'Member',
+          role: 'member',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [routingRule] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Default' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Edit workspace' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add routing rule' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add existing teams' })).not.toBeInTheDocument();
+  });
 });
