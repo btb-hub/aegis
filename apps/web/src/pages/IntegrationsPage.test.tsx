@@ -11,6 +11,8 @@ const slackIntegration = {
   kind: 'slack',
   name: 'Slack',
   enabled: true,
+  config_complete: true,
+  config: { bot_token: '***', signing_secret: '***' },
 };
 
 const jiraIntegration = {
@@ -18,6 +20,8 @@ const jiraIntegration = {
   kind: 'jira',
   name: 'Jira',
   enabled: false,
+  config_complete: false,
+  config: {},
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -46,6 +50,24 @@ function clickTestConnection(integrationName: string) {
   fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Test connection' }));
 }
 
+function authAdmin(input: RequestInfo | URL) {
+  const url = String(input);
+  if (url.includes('/auth/me')) {
+    return jsonResponse({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      display_name: 'Admin',
+      role: 'admin',
+      locale: 'en',
+      provider: 'google',
+    });
+  }
+  if (url === '/api/v1/workspaces') {
+    return jsonResponse({ items: [] });
+  }
+  return null;
+}
+
 describe('IntegrationsPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
@@ -57,19 +79,9 @@ describe('IntegrationsPage', () => {
 
   function mockFetch(body: unknown, status = 200) {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes('/auth/me')) {
-        return jsonResponse({
-          id: 'admin-1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          locale: 'en',
-          provider: 'google',
-        });
-      }
-      if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
       }
       return jsonResponse(body, status);
     });
@@ -92,26 +104,19 @@ describe('IntegrationsPage', () => {
     expect(screen.getByText('Loading integrations')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('No integrations configured yet')).toBeInTheDocument();
+      expect(
+        screen.getByText('No integrations yet. Add Jira, Slack, or eXpress with credentials on this page.'),
+      ).toBeInTheDocument();
     });
   });
 
   it('renders integrations and tests connection successfully', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
       const url = String(input);
-      if (url.includes('/auth/me')) {
-        return jsonResponse({
-          id: 'admin-1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          locale: 'en',
-          provider: 'google',
-        });
-      }
-      if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
-      }
       if (url.includes('/test') && init?.method === 'POST') {
         return jsonResponse({});
       }
@@ -127,6 +132,7 @@ describe('IntegrationsPage', () => {
       expect(screen.getByText('Slack')).toBeInTheDocument();
     });
     expect(screen.getByText('Disabled')).toBeInTheDocument();
+    expect(screen.getByText('Add credentials to finish setup')).toBeInTheDocument();
 
     clickTestConnection('Slack');
 
@@ -187,20 +193,11 @@ describe('IntegrationsPage', () => {
 
   it('shows sign-in toast when test returns 401', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
       const url = String(input);
-      if (url.includes('/auth/me')) {
-        return jsonResponse({
-          id: 'admin-1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          locale: 'en',
-          provider: 'google',
-        });
-      }
-      if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
-      }
       if (url.includes('/test') && init?.method === 'POST') {
         return jsonResponse({}, 401);
       }
@@ -221,20 +218,11 @@ describe('IntegrationsPage', () => {
 
   it('shows API error message when test fails', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
       const url = String(input);
-      if (url.includes('/auth/me')) {
-        return jsonResponse({
-          id: 'admin-1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          locale: 'en',
-          provider: 'google',
-        });
-      }
-      if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
-      }
       if (url.includes('/test') && init?.method === 'POST') {
         return jsonResponse({ message: 'Invalid token' }, 400);
       }
@@ -260,20 +248,11 @@ describe('IntegrationsPage', () => {
     });
 
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
       const url = String(input);
-      if (url.includes('/auth/me')) {
-        return jsonResponse({
-          id: 'admin-1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          locale: 'en',
-          provider: 'google',
-        });
-      }
-      if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
-      }
       if (url.includes('/test') && init?.method === 'POST') {
         return testPromise;
       }
@@ -299,20 +278,11 @@ describe('IntegrationsPage', () => {
 
   it('shows generic test failure on unexpected rejection', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
       const url = String(input);
-      if (url.includes('/auth/me')) {
-        return jsonResponse({
-          id: 'admin-1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          locale: 'en',
-          provider: 'google',
-        });
-      }
-      if (url === '/api/v1/workspaces') {
-        return jsonResponse({ items: [] });
-      }
       if (url.includes('/test') && init?.method === 'POST') {
         throw new Error('network');
       }
@@ -331,10 +301,135 @@ describe('IntegrationsPage', () => {
     });
   });
 
+  it('requires jira credentials on global create and posts full config', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
+      const url = String(input);
+      if (url === '/api/v1/integrations' && init?.method === 'POST') {
+        return jsonResponse({ ...jiraIntegration, config_complete: true, enabled: true }, 201);
+      }
+      return jsonResponse({ items: [] });
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add integration' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add integration' }));
+
+    const save = screen.getByRole('button', { name: 'Save integration' });
+    expect(save).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Jira base URL'), { target: { value: 'https://jira.example.com' } });
+    fireEvent.change(screen.getByLabelText('Jira email'), { target: { value: 'ops@example.com' } });
+    fireEvent.change(screen.getByLabelText('Jira API token'), { target: { value: 'token' } });
+    fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
+
+    await waitFor(() => {
+      expect(save).not.toBeDisabled();
+    });
+    fireEvent.click(save);
+
+    await waitFor(() => {
+      expect(screen.getByText('Integration saved')).toBeInTheDocument();
+    });
+
+    const postCall = vi.mocked(fetch).mock.calls.find((call) => {
+      const [url, init] = call;
+      return String(url) === '/api/v1/integrations' && init?.method === 'POST';
+    });
+    expect(postCall).toBeTruthy();
+    const body = JSON.parse(String(postCall?.[1]?.body));
+    expect(body.config).toEqual({
+      base_url: 'https://jira.example.com',
+      email: 'ops@example.com',
+      api_token: 'token',
+      project_key: 'OPS',
+    });
+  });
+
+  it('edit submit omits blank secrets', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
+      const url = String(input);
+      if (url === '/api/v1/integrations/int-slack' && init?.method === 'PATCH') {
+        return jsonResponse({ ...slackIntegration, name: 'Slack Bot' });
+      }
+      return jsonResponse({ items: [slackIntegration] });
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Slack')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Slack Bot' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Integration saved')).toBeInTheDocument();
+    });
+
+    const patchCall = vi.mocked(fetch).mock.calls.find((call) => {
+      const [url, init] = call;
+      return String(url) === '/api/v1/integrations/int-slack' && init?.method === 'PATCH';
+    });
+    expect(patchCall).toBeTruthy();
+    const body = JSON.parse(String(patchCall?.[1]?.body));
+    expect(body.name).toBe('Slack Bot');
+    expect(body.config).toEqual({});
+  });
+
+  it('disables and deletes an integration as admin', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const auth = authAdmin(input);
+      if (auth) {
+        return auth;
+      }
+      const url = String(input);
+      if (url === '/api/v1/integrations/int-slack' && init?.method === 'PATCH') {
+        return jsonResponse({ ...slackIntegration, enabled: false });
+      }
+      if (url === '/api/v1/integrations/int-slack' && init?.method === 'DELETE') {
+        return jsonResponse(null, 204);
+      }
+      return jsonResponse({ items: [slackIntegration] });
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Slack')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Disable' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Integration disabled')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Integration deleted')).toBeInTheDocument();
+    });
+  });
+
   it('shows workspace scope badge and saves workspace integration', async () => {
     const workspaceIntegration = {
       ...jiraIntegration,
       workspace_id: '00000000-0000-0000-0000-000000000001',
+      config_complete: true,
+      config: { project_key: 'OPS' },
     };
 
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {

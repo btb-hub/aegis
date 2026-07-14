@@ -82,7 +82,7 @@ prefer merging credential UI before leaning on workspace Integrations tabs.
 
 ### AEG-093 — Validate integration config and clarify test failures
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-016, AEG-020 (Done)
 - **PRD:** REQ-INT-05, REQ-INT-01
 - **Acceptance:**
@@ -105,7 +105,7 @@ prefer merging credential UI before leaning on workspace Integrations tabs.
 
 ### AEG-094 — Secret redaction and PATCH by id
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-093
 - **PRD:** REQ-INT-05; security notes in [`docs/09-security.md`](../docs/09-security.md)
 - **Acceptance:**
@@ -127,7 +127,7 @@ Branch: `feat/integrations-AEG-094-patch-redact`.
 
 ### AEG-095 — Integrations page: create and edit credentials (UI)
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-093, AEG-094
 - **PRD:** REQ-INT-02, REQ-INT-03, REQ-INT-04, REQ-INT-05
 - **Acceptance:**
@@ -150,7 +150,7 @@ reuse if the wizard later links here. Branch: `feat/integrations-AEG-095-configu
 
 ### AEG-096 — Enable, disable, delete, and incomplete-state UX
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-095
 - **PRD:** REQ-INT-05
 - **Acceptance:**
@@ -184,3 +184,8 @@ AEG-093 (validate + test errors)
 - [ ] Secrets not returned in list responses
 - [ ] `make lint type test` green on implementing PRs
 - [ ] API + integration docs updated where behaviour changes
+
+**Implementation notes (feat/epic-13-integration-admin):**
+- AEG-093: `validateGlobalIntegrationConfig` via provider `NewFromJSON`; `Test` returns provider parse/connection errors.
+- AEG-094: secrets redacted as `***`; `PATCH /integrations/{id}` merges blank secrets; `config_complete` on JSON.
+- AEG-095/096: Integrations page create/edit forms, enable/disable/delete, incomplete banner.

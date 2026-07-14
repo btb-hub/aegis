@@ -299,6 +299,19 @@ RETURNING id, kind, name, config, enabled, workspace_id, created_at, updated_at`
 	return item, err
 }
 
+func (s *Store) UpdateIntegration(ctx context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool) (Integration, error) {
+	const q = `
+UPDATE integrations
+SET name = $2, config = $3, enabled = $4, updated_at = now()
+WHERE id = $1
+RETURNING id, kind, name, config, enabled, workspace_id, created_at, updated_at`
+	var item Integration
+	err := s.pool.QueryRow(ctx, q, id, name, config, enabled).Scan(
+		&item.ID, &item.Kind, &item.Name, &item.Config, &item.Enabled, &item.WorkspaceID, &item.CreatedAt, &item.UpdatedAt,
+	)
+	return item, err
+}
+
 func (s *Store) DeleteIntegration(ctx context.Context, id uuid.UUID) error {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM integrations WHERE id = $1`, id)
 	if err != nil {
