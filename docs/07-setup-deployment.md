@@ -282,13 +282,92 @@ install. Steps still cover health → OIDC → workspace/teams → integrations 
 **each capability above is also available without the wizard**. Prefer deep links from wizard steps into
 the dedicated admin pages (`/workspaces`, `/integrations` as those pages mature).
 
-## Production notes (MVP)
+## Production deploy (DevOps)
 
-- TLS termination via reverse proxy (nginx/Caddy) — not bundled
-- Back up Postgres volume on schedule
-- Rotate API tokens via env reload / redeploy
+MVP target is a single-host **Docker Compose** stack. There is no Helm chart yet. A short checklist
+also lives in the root [`README.md`](../README.md#deploy-devops).
+
+### Topology
+
+| Unit | Image / build | Notes |
+|------|---------------|--------|
+| `postgres` | `postgres:16` | Named volume `pgdata`; change default password before internet exposure |
+| `migrate` | `migrate/migrate:v4.17.1` | Runs `up` once per `compose up`; exits 0 before API/worker start |
+| `api` | `deploy/Dockerfile.api` | Port 8080; loads root `.env` |
+| `worker` | `deploy/Dockerfile.worker` | Same env + DB as API; no public port |
+| `web` | `deploy/Dockerfile.web` | Port 3000; nginx proxies `/api` and `/auth` to `api:8080` |
+
+Do **not** start the `alert-simulator` service in production (`--profile dev` only).
+
+### Pre-flight
+
+1. Provision TLS at a reverse proxy (nginx, Caddy, cloud LB). Point DNS at the proxy; set
+   `PUBLIC_URL` to that HTTPS origin.
+2. Create `.env` from [`deploy/.env.example`](../deploy/.env.example) (or equivalent secrets in
+   your platform). Required for a usable install:
+   - `SESSION_SECRET`, `WEBHOOK_SECRET` — long random values
+   - `PUBLIC_URL` — public origin (no trailing path)
+   - At least one OIDC client set (`GOOGLE_*`, `SLACK_*`, and/or `EXPRESS_*`) with redirect URLs
+     matching `{PUBLIC_URL}/auth/<provider>/callback`
+3. Confirm firewall: 443 (users + IdP callbacks + optional webhook), and optionally restrict
+   direct 5432/8080/3000 to the proxy/admin network only.
+4. Confirm `DEV_AUTH_ENABLED=false` (or unset) and that `SEED_DEV` is not set.
+
+Compose still injects `DATABASE_URL=postgres://aegis:aegis@postgres:5432/aegis?sslmode=disable`
+for in-network app containers. Change the Postgres password via image env + matching URL if the
+DB port is reachable outside the Compose network.
+
+### Deploy / upgrade
+
+```bash
+# On the target host, repo checked out at the release tag
+cp deploy/.env.example .env   # first install only; then edit secrets
+# edit .env
+
+make up-detached              # build, migrate, start detached
+# or: docker compose -f deploy/docker-compose.yml up --build -d
+
+make ps
+curl -fsS https://<public-host>/healthz   # via proxy, or :8080 on the host
+curl -fsS http://127.0.0.1:8080/readyz
+```
+
+**Upgrade procedure:** take a Postgres backup → `git fetch && git checkout <tag>` →
+`make up-detached` (rebuilds images and runs pending migrations) → check `/readyz` and a signed-in
+smoke test (login, open dashboard, send webhook with `WEBHOOK_SECRET`).
+
+**Manual migration** (emergency / non-Compose):
+
+```bash
+export DATABASE_URL=postgres://aegis:<password>@<host>:5432/aegis?sslmode=require
+make migrate-up               # requires golang-migrate CLI
+# one-step reverse if needed (plan restore first):
+make migrate-down
+```
+
+### Operations checklist
+
+| Concern | Guidance |
+|---------|----------|
+| Liveness | `GET /healthz` on API |
+| Readiness | `GET /readyz` (fails if DB unreachable) |
+| Metrics | `GET /metrics` (Prometheus text) |
+| Logs | `make logs` or `docker compose -f deploy/docker-compose.yml logs -f api worker` |
+| Backups | Snapshot / `pg_dump` the `pgdata` volume on a schedule; test restore |
+| Secret rotation | Update `.env` (or secret store), recreate `api`/`worker` containers |
+| Connector secrets | Prefer admin UI `/integrations` + workspace slots after go-live; env vars remain optional bootstrap |
+| Alert intake | External systems POST to `{PUBLIC_URL}/api/v1/alerts/webhook` with configured secret |
+| Hardening | TLS at proxy; do not expose Postgres publicly; disable dev auth and the `dev` Compose profile |
+
+### Rollback
+
+1. Redeploy the previous known-good git tag / images with `make up-detached`.
+2. If a new migration already applied and the old code cannot run against the new schema, restore
+   Postgres from the pre-upgrade backup, then redeploy the old tag. Use `migrate-down` only when
+   you understand the specific down SQL (provided next to each `*.up.sql`).
 
 ## References
 
 - Security: [`09-security.md`](./09-security.md)
 - Architecture: [`02-architecture.md`](./02-architecture.md)
+- Root README DevOps section: [`../README.md`](../README.md#deploy-devops)

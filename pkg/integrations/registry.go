@@ -50,6 +50,7 @@ type IntegrationRow struct {
 	Name    string
 	Config  []byte
 	Enabled bool
+	Mode    *string
 }
 
 type Loader interface {

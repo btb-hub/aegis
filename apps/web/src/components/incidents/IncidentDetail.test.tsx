@@ -50,6 +50,48 @@ describe('IncidentDetail', () => {
     expect(screen.getByText('Created')).toBeInTheDocument();
   });
 
+  it('shows actionable messages for skipped integrations', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <IncidentDetail
+          incident={{
+            ...incident,
+            timeline: [
+              {
+                id: 'e2',
+                kind: 'integration_skipped',
+                payload: {
+                  message:
+                    'Slack skipped: no global connector. Configure global Slack or set the workspace slot to Custom.',
+                },
+                createdAt: '2026-06-26T10:01:00Z',
+              },
+              {
+                id: 'e3',
+                kind: 'integration_skipped',
+                payload: {},
+                createdAt: '2026-06-26T10:02:00Z',
+              },
+            ],
+          }}
+          teams={teams}
+          canBounce={false}
+          onAcknowledge={vi.fn()}
+          onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
+        />
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByText('Integration skipped')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Slack skipped: no global connector. Configure global Slack or set the workspace slot to Custom.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('calls acknowledge handler', () => {
     const onAcknowledge = vi.fn();
     render(

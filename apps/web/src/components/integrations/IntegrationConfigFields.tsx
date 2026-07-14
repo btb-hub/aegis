@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Input } from '../ui/Input';
 
 export type IntegrationKind = 'jira' | 'slack' | 'express';
+export type IntegrationMode = 'inherit' | 'custom';
 
 export type IntegrationConfigForm = {
   base_url: string;
@@ -131,13 +132,15 @@ type Props = {
   onChange: (next: IntegrationConfigForm) => void;
   workspaceOnly: boolean;
   editing: boolean;
+  mode?: IntegrationMode;
 };
 
-export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, editing }: Props) {
+export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, editing, mode }: Props) {
   const { t } = useTranslation();
   const secretHint = editing ? t('integrations.secret_keep_hint') : undefined;
+  const inheritMode = mode === 'inherit' || (mode === undefined && workspaceOnly);
 
-  if (workspaceOnly) {
+  if (inheritMode && kind === 'jira') {
     return (
       <Input
         label={t('setup.integrations.jira.project_key')}
@@ -145,6 +148,9 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
         onChange={(value) => onChange({ ...form, project_key: value })}
       />
     );
+  }
+  if (inheritMode) {
+    return null;
   }
 
   if (kind === 'jira') {

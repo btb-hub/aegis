@@ -208,12 +208,20 @@ func (m *phase2HandlerRepo) GetIntegrationByKind(_ context.Context, kind string)
 	}
 	return db.Integration{}, pgx.ErrNoRows
 }
-func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error) {
-	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+func (m *phase2HandlerRepo) GetWorkspaceIntegration(_ context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error) {
+	for _, item := range m.integrations {
+		if item.Kind == kind && item.WorkspaceID != nil && *item.WorkspaceID == workspaceID {
+			return item, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
+}
+func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (db.Integration, error) {
+	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, Mode: mode, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	m.integrations[item.ID] = item
 	return item, nil
 }
-func (m *phase2HandlerRepo) UpdateIntegration(_ context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool) (db.Integration, error) {
+func (m *phase2HandlerRepo) UpdateIntegration(_ context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool, mode *string) (db.Integration, error) {
 	item, ok := m.integrations[id]
 	if !ok {
 		return db.Integration{}, pgx.ErrNoRows
@@ -221,6 +229,7 @@ func (m *phase2HandlerRepo) UpdateIntegration(_ context.Context, id uuid.UUID, n
 	item.Name = name
 	item.Config = config
 	item.Enabled = enabled
+	item.Mode = mode
 	item.UpdatedAt = time.Now()
 	m.integrations[id] = item
 	return item, nil
@@ -448,6 +457,29 @@ func TestIntegrationsPatchKeepsSecrets(t *testing.T) {
 	require.Equal(t, "Jira Prod", updated.Name)
 }
 
+func TestIntegrationsPatchAcceptsWorkspaceMode(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	id := uuid.New()
+	workspaceID := uuid.New()
+	inherit := "inherit"
+	repo.integrations[id] = db.Integration{
+		ID: id, Kind: "slack", Name: "Slack", Enabled: true, WorkspaceID: &workspaceID, Mode: &inherit,
+		Config: []byte(`{}`),
+	}
+	body := bytes.NewBufferString(`{"mode":"custom","config":{"bot_token":"token","signing_secret":"secret"}}`)
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/integrations/"+id.String(), body)
+	req.AddCookie(admin)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.NotNil(t, repo.integrations[id].Mode)
+	require.Equal(t, "custom", *repo.integrations[id].Mode)
+}
+
 func TestIntegrationsGet(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
@@ -465,6 +497,32 @@ func TestIntegrationsGet(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	cfg := body["config"].(map[string]any)
 	require.Equal(t, "***", cfg["bot_token"])
+}
+
+func TestIntegrationsGetWorkspaceSlotStatusUsesGlobal(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	workspaceID := uuid.New()
+	slotID := uuid.New()
+	inherit := "inherit"
+	repo.integrations[uuid.New()] = db.Integration{
+		ID: uuid.New(), Kind: "jira", Name: "Jira", Enabled: true,
+		Config: []byte(`{"base_url":"https://jira.example.com","email":"ops@example.com","api_token":"token","project_key":"GLOBAL"}`),
+	}
+	repo.integrations[slotID] = db.Integration{
+		ID: slotID, Kind: "jira", Name: "Jira", Enabled: true, WorkspaceID: &workspaceID, Mode: &inherit,
+		Config: []byte(`{"project_key":"OPS"}`),
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/integrations/"+slotID.String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "using_global", body["slot_status"])
 }
 
 func TestIntegrationsGetNotFound(t *testing.T) {

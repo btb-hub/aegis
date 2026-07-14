@@ -45,7 +45,7 @@ function renderPage() {
 }
 
 function clickTestConnection(integrationName: string) {
-  const row = screen.getByText(integrationName).closest('tr');
+  const row = screen.getByText(integrationName, { selector: 'span' }).closest('tr');
   expect(row).not.toBeNull();
   fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Test connection' }));
 }
@@ -129,9 +129,9 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
-    expect(screen.getByText('Disabled')).toBeInTheDocument();
+    expect(screen.getByText('Disabled', { selector: 'td' })).toBeInTheDocument();
     expect(screen.getByText('Add credentials to finish setup')).toBeInTheDocument();
 
     clickTestConnection('Slack');
@@ -207,7 +207,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
     clickTestConnection('Slack');
 
@@ -232,7 +232,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
     clickTestConnection('Slack');
 
@@ -262,7 +262,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
     clickTestConnection('Slack');
 
@@ -292,7 +292,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
     clickTestConnection('Slack');
 
@@ -368,7 +368,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Slack Bot' } });
@@ -407,7 +407,7 @@ describe('IntegrationsPage', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Slack')).toBeInTheDocument();
+      expect(screen.getByText('Slack', { selector: 'span' })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: 'Disable' }));
 
@@ -424,12 +424,72 @@ describe('IntegrationsPage', () => {
     });
   });
 
-  it('shows workspace scope badge and saves workspace integration', async () => {
+  it('filters the inventory by scope, kind, and status', async () => {
     const workspaceIntegration = {
       ...jiraIntegration,
+      id: 'int-workspace-jira',
       workspace_id: '00000000-0000-0000-0000-000000000001',
       config_complete: true,
+      enabled: true,
+      mode: 'inherit',
+      slot_status: 'using_global',
       config: { project_key: 'OPS' },
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Default', slug: 'default', description: '' }],
+        });
+      }
+      if (url === '/api/v1/integrations') {
+        return jsonResponse({ items: [slackIntegration, jiraIntegration, workspaceIntegration] });
+      }
+      return jsonResponse({ items: [] });
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Workspace · Default')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Scope filter'), { target: { value: 'workspace' } });
+    expect(screen.getByText('Workspace · Default')).toBeInTheDocument();
+    expect(screen.queryByText('Slack', { selector: 'span' })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Kind filter'), { target: { value: 'slack' } });
+    expect(screen.getByText('No integrations match these filters.')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Kind filter'), { target: { value: 'all' } });
+    fireEvent.change(screen.getByLabelText('Status filter'), { target: { value: 'using_global' } });
+    expect(screen.getByText('Workspace · Default')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Status filter'), { target: { value: 'disabled' } });
+    expect(screen.getByText('No integrations match these filters.')).toBeInTheDocument();
+  });
+
+  it('configures a workspace slot in inherit mode with PATCH', async () => {
+    const workspaceIntegration = {
+      ...jiraIntegration,
+      id: 'int-workspace-jira',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+      config_complete: true,
+      enabled: true,
+      mode: 'inherit',
+      slot_status: 'using_global',
+      config: { project_key: 'OLD' },
     };
 
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -449,13 +509,13 @@ describe('IntegrationsPage', () => {
           items: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Default', slug: 'default', description: '' }],
         });
       }
-      if (url === '/api/v1/integrations' && init?.method === 'POST') {
-        return jsonResponse(workspaceIntegration, 201);
+      if (url === '/api/v1/integrations/int-workspace-jira' && init?.method === 'PATCH') {
+        return jsonResponse({ ...workspaceIntegration, config: { project_key: 'OPS' } });
       }
       if (url === '/api/v1/integrations') {
-        return jsonResponse({ items: [slackIntegration, workspaceIntegration] });
+        return jsonResponse({ items: [workspaceIntegration] });
       }
-      return jsonResponse({ items: [] });
+      return jsonResponse({}, 404);
     });
 
     renderPage();
@@ -463,14 +523,26 @@ describe('IntegrationsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Workspace · Default')).toBeInTheDocument();
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add integration' }));
-    fireEvent.change(screen.getByLabelText('Scope'), { target: { value: '00000000-0000-0000-0000-000000000001' } });
+    expect(screen.getByLabelText('Mode')).toHaveValue('inherit');
+    expect(screen.queryByLabelText('Jira base URL')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
 
     await waitFor(() => {
       expect(screen.getByText('Integration saved')).toBeInTheDocument();
+    });
+
+    const patchCall = vi.mocked(fetch).mock.calls.find((call) => {
+      const [url, init] = call;
+      return String(url) === '/api/v1/integrations/int-workspace-jira' && init?.method === 'PATCH';
+    });
+    expect(patchCall).toBeTruthy();
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({
+      mode: 'inherit',
+      enabled: true,
+      config: { project_key: 'OPS' },
     });
   });
 });

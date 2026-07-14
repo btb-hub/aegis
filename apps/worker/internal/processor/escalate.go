@@ -8,7 +8,6 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	"github.com/aegis/aegis/pkg/integrations/loader"
 	"github.com/google/uuid"
 )
 
@@ -18,7 +17,8 @@ type EscalateStore interface {
 	AppendTimelineEvent(ctx context.Context, incidentID uuid.UUID, kind string, actorID *uuid.UUID, payload []byte) error
 	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
 	CreateNotification(ctx context.Context, incidentID, integrationID uuid.UUID, status, externalRef string) (db.Notification, error)
-	ListEnabledIntegrations(ctx context.Context) ([]integrations.IntegrationRow, error)
+	GetTeamWorkspaceID(ctx context.Context, teamID uuid.UUID) (uuid.UUID, error)
+	GetWorkspaceIntegration(ctx context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error)
 }
 
 type EscalateProcessor struct {
@@ -61,9 +61,20 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		return err
 	}
 
-	reg, err := p.loadRegistry(ctx)
+	reg, notices, err := loadWorkspaceRegistry(ctx, p.store, incident.TeamID, p.publicURL)
 	if err != nil {
 		return err
+	}
+	for _, notice := range notices {
+		if notice.Kind != "slack" && notice.Kind != "express" {
+			continue
+		}
+		eventPayload, _ := json.Marshal(map[string]string{
+			"kind":    notice.Kind,
+			"reason":  notice.Reason,
+			"message": skipMessage(notice),
+		})
+		_ = p.store.AppendTimelineEvent(ctx, incident.ID, "integration_skipped", nil, eventPayload)
 	}
 
 	ref := integrations.IncidentRef{
@@ -85,7 +96,7 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
-	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
+	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
 		messageRef, err := provider.SendPage(ctx, ref, recipient)
 		status := "sent"
 		externalRef := messageRef
@@ -97,21 +108,10 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 			eventPayload, _ := json.Marshal(map[string]any{"provider": provider.Kind(), "ref": messageRef, "escalation": true})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "escalated", nil, eventPayload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})
 	return nil
-}
-
-func (p *EscalateProcessor) loadRegistry(ctx context.Context) (*integrations.Registry, error) {
-	rows, err := p.store.ListEnabledIntegrations(ctx)
-	if err != nil {
-		return nil, err
-	}
-	reg := integrations.NewRegistry()
-	loader.RegisterFromRows(reg, rows, p.publicURL)
-	return reg, nil
 }

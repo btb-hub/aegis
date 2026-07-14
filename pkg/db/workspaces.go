@@ -107,6 +107,44 @@ RETURNING id, name, slug, description, created_at, updated_at`
 	return item, err
 }
 
+func (s *Store) CreateWorkspaceWithSlots(ctx context.Context, name, slug, description string) (Workspace, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Workspace{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	const createWorkspaceQuery = `
+INSERT INTO workspaces (name, slug, description)
+VALUES ($1, $2, $3)
+RETURNING id, name, slug, description, created_at, updated_at`
+	var item Workspace
+	err = tx.QueryRow(ctx, createWorkspaceQuery, name, slug, description).Scan(
+		&item.ID, &item.Name, &item.Slug, &item.Description, &item.CreatedAt, &item.UpdatedAt,
+	)
+	if err != nil {
+		return Workspace{}, err
+	}
+
+	const createSlotQuery = `
+INSERT INTO integrations (kind, name, config, enabled, workspace_id, mode)
+SELECT $1, $1, '{}'::jsonb, true, $2, 'inherit'
+WHERE NOT EXISTS (
+	SELECT 1
+	FROM integrations
+	WHERE workspace_id = $2 AND kind = $1
+)`
+	for _, kind := range []string{"jira", "slack", "express"} {
+		if _, err := tx.Exec(ctx, createSlotQuery, kind, item.ID); err != nil {
+			return Workspace{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Workspace{}, err
+	}
+	return item, nil
+}
+
 func (s *Store) UpdateWorkspace(ctx context.Context, id uuid.UUID, name, slug, description string) (Workspace, error) {
 	const q = `
 UPDATE workspaces

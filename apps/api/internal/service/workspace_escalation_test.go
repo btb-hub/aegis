@@ -14,7 +14,10 @@ import (
 )
 
 type workspaceRepoMock struct {
-	items map[uuid.UUID]db.Workspace
+	items               map[uuid.UUID]db.Workspace
+	slotsProvisionedFor []uuid.UUID
+	atomicCreateCalls   int
+	bareCreateCalls     int
 }
 
 func (m *workspaceRepoMock) ListWorkspaces(ctx context.Context) ([]db.Workspace, error) {
@@ -34,9 +37,22 @@ func (m *workspaceRepoMock) GetWorkspace(_ context.Context, id uuid.UUID) (db.Wo
 }
 
 func (m *workspaceRepoMock) CreateWorkspace(_ context.Context, name, slug, description string) (db.Workspace, error) {
+	m.bareCreateCalls++
 	item := db.Workspace{ID: uuid.New(), Name: name, Slug: slug, Description: description}
 	m.items[item.ID] = item
 	return item, nil
+}
+
+func (m *workspaceRepoMock) CreateWorkspaceWithSlots(_ context.Context, name, slug, description string) (db.Workspace, error) {
+	m.atomicCreateCalls++
+	item := db.Workspace{ID: uuid.New(), Name: name, Slug: slug, Description: description}
+	m.items[item.ID] = item
+	return item, nil
+}
+
+func (m *workspaceRepoMock) EnsureWorkspaceSlots(_ context.Context, workspaceID uuid.UUID) error {
+	m.slotsProvisionedFor = append(m.slotsProvisionedFor, workspaceID)
+	return nil
 }
 
 func (m *workspaceRepoMock) UpdateWorkspace(_ context.Context, id uuid.UUID, name, slug, description string) (db.Workspace, error) {
@@ -80,6 +96,9 @@ func TestWorkspaceServiceCreate(t *testing.T) {
 	item, err := svc.Create(context.Background(), "Platform", "platform", "Core")
 	require.NoError(t, err)
 	require.Equal(t, "platform", item.Slug)
+	require.Equal(t, 1, repo.atomicCreateCalls)
+	require.Zero(t, repo.bareCreateCalls)
+	require.Empty(t, repo.slotsProvisionedFor)
 }
 
 func TestWorkspaceServiceCreateRequiresName(t *testing.T) {
@@ -534,6 +553,21 @@ func TestWorkspaceDeleteSuccess(t *testing.T) {
 	err := svc.Delete(context.Background(), wsID)
 	require.NoError(t, err)
 	_, err = svc.Get(context.Background(), wsID)
+	require.Error(t, err)
+}
+
+func TestWorkspaceDeleteSucceedsWithOnlyConnectorSlots(t *testing.T) {
+	repo := &workspaceRepoMockWithUsage{
+		workspaceRepoMock: workspaceRepoMock{items: map[uuid.UUID]db.Workspace{}},
+		usage:             db.WorkspaceUsage{IntegrationCount: 3},
+	}
+	svc := NewWorkspaceService(repo)
+
+	workspace, err := svc.Create(context.Background(), "Platform", "platform", "Core")
+	require.NoError(t, err)
+	require.NoError(t, svc.Delete(context.Background(), workspace.ID))
+
+	_, err = svc.Get(context.Background(), workspace.ID)
 	require.Error(t, err)
 }
 
