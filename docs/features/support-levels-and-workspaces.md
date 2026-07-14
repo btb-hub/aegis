@@ -51,7 +51,8 @@ workspace is a demo shell on top of a real backend.
 - **Timeline filtering by role or tier** — explicitly rejected; see
   [Timeline visibility policy](#timeline-visibility-policy-req-l2l3-03-unchanged).
 - Private / tier-restricted comments on timeline (future epic).
-- Duplicate integration credentials per workspace (workspace rows override project/channel only).
+- More than one connector of the same kind per workspace; each workspace has one Jira, Slack, and
+  eXpress slot.
 
 ---
 
@@ -187,16 +188,25 @@ Constraints (application-level):
 
 | Column | Type | Notes |
 |--------|------|-------|
-| workspace_id | uuid FK nullable | NULL = global default; set for workspace-specific overrides |
+| workspace_id | uuid FK nullable | NULL = global connector; set for a workspace slot |
+| mode | text nullable | Workspace slots use `inherit` or `custom`; global rows use NULL |
 
-**Resolution order** when worker needs an integration for an incident:
+Each workspace has exactly one Jira, Slack, and eXpress slot. Workspace creation inserts all three
+as enabled `inherit` slots in the same transaction; the integration slot migration backfills
+existing workspaces.
+
+**Resolution order** when the worker needs an integration for an incident:
 
 1. Look up incident → owning team → workspace.
-2. Use enabled integration where `kind = jira` AND `workspace_id = <workspace>`.
-3. If none, fall back to global integration (`workspace_id IS NULL`).
+2. Load the workspace slot for the requested kind; a missing or disabled slot is unavailable.
+3. In `custom` mode, require and use the complete workspace provider config.
+4. In `inherit` mode, require an enabled global connector and merge its config with supported
+   non-secret overlays (Jira `project_key`; Slack `channel_id`).
+5. If resolution is unavailable, skip that provider, append an `integration_skipped` timeline
+   event, and continue the incident lifecycle and other provider deliveries.
 
-Workspace Jira row stores at minimum `project_key`; inherits `base_url`, `email`, `api_token` from
-global Jira config. Optional workspace Slack row stores `channel_id` override for paging.
+Alert notification, escalation, handoff, and Test connection use the same resolver. Switching a
+workspace slot from `custom` to `inherit` removes workspace secret fields.
 
 ### Relationships
 
@@ -226,7 +236,8 @@ UI shows: "Owned by Platform L2 · Assigned to \<user\> (Platform L3)" after han
 
 1. Create workspace **Platform** (or use Default during migration).
 2. Configure global Jira integration (credentials) if not already done.
-3. Add workspace Jira override with `project_key = OPS`.
+3. Configure the provisioned workspace Jira slot as Inherit with `project_key = OPS`, or Custom with
+   complete workspace credentials.
 4. Create teams: **Platform NOC** (`noc`), **Platform L1** (`l1`), **Platform L2** (`l2`), **Platform L3** (`l3`) — minimum viable: L2 + L3 only.
 5. Add escalation paths: NOC→L1, L1→L2, L2→L3 (configure only the pairs you use).
 6. Add routing rules via UI: e.g. `project=platform` → Platform L2 (or NOC if alerts land there first).
@@ -316,11 +327,14 @@ Handoff service change: reject `to_team_id` not in allowed paths with `400` + st
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/integrations` | Include `workspace_id` and scope in response |
-| POST | `/integrations` | Accept optional `workspace_id`; workspace Jira requires `project_key` |
-| PATCH | `/integrations/{id}` | Update workspace override config |
+| GET | `/integrations` | Include `workspace_id`; workspace rows include `mode` and effective `slot_status` |
+| POST | `/integrations` | Upsert global connectors only; workspace slots are provisioned automatically |
+| PATCH | `/integrations/{id}` | Update a workspace slot's `mode`, `enabled`, and config |
+| POST | `/integrations/{id}/test` | Resolve the effective config before testing; return structured resolve errors |
 
-Worker change: resolve integration by incident workspace before global fallback.
+The workspace detail page and `/integrations` inventory both show the provisioned slots, inheritance
+mode, and effective status. The worker resolves integrations by incident workspace and soft-skips
+unavailable providers without failing incident processing.
 
 ### Routing rules (UI consumes existing API)
 
