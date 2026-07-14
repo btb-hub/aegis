@@ -190,8 +190,11 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
       </div>
       {loadError ? <Banner variant="warning">{t('workspaces.integrations.load_error')}</Banner> : null}
       {loading ? (
-        <p className="text-sm text-zinc-600">{t('integrations.loading')}</p>
-      ) : (
+        <p className="text-sm text-zinc-500" aria-live="polite">
+          {t('integrations.loading')}
+        </p>
+      ) : null}
+      <div aria-busy={loading}>
         <DataTable
           columns={[
             {
@@ -228,7 +231,7 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
                     render: (slot: IntegrationSlot) => (
                       <Button
                         variant="secondary"
-                        disabled={!slot.id}
+                        disabled={!slot.id || loading}
                         onClick={() => openEditor(slot)}
                       >
                         {t('workspaces.integrations.configure')}
@@ -242,7 +245,7 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
           rowKey={(slot) => slot.kind}
           emptyMessage=""
         />
-      )}
+      </div>
 
       {editor ? (
         <Modal

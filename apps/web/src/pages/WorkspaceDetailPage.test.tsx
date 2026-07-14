@@ -699,6 +699,80 @@ describe('WorkspaceDetailPage', () => {
     expect(screen.queryByRole('button', { name: 'Add existing teams' })).not.toBeInTheDocument();
   });
 
+  it('shows all three connector names while integrations are loading', async () => {
+    let resolveIntegrations: (value: Response) => void = () => undefined;
+    const integrationsPromise = new Promise<Response>((resolve) => {
+      resolveIntegrations = resolve;
+    });
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [routingRule] });
+      }
+      if (url === '/api/v1/integrations') {
+        return integrationsPromise;
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
+    });
+    expect(screen.getByText('Jira')).toBeInTheDocument();
+    expect(screen.getByText('Slack')).toBeInTheDocument();
+    expect(screen.getByText('eXpress')).toBeInTheDocument();
+    expect(screen.getByText('Loading integrations')).toBeInTheDocument();
+    expect(screen.getAllByText('Inherit')).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Configure' })).toHaveLength(3);
+    expect(screen.getAllByRole('button', { name: 'Configure' })[0]).toBeDisabled();
+
+    resolveIntegrations(
+      jsonResponse({
+        items: [
+          {
+            id: 'jira-slot',
+            workspace_id: workspaceId,
+            kind: 'jira',
+            name: 'Jira',
+            enabled: true,
+            mode: 'inherit',
+            slot_status: 'using_global',
+            config: { project_key: 'OPS' },
+          },
+        ],
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading integrations')).not.toBeInTheDocument();
+    });
+    expect(screen.getAllByRole('button', { name: 'Configure' })[0]).not.toBeDisabled();
+  });
+
   it('shows all workspace integration slots and only the Jira overlay in inherit mode', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
