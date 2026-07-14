@@ -14,7 +14,8 @@ import (
 )
 
 type workspaceRepoMock struct {
-	items map[uuid.UUID]db.Workspace
+	items               map[uuid.UUID]db.Workspace
+	slotsProvisionedFor []uuid.UUID
 }
 
 func (m *workspaceRepoMock) ListWorkspaces(ctx context.Context) ([]db.Workspace, error) {
@@ -37,6 +38,11 @@ func (m *workspaceRepoMock) CreateWorkspace(_ context.Context, name, slug, descr
 	item := db.Workspace{ID: uuid.New(), Name: name, Slug: slug, Description: description}
 	m.items[item.ID] = item
 	return item, nil
+}
+
+func (m *workspaceRepoMock) EnsureWorkspaceSlots(_ context.Context, workspaceID uuid.UUID) error {
+	m.slotsProvisionedFor = append(m.slotsProvisionedFor, workspaceID)
+	return nil
 }
 
 func (m *workspaceRepoMock) UpdateWorkspace(_ context.Context, id uuid.UUID, name, slug, description string) (db.Workspace, error) {
@@ -80,6 +86,7 @@ func TestWorkspaceServiceCreate(t *testing.T) {
 	item, err := svc.Create(context.Background(), "Platform", "platform", "Core")
 	require.NoError(t, err)
 	require.Equal(t, "platform", item.Slug)
+	require.Equal(t, []uuid.UUID{item.ID}, repo.slotsProvisionedFor)
 }
 
 func TestWorkspaceServiceCreateRequiresName(t *testing.T) {

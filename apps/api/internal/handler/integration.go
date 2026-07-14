@@ -43,8 +43,14 @@ func (h *IntegrationHandler) listIntegrations(c *gin.Context) {
 		return
 	}
 	out := make([]map[string]any, 0, len(items))
+	globalEnabled := make(map[string]bool)
 	for _, item := range items {
-		out = append(out, service.IntegrationJSON(item))
+		if item.WorkspaceID == nil && item.Enabled {
+			globalEnabled[item.Kind] = true
+		}
+	}
+	for _, item := range items {
+		out = append(out, service.IntegrationJSON(item, globalEnabled[item.Kind]))
 	}
 	WriteJSON(c, http.StatusOK, gin.H{"items": out})
 }
@@ -60,7 +66,12 @@ func (h *IntegrationHandler) getIntegration(c *gin.Context) {
 		WriteError(c, err)
 		return
 	}
-	WriteJSON(c, http.StatusOK, service.IntegrationJSON(item))
+	out, err := h.integrations.JSON(c.Request.Context(), item)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, out)
 }
 
 func (h *IntegrationHandler) upsertIntegration(c *gin.Context) {
@@ -102,6 +113,7 @@ func (h *IntegrationHandler) patchIntegration(c *gin.Context) {
 		Name    *string          `json:"name"`
 		Enabled *bool            `json:"enabled"`
 		Config  *json.RawMessage `json:"config"`
+		Mode    *string          `json:"mode"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
@@ -111,12 +123,17 @@ func (h *IntegrationHandler) patchIntegration(c *gin.Context) {
 	if body.Config != nil {
 		config = *body.Config
 	}
-	item, err := h.integrations.Update(c.Request.Context(), id, body.Name, body.Enabled, config)
+	item, err := h.integrations.Update(c.Request.Context(), id, body.Name, body.Enabled, config, body.Mode)
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	WriteJSON(c, http.StatusOK, service.IntegrationJSON(item))
+	out, err := h.integrations.JSON(c.Request.Context(), item)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, out)
 }
 
 func (h *IntegrationHandler) deleteIntegration(c *gin.Context) {

@@ -18,6 +18,7 @@ type WorkspaceRepository interface {
 	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
 	GetWorkspaceUsage(ctx context.Context, id uuid.UUID) (db.WorkspaceUsage, error)
 	CreateWorkspace(ctx context.Context, name, slug, description string) (db.Workspace, error)
+	EnsureWorkspaceSlots(ctx context.Context, workspaceID uuid.UUID) error
 	UpdateWorkspace(ctx context.Context, id uuid.UUID, name, slug, description string) (db.Workspace, error)
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
 }
@@ -65,6 +66,9 @@ func (s *WorkspaceService) Create(ctx context.Context, name, slug, description s
 	item, err := s.repo.CreateWorkspace(ctx, name, slug, strings.TrimSpace(description))
 	if err != nil {
 		return db.Workspace{}, mapWorkspaceError(err)
+	}
+	if err := s.repo.EnsureWorkspaceSlots(ctx, item.ID); err != nil {
+		return db.Workspace{}, err
 	}
 	return item, nil
 }

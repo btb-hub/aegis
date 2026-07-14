@@ -145,20 +145,21 @@ func TestIntegrationServiceUpsertSuccess(t *testing.T) {
 	require.Nil(t, repo.lastUpsertMode)
 }
 
-func TestIntegrationServiceUpsertWorkspaceUsesInheritMode(t *testing.T) {
+func TestIntegrationServiceUpsertRejectsWorkspaceSlots(t *testing.T) {
 	repo := &integrationMockRepo{}
 	svc := NewIntegrationService(repo, "http://localhost:8080")
 	workspaceID := uuid.New()
 
-	item, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
+	_, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
 
-	require.NoError(t, err)
-	require.NotNil(t, repo.lastUpsertMode)
-	require.Equal(t, "inherit", *repo.lastUpsertMode)
-	require.Equal(t, "inherit", *item.Mode)
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "CONFLICT", appErr.Code)
+	require.Nil(t, repo.lastUpsertMode)
 }
 
-func TestIntegrationServiceUpsertWorkspacePreservesExistingMode(t *testing.T) {
+func TestIntegrationServiceUpsertRejectsExistingWorkspaceSlot(t *testing.T) {
 	workspaceID := uuid.New()
 	custom := "custom"
 	repo := &integrationMockRepo{items: []db.Integration{{
@@ -167,12 +168,10 @@ func TestIntegrationServiceUpsertWorkspacePreservesExistingMode(t *testing.T) {
 	}}}
 	svc := NewIntegrationService(repo, "http://localhost:8080")
 
-	item, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
+	_, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
 
-	require.NoError(t, err)
-	require.NotNil(t, repo.lastUpsertMode)
-	require.Equal(t, "custom", *repo.lastUpsertMode)
-	require.Equal(t, "custom", *item.Mode)
+	require.Error(t, err)
+	require.Nil(t, repo.lastUpsertMode)
 }
 
 func TestIntegrationServiceUpsertGlobalRequiresCredentials(t *testing.T) {
@@ -219,13 +218,75 @@ func TestIntegrationServiceUpdateKeepsSecrets(t *testing.T) {
 	svc := NewIntegrationService(repo, "http://localhost:8080")
 	name := "Jira Prod"
 	enabled := false
-	item, err := svc.Update(context.Background(), id, &name, &enabled, json.RawMessage(`{"base_url":"https://jira.example.com","email":"ops@example.com","api_token":"","project_key":"OPS"}`))
+	item, err := svc.Update(context.Background(), id, &name, &enabled, json.RawMessage(`{"base_url":"https://jira.example.com","email":"ops@example.com","api_token":"","project_key":"OPS"}`), nil)
 	require.NoError(t, err)
 	require.Equal(t, "Jira Prod", item.Name)
 	require.False(t, item.Enabled)
 	var cfg map[string]any
 	require.NoError(t, json.Unmarshal(item.Config, &cfg))
 	require.Equal(t, "keep-me", cfg["api_token"])
+}
+
+func TestUpdateSlotInheritStripsSecrets(t *testing.T) {
+	workspaceID := uuid.New()
+	id := uuid.New()
+	custom := "custom"
+	inherit := "inherit"
+	repo := &integrationMockRepo{items: []db.Integration{{
+		ID: id, Kind: "jira", Name: "Workspace Jira", Enabled: true, WorkspaceID: &workspaceID, Mode: &custom,
+		Config: []byte(`{"base_url":"https://jira.example.com","email":"ops@example.com","api_token":"secret","project_key":"OPS"}`),
+	}}}
+	svc := NewIntegrationService(repo, "http://localhost:8080")
+
+	item, err := svc.Update(context.Background(), id, nil, nil, nil, &inherit)
+
+	require.NoError(t, err)
+	require.Equal(t, "inherit", *item.Mode)
+	var config map[string]any
+	require.NoError(t, json.Unmarshal(item.Config, &config))
+	require.Equal(t, "OPS", config["project_key"])
+	require.NotContains(t, config, "api_token")
+	require.NotContains(t, config, "base_url")
+	require.NotContains(t, config, "email")
+}
+
+func TestUpdateSlotCustomRequiresAllSecrets(t *testing.T) {
+	workspaceID := uuid.New()
+	id := uuid.New()
+	inherit := "inherit"
+	custom := "custom"
+	repo := &integrationMockRepo{items: []db.Integration{{
+		ID: id, Kind: "jira", Name: "Workspace Jira", Enabled: true, WorkspaceID: &workspaceID, Mode: &inherit,
+		Config: []byte(`{"project_key":"OPS"}`),
+	}}}
+	svc := NewIntegrationService(repo, "http://localhost:8080")
+
+	_, err := svc.Update(context.Background(), id, nil, nil, nil, &custom)
+
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+	require.Contains(t, appErr.Message, "jira config incomplete")
+}
+
+func TestIntegrationJSONWorkspaceSlotStatus(t *testing.T) {
+	workspaceID := uuid.New()
+	inherit := "inherit"
+	custom := "custom"
+
+	usingGlobal := IntegrationJSON(db.Integration{
+		ID: uuid.New(), Kind: "jira", Name: "Jira", Config: []byte(`{}`), Enabled: true,
+		WorkspaceID: &workspaceID, Mode: &inherit,
+	}, true)
+	require.Equal(t, "inherit", usingGlobal["mode"])
+	require.Equal(t, "using_global", usingGlobal["slot_status"])
+
+	needsSetup := IntegrationJSON(db.Integration{
+		ID: uuid.New(), Kind: "slack", Name: "Slack", Config: []byte(`{}`), Enabled: true,
+		WorkspaceID: &workspaceID, Mode: &custom,
+	}, false)
+	require.Equal(t, "needs_setup", needsSetup["slot_status"])
 }
 
 func TestIntegrationJSONRedactsSecrets(t *testing.T) {
@@ -291,14 +352,14 @@ func TestIntegrationServiceUpdateValidation(t *testing.T) {
 	}}}
 	svc := NewIntegrationService(repo, "http://localhost:8080")
 	empty := "   "
-	_, err := svc.Update(context.Background(), id, &empty, nil, nil)
+	_, err := svc.Update(context.Background(), id, &empty, nil, nil, nil)
 	require.Error(t, err)
 
-	_, err = svc.Update(context.Background(), id, nil, nil, json.RawMessage(`{`))
+	_, err = svc.Update(context.Background(), id, nil, nil, json.RawMessage(`{`), nil)
 	require.Error(t, err)
 
 	enabled := true
-	_, err = svc.Update(context.Background(), uuid.New(), nil, &enabled, nil)
+	_, err = svc.Update(context.Background(), uuid.New(), nil, &enabled, nil, nil)
 	require.Error(t, err)
 }
 
@@ -361,7 +422,7 @@ func TestIntegrationServiceUpdateWorkspaceJira(t *testing.T) {
 		Config: []byte(`{"project_key":"OLD"}`),
 	}}}
 	svc := NewIntegrationService(repo, "http://localhost:8080")
-	item, err := svc.Update(context.Background(), id, nil, nil, json.RawMessage(`{"project_key":"NEW"}`))
+	item, err := svc.Update(context.Background(), id, nil, nil, json.RawMessage(`{"project_key":"NEW"}`), nil)
 	require.NoError(t, err)
 	var cfg map[string]any
 	require.NoError(t, json.Unmarshal(item.Config, &cfg))
@@ -391,7 +452,7 @@ func TestIntegrationServiceTestWorkspaceWithoutGlobal(t *testing.T) {
 	require.Error(t, err)
 	appErr, ok := err.(*apperrors.Error)
 	require.True(t, ok)
-	require.Contains(t, appErr.Message, "jira config incomplete")
+	require.Contains(t, appErr.Message, "no global jira integration")
 }
 
 func TestIntegrationJSONEmptySecretNotRedacted(t *testing.T) {
@@ -409,14 +470,12 @@ func TestRedactIntegrationConfigNilMap(t *testing.T) {
 	require.Empty(t, out)
 }
 
-func TestIntegrationServiceUpsertWorkspaceJira(t *testing.T) {
+func TestIntegrationServiceUpsertWorkspaceJiraReturnsConflict(t *testing.T) {
 	repo := &integrationMockRepo{}
 	svc := NewIntegrationService(repo, "http://localhost:8080")
 	workspaceID := uuid.New()
-	item, err := svc.Upsert(context.Background(), "jira", "Platform Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
-	require.NoError(t, err)
-	require.NotNil(t, item.WorkspaceID)
-	require.Equal(t, workspaceID, *item.WorkspaceID)
+	_, err := svc.Upsert(context.Background(), "jira", "Platform Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
+	require.Error(t, err)
 }
 
 func TestIntegrationServiceUpsertWorkspaceJiraRequiresProjectKey(t *testing.T) {
@@ -427,7 +486,7 @@ func TestIntegrationServiceUpsertWorkspaceJiraRequiresProjectKey(t *testing.T) {
 	require.Error(t, err)
 	appErr, ok := err.(*apperrors.Error)
 	require.True(t, ok)
-	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+	require.Equal(t, "CONFLICT", appErr.Code)
 }
 
 func TestIntegrationJSONWithWorkspace(t *testing.T) {
