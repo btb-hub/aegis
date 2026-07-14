@@ -208,6 +208,14 @@ func (m *phase2HandlerRepo) GetIntegrationByKind(_ context.Context, kind string)
 	}
 	return db.Integration{}, pgx.ErrNoRows
 }
+func (m *phase2HandlerRepo) GetWorkspaceIntegration(_ context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error) {
+	for _, item := range m.integrations {
+		if item.Kind == kind && item.WorkspaceID != nil && *item.WorkspaceID == workspaceID {
+			return item, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
+}
 func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (db.Integration, error) {
 	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, Mode: mode, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	m.integrations[item.ID] = item

@@ -40,6 +40,14 @@ func (m *integrationMockRepo) GetIntegrationByKind(_ context.Context, kind strin
 	}
 	return db.Integration{}, pgx.ErrNoRows
 }
+func (m *integrationMockRepo) GetWorkspaceIntegration(_ context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error) {
+	for _, item := range m.items {
+		if item.Kind == kind && item.WorkspaceID != nil && *item.WorkspaceID == workspaceID {
+			return item, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
+}
 func (m *integrationMockRepo) UpsertIntegration(_ context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (db.Integration, error) {
 	m.lastUpsertMode = mode
 	item := db.Integration{ID: uuid.New(), Kind: kind, Name: name, Config: config, Enabled: enabled, WorkspaceID: workspaceID, Mode: mode}
@@ -148,6 +156,23 @@ func TestIntegrationServiceUpsertWorkspaceUsesInheritMode(t *testing.T) {
 	require.NotNil(t, repo.lastUpsertMode)
 	require.Equal(t, "inherit", *repo.lastUpsertMode)
 	require.Equal(t, "inherit", *item.Mode)
+}
+
+func TestIntegrationServiceUpsertWorkspacePreservesExistingMode(t *testing.T) {
+	workspaceID := uuid.New()
+	custom := "custom"
+	repo := &integrationMockRepo{items: []db.Integration{{
+		ID: uuid.New(), Kind: "jira", Name: "Jira", Config: json.RawMessage(`{"project_key":"OLD"}`),
+		Enabled: true, WorkspaceID: &workspaceID, Mode: &custom,
+	}}}
+	svc := NewIntegrationService(repo, "http://localhost:8080")
+
+	item, err := svc.Upsert(context.Background(), "jira", "Jira", json.RawMessage(`{"project_key":"OPS"}`), true, &workspaceID)
+
+	require.NoError(t, err)
+	require.NotNil(t, repo.lastUpsertMode)
+	require.Equal(t, "custom", *repo.lastUpsertMode)
+	require.Equal(t, "custom", *item.Mode)
 }
 
 func TestIntegrationServiceUpsertGlobalRequiresCredentials(t *testing.T) {

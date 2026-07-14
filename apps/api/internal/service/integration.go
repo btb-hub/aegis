@@ -26,6 +26,7 @@ type IntegrationRepository interface {
 	ListIntegrations(ctx context.Context) ([]db.Integration, error)
 	GetIntegration(ctx context.Context, id uuid.UUID) (db.Integration, error)
 	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
+	GetWorkspaceIntegration(ctx context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error)
 	UpsertIntegration(ctx context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID, mode *string) (db.Integration, error)
 	UpdateIntegration(ctx context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool, mode *string) (db.Integration, error)
 	DeleteIntegration(ctx context.Context, id uuid.UUID) error
@@ -82,6 +83,12 @@ func (s *IntegrationService) Upsert(ctx context.Context, kind, name string, conf
 	if workspaceID != nil {
 		inherit := "inherit"
 		mode = &inherit
+		existing, err := s.repo.GetWorkspaceIntegration(ctx, *workspaceID, kind)
+		if err == nil && existing.Mode != nil {
+			mode = existing.Mode
+		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return db.Integration{}, err
+		}
 	}
 	item, err := s.repo.UpsertIntegration(ctx, kind, name, config, enabled, workspaceID, mode)
 	if err != nil {
