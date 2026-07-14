@@ -118,7 +118,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INT-02 | Jira: create issue, link to incident, optional status sync inbound. |
 | REQ-INT-03 | Slack: Block Kit page, signed interactive ack callback. |
 | REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. |
-| REQ-INT-05 | Per-connector "Test connection" in admin/setup. |
+| REQ-INT-05 | Per-connector "Test connection" on the Integrations admin page (`/integrations`). Standalone configure (create/edit credentials) without the setup wizard. |
 | REQ-INT-06 | Connector failure does not block other connectors; retry with backoff in worker. |
 
 ---
@@ -130,8 +130,13 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-AN-01 | Dashboard answers: MTTA trend, MTTR trend, top noisy alerts, on-call load fairness, L2→L3 stats. |
 | REQ-AN-02 | Drill-down from dashboard widgets to incident/alert lists. |
 | REQ-AN-03 | Compare metrics to previous period (week/month). |
-| REQ-AN-04 | Setup wizard: org basics → OIDC check → integrations → test alert. |
-| REQ-AN-05 | "Send test alert" button in wizard fires sample webhook. |
+| REQ-AN-04 | Optional setup wizard as a first-run checklist (org basics → OIDC check → integrations → test alert). Must not gate configuration that also exists on dedicated admin pages. |
+| REQ-AN-05 | "Send test alert" available to admins (wizard and/or equivalent admin control); fires sample webhook. |
+
+**Product decision (Phase 12):** Prefer **independent admin pages** over wizard-gated flows. Admins
+configure integrations (and other areas as they mature) on their own routes without replaying `/setup`.
+Recorded in [`EPIC-13`](../backlog/epics/EPIC-13-integration-admin.md) and
+[`07-setup-deployment.md`](./07-setup-deployment.md).
 
 ---
 

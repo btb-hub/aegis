@@ -24,6 +24,7 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 | 8 | [EPIC-09](./epics/EPIC-09-teams-users-shifts.md) | PR #20 |
 | 9 | [EPIC-10](./epics/EPIC-10-ui-polish.md) | PR #21 |
 | 10 | [EPIC-11](./epics/EPIC-11-support-levels-workspaces.md) | — |
+| 12 | [EPIC-13](./epics/EPIC-13-integration-admin.md) | — |
 
 ## Guiding order
 
@@ -185,6 +186,31 @@ project grouping, so L2 and L3 are indistinguishable and handoff targets are har
 → Epic: [EPIC-11 Support levels & workspaces](./epics/EPIC-11-support-levels-workspaces.md)
 
 **Next story:** [AEG-078](./epics/EPIC-11-support-levels-workspaces.md) — Incidents page wired to API.
+
+## Phase 12 — Integration admin configuration
+
+*Exit: admins configure Jira, Slack, and eXpress credentials from `/integrations` alone (create + edit),
+test connection returns actionable errors, secrets are redacted on list, and enable/disable/delete
+work from the same page — without using the setup wizard.*
+
+**Product decision:** Prefer **independent admin pages** over the multi-step setup wizard. Configuring
+one connector must not require running earlier wizard steps. The wizard may stay as an optional
+first-run checklist; it is not the configuration source of truth. See [EPIC-13](./epics/EPIC-13-integration-admin.md).
+
+**Why now:** EPIC-03 delivered the connector implementations and test API. Useful credential fields
+exist only on the wizard integrations step today, while `/integrations` stores kind/name with empty
+`config`. Test connection fails with `integration provider is not configured` for Jira (same for Slack /
+eXpress). Fix the dedicated Integrations page instead of routing admins through `/setup`.
+
+- Validate required config on save; clarify test failures (AEG-093).
+- Redact secrets on list; `PATCH /integrations/{id}` with secret keep-on-omit (AEG-094).
+- Integrations create/edit UI with provider fields (AEG-095).
+- Enable/disable, delete, incomplete-state messaging (AEG-096).
+
+→ Epic: [EPIC-13 Integration admin](./epics/EPIC-13-integration-admin.md)
+
+**Next story:** [AEG-093](./epics/EPIC-13-integration-admin.md) — Validate integration config and clarify
+test failures.
 
 ## Later (post-MVP, not now)
 

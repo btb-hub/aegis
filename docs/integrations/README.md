@@ -35,10 +35,20 @@ Aegis talks to external systems through a small set of connectors. All outbound 
 - Retry via job `attempts` with backoff.
 - One connector down does not block others.
 
+## Admin configuration
+
+**Preferred UI:** `/integrations` — create, edit credentials, Test connection, enable/disable, delete
+each connector independently. Admins must not need the setup wizard to configure Jira, Slack, or
+eXpress. See [`EPIC-13`](../../backlog/epics/EPIC-13-integration-admin.md).
+
+Config JSON fields per provider: [`jira.md`](./jira.md), [`slack.md`](./slack.md),
+[`express.md`](./express.md).
+
 ## Test connection (REQ-INT-05)
 
 - `POST /integrations/{id}/test` invokes provider's `TestConnection`.
-- Wizard surfaces pass/fail with actionable error message.
+- **Integrations** page surfaces pass/fail with an actionable error message.
+- The setup wizard may still call the same API, but it is not the primary configure path.
 
 ## Specs
 
@@ -47,6 +57,7 @@ Aegis talks to external systems through a small set of connectors. All outbound 
 - [`express.md`](./express.md)
 - Localization: [`../11-localization.md`](../11-localization.md)
 
-## Epic
+## Epics
 
-[`EPIC-03-integrations`](../../backlog/epics/EPIC-03-integrations.md)
+- Connector spine: [`EPIC-03-integrations`](../../backlog/epics/EPIC-03-integrations.md)
+- Independent admin configure UI: [`EPIC-13-integration-admin`](../../backlog/epics/EPIC-13-integration-admin.md)
