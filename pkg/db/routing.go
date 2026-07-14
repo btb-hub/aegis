@@ -102,8 +102,7 @@ ORDER BY kind`
 		var row integrations.IntegrationRow
 		var id uuid.UUID
 		var name string
-		var mode *string
-		if err := rows.Scan(&id, &row.Kind, &name, &row.Config, &row.Enabled, &mode); err != nil {
+		if err := rows.Scan(&id, &row.Kind, &name, &row.Config, &row.Enabled, &row.Mode); err != nil {
 			return nil, err
 		}
 		row.ID = id
@@ -138,8 +137,7 @@ ORDER BY kind`
 		var row integrations.IntegrationRow
 		var id uuid.UUID
 		var name string
-		var mode *string
-		if err := rows.Scan(&id, &row.Kind, &name, &row.Config, &row.Enabled, &mode); err != nil {
+		if err := rows.Scan(&id, &row.Kind, &name, &row.Config, &row.Enabled, &row.Mode); err != nil {
 			return nil, err
 		}
 		row.ID = id
@@ -159,6 +157,7 @@ ORDER BY kind`
 			}
 			global.Config = merged
 			global.ID = override.ID
+			global.Mode = override.Mode
 		}
 		out = append(out, global)
 	}
