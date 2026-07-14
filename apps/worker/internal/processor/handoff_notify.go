@@ -64,6 +64,9 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 		return err
 	}
 	for _, notice := range notices {
+		if notice.Kind == "jira" && incident.JiraIssueKey == nil {
+			continue
+		}
 		eventPayload, _ := json.Marshal(map[string]string{
 			"kind":    notice.Kind,
 			"reason":  notice.Reason,

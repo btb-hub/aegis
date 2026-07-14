@@ -66,6 +66,9 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		return err
 	}
 	for _, notice := range notices {
+		if notice.Kind != "slack" && notice.Kind != "express" {
+			continue
+		}
 		eventPayload, _ := json.Marshal(map[string]string{
 			"kind":    notice.Kind,
 			"reason":  notice.Reason,

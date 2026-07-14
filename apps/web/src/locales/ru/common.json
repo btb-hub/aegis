@@ -94,6 +94,7 @@
   "incidents.timeline.resolved": "Закрыт",
   "incidents.timeline.handoff": "Передан в L3",
   "incidents.timeline.bounced": "Возвращён в L2",
+  "incidents.timeline.integration_skipped": "Интеграция пропущена",
   "incidents.handoff": "Передать в L3",
   "incidents.handoff_heading": "Передать дежурному L3",
   "incidents.handoff_team_label": "Команда L3",

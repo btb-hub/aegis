@@ -388,16 +388,22 @@ func TestEscalateProcessorSkipsInheritSlotWithoutGlobal(t *testing.T) {
 		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 	}))
 
-	var notice map[string]string
+	var notices []map[string]string
+	var skippedKinds []string
 	for _, event := range store.timelineEvents {
 		if event.kind == "integration_skipped" {
+			var notice map[string]string
 			require.NoError(t, json.Unmarshal(event.payload, &notice))
-			if notice["kind"] == "slack" {
-				break
-			}
+			notices = append(notices, notice)
+			skippedKinds = append(skippedKinds, notice["kind"])
 		}
 	}
-	require.Equal(t, "no_global", notice["reason"])
+	require.Equal(t, []string{"slack", "express"}, skippedKinds)
+	require.Equal(t, map[string]string{
+		"kind":    "slack",
+		"reason":  "no_global",
+		"message": "Slack skipped: no global connector. Configure global Slack or set the workspace slot to Custom.",
+	}, notices[0])
 }
 
 type escalateFlowStore struct {
