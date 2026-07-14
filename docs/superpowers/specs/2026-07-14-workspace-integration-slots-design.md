@@ -49,7 +49,7 @@ Operators need: each workspace has clear connector slots; hybrid inherit vs cust
 
 1. **Global integration store** — existing `integrations` rows with `workspace_id IS NULL` (≤1 per kind). Source of credentials for Inherit mode.
 2. **Workspace slots** — always three rows per workspace `(workspace_id, kind ∈ {jira,slack,express})`, created on workspace create and backfilled for existing workspaces.
-3. **Slot mode** — first-class field on the workspace row: `inherit` | `custom` (name TBD in implementation; must be stored, not only inferred).
+3. **Slot mode** — first-class column `mode` on workspace rows: `inherit` | `custom` (stored, not only inferred).
 4. **Connector resolver** — single service/function used by worker (alert notify, escalate, handoff) and by Test connection: inputs `(workspaceID, kind)` → provider config or “unavailable” reason.
 5. **Soft-skip notifier** — writes a timeline (and consistent API/UI message) when a kind is skipped.
 6. **Admin UI** — Workspace Integrations section + `/integrations` list/filter/configure using the same APIs.
@@ -139,7 +139,7 @@ Workspace is still derived from the incident’s team. No requirement to stamp `
 
 | Situation | Behaviour |
 |-----------|-----------|
-| Custom incomplete | Validation on save/test; runtime soft-skip if somehow enabled incomplete |
+| Custom incomplete | Validation on save/test; if an incomplete Custom row is enabled, runtime soft-skips |
 | Inherit, no global | Soft-skip + notice “No global {kind}; add global or switch slot to Custom” |
 | Slot disabled | Soft-skip + notice |
 | Provider HTTP failure | Existing validation/error messages; do not roll back incident |
