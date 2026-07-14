@@ -33,3 +33,13 @@ and idempotent migration/backfill use.
 
 Verification: `go test ./apps/api/internal/service/ ./apps/api/internal/handler/ ./pkg/db/ -count=1`
 passed.
+
+## Important deletion regression follow-up
+
+Workspace deletion now treats provisioned Jira, Slack, and eXpress connector slots as workspace-owned
+configuration rather than usage blockers. Teams and escalation paths still prevent deletion, while
+the existing `integrations.workspace_id` foreign key (`ON DELETE CASCADE`) removes connector slots
+with the workspace. Added a regression test covering service creation followed by deletion when the
+workspace has only its three connector slots.
+
+Verification: `go test ./apps/api/internal/service/ ./pkg/db/ -count=1`.

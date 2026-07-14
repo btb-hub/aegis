@@ -556,6 +556,21 @@ func TestWorkspaceDeleteSuccess(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestWorkspaceDeleteSucceedsWithOnlyConnectorSlots(t *testing.T) {
+	repo := &workspaceRepoMockWithUsage{
+		workspaceRepoMock: workspaceRepoMock{items: map[uuid.UUID]db.Workspace{}},
+		usage:             db.WorkspaceUsage{IntegrationCount: 3},
+	}
+	svc := NewWorkspaceService(repo)
+
+	workspace, err := svc.Create(context.Background(), "Platform", "platform", "Core")
+	require.NoError(t, err)
+	require.NoError(t, svc.Delete(context.Background(), workspace.ID))
+
+	_, err = svc.Get(context.Background(), workspace.ID)
+	require.Error(t, err)
+}
+
 type workspaceRepoMockWithUsage struct {
 	workspaceRepoMock
 	usage db.WorkspaceUsage

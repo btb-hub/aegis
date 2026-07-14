@@ -93,11 +93,10 @@ func (s *WorkspaceService) Delete(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return mapWorkspaceError(err)
 	}
-	if usage.TeamCount > 0 || usage.EscalationPathCount > 0 || usage.IntegrationCount > 0 {
+	if usage.TeamCount > 0 || usage.EscalationPathCount > 0 {
 		return apperrors.ConflictWithDetails("workspace is not empty", map[string]any{
 			"team_count":            usage.TeamCount,
 			"escalation_path_count": usage.EscalationPathCount,
-			"integration_count":     usage.IntegrationCount,
 		})
 	}
 	if err := s.repo.DeleteWorkspace(ctx, id); err != nil {
