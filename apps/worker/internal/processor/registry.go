@@ -23,12 +23,22 @@ type skipNotice struct {
 	Reason string
 }
 
+type workspaceRegistry struct {
+	*integrations.Registry
+	integrationIDs map[string]uuid.UUID
+}
+
+func (r *workspaceRegistry) integrationID(kind string) (uuid.UUID, bool) {
+	id, ok := r.integrationIDs[kind]
+	return id, ok
+}
+
 func loadWorkspaceRegistry(
 	ctx context.Context,
 	store workspaceRegistryStore,
 	teamID uuid.UUID,
 	publicURL string,
-) (*integrations.Registry, []skipNotice, error) {
+) (*workspaceRegistry, []skipNotice, error) {
 	workspaceID, err := store.GetTeamWorkspaceID(ctx, teamID)
 	if err != nil {
 		return nil, nil, err
@@ -69,8 +79,12 @@ func loadWorkspaceRegistry(
 			notices = append(notices, skipNotice{Kind: kind, Reason: result.Reason})
 			continue
 		}
+		integrationID := workspaceIntegration.ID
+		if slot.Mode != "custom" {
+			integrationID = globalIntegration.ID
+		}
 		rows = append(rows, integrations.IntegrationRow{
-			ID:      workspaceIntegration.ID,
+			ID:      integrationID,
 			Kind:    kind,
 			Config:  result.Config,
 			Enabled: true,
@@ -79,7 +93,11 @@ func loadWorkspaceRegistry(
 
 	reg := integrations.NewRegistry()
 	loader.RegisterFromRows(reg, rows, publicURL)
-	return reg, notices, nil
+	integrationIDs := make(map[string]uuid.UUID, len(rows))
+	for _, row := range rows {
+		integrationIDs[row.Kind] = row.ID
+	}
+	return &workspaceRegistry{Registry: reg, integrationIDs: integrationIDs}, notices, nil
 }
 
 func skipMessage(notice skipNotice) string {

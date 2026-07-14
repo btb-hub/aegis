@@ -74,7 +74,7 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 	ref := toIncidentRef(incident)
 
 	if incident.JiraIssueKey != nil {
-		integrations.ForEachTicket(reg, func(provider integrations.TicketProvider) error {
+		integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
 			updater, ok := provider.(integrations.AssigneeUpdater)
 			if !ok {
 				return nil
@@ -95,7 +95,7 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
-	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
+	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
 		externalRef, err := provider.SendPage(ctx, ref, recipient)
 		status := "sent"
 		if err != nil {
@@ -106,9 +106,8 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 			eventPayload, _ := json.Marshal(map[string]any{"provider": provider.Kind(), "ref": externalRef, "handoff": true})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "paged", nil, eventPayload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})

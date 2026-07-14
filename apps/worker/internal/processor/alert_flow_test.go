@@ -328,6 +328,7 @@ func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 	incidentID := uuid.New()
 	assignee := uuid.New()
 	workspaceID := uuid.New()
+	workspaceIntegrationID := uuid.New()
 	pageCalls := 0
 	slackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pageCalls++
@@ -348,7 +349,7 @@ func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 		workspaceID: workspaceID,
 		workspaceIntegrations: map[string]db.Integration{
 			"slack": {
-				ID: uuid.New(), Kind: "slack", Config: slackCfg, Enabled: true,
+				ID: workspaceIntegrationID, Kind: "slack", Config: slackCfg, Enabled: true,
 				WorkspaceID: &workspaceID, Mode: strPtr("custom"),
 			},
 		},
@@ -359,6 +360,7 @@ func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 	}))
 	require.Equal(t, 1, pageCalls)
+	require.Equal(t, []uuid.UUID{workspaceIntegrationID}, store.notificationIntegrationIDs)
 }
 
 func TestEscalateProcessorSkipsInheritSlotWithoutGlobal(t *testing.T) {
@@ -399,12 +401,13 @@ func TestEscalateProcessorSkipsInheritSlotWithoutGlobal(t *testing.T) {
 }
 
 type escalateFlowStore struct {
-	incident              db.Incident
-	user                  db.User
-	workspaceID           uuid.UUID
-	globalIntegrations    map[string]db.Integration
-	workspaceIntegrations map[string]db.Integration
-	timelineEvents        []timelineEventCall
+	incident                   db.Incident
+	user                       db.User
+	workspaceID                uuid.UUID
+	globalIntegrations         map[string]db.Integration
+	workspaceIntegrations      map[string]db.Integration
+	timelineEvents             []timelineEventCall
+	notificationIntegrationIDs []uuid.UUID
 }
 
 func (s escalateFlowStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
@@ -424,7 +427,8 @@ func (s escalateFlowStore) GetIntegrationByKind(_ context.Context, kind string) 
 	}
 	return integration, nil
 }
-func (s escalateFlowStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
+func (s *escalateFlowStore) CreateNotification(_ context.Context, _, integrationID uuid.UUID, _, _ string) (db.Notification, error) {
+	s.notificationIntegrationIDs = append(s.notificationIntegrationIDs, integrationID)
 	return db.Notification{}, nil
 }
 func (s escalateFlowStore) ListEnabledIntegrations(context.Context) ([]integrations.IntegrationRow, error) {

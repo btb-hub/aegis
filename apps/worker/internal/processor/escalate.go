@@ -93,7 +93,7 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
-	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
+	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
 		messageRef, err := provider.SendPage(ctx, ref, recipient)
 		status := "sent"
 		externalRef := messageRef
@@ -105,9 +105,8 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 			eventPayload, _ := json.Marshal(map[string]any{"provider": provider.Kind(), "ref": messageRef, "escalation": true})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "escalated", nil, eventPayload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})

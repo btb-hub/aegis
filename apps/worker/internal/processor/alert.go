@@ -169,7 +169,7 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 	}
 	ref := toIncidentRef(incident)
 
-	integrations.ForEachTicket(reg, func(provider integrations.TicketProvider) error {
+	integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
 		key, err := provider.CreateTicket(ctx, ref)
 		status := "sent"
 		externalRef := key
@@ -183,9 +183,8 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 			payload, _ := json.Marshal(map[string]any{"jira_issue_key": key})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "jira_linked", nil, payload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})
@@ -206,7 +205,7 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
-	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
+	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
 		ref, err := provider.SendPage(ctx, toIncidentRef(incident), recipient)
 		status := "sent"
 		externalRef := ref
@@ -218,9 +217,8 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 			payload, _ := json.Marshal(map[string]any{"provider": provider.Kind(), "ref": ref})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "paged", nil, payload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})
