@@ -199,6 +199,7 @@ type Integration struct {
 	Config      []byte     `json:"config"`
 	Enabled     bool       `json:"enabled"`
 	WorkspaceID *uuid.UUID `json:"workspace_id,omitempty"`
+	Mode        *string    `json:"mode,omitempty"` // "inherit" | "custom" for workspace rows; nil for global
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
