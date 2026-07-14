@@ -17,25 +17,34 @@ import (
 )
 
 type flowAlertStore struct {
-	alert            db.Alert
-	teamID           uuid.UUID
-	assigneeID       uuid.UUID
-	existing         *db.Incident
-	created          bool
-	linked           bool
-	linkErr          error
-	createErr        error
-	enqueueErr       error
-	listIntegrationsErr error
-	jiraIntegration  db.Integration
-	slackIntegration db.Integration
-	jiraServer       *httptest.Server
-	slackServer      *httptest.Server
+	alert                   db.Alert
+	teamID                  uuid.UUID
+	workspaceID             uuid.UUID
+	assigneeID              uuid.UUID
+	existing                *db.Incident
+	created                 bool
+	linked                  bool
+	linkErr                 error
+	createErr               error
+	enqueueErr              error
+	workspaceIntegrationErr error
+	jiraIntegration         db.Integration
+	slackIntegration        db.Integration
+	workspaceIntegrations   map[string]db.Integration
+	timelineEvents          []timelineEventCall
+	jiraServer              *httptest.Server
+	slackServer             *httptest.Server
+}
+
+type timelineEventCall struct {
+	kind    string
+	payload []byte
 }
 
 func newFlowAlertStore(t *testing.T) *flowAlertStore {
 	t.Helper()
 	teamID := uuid.New()
+	workspaceID := uuid.New()
 	assignee := uuid.New()
 	alertID := uuid.New()
 	labels, _ := json.Marshal(map[string]string{"team": "platform", "alertname": "HighCPU"})
@@ -64,11 +73,17 @@ func newFlowAlertStore(t *testing.T) *flowAlertStore {
 			Title: "CPU high", Labels: labels,
 		},
 		teamID:           teamID,
+		workspaceID:      workspaceID,
 		assigneeID:       assignee,
 		jiraIntegration:  db.Integration{ID: uuid.New(), Kind: "jira", Config: jiraCfg, Enabled: true},
 		slackIntegration: db.Integration{ID: uuid.New(), Kind: "slack", Config: slackCfg, Enabled: true},
-		jiraServer:       jiraServer,
-		slackServer:      slackServer,
+		workspaceIntegrations: map[string]db.Integration{
+			"jira":    {ID: uuid.New(), Kind: "jira", Config: []byte(`{}`), Enabled: true, WorkspaceID: &workspaceID, Mode: strPtr("inherit")},
+			"slack":   {ID: uuid.New(), Kind: "slack", Config: []byte(`{}`), Enabled: true, WorkspaceID: &workspaceID, Mode: strPtr("inherit")},
+			"express": {ID: uuid.New(), Kind: "express", Config: []byte(`{}`), Enabled: false, WorkspaceID: &workspaceID, Mode: strPtr("inherit")},
+		},
+		jiraServer:  jiraServer,
+		slackServer: slackServer,
 	}
 	t.Cleanup(func() {
 		jiraServer.Close()
@@ -118,14 +133,21 @@ func (s *flowAlertStore) CurrentOnCallUsers(context.Context, uuid.UUID, time.Tim
 	return []db.OnCallUser{{UserID: s.assigneeID, Email: "oncall@example.com", DisplayName: "On Call"}}, nil
 }
 func (s *flowAlertStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error { return nil }
-func (s *flowAlertStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
+func (s *flowAlertStore) AppendTimelineEvent(_ context.Context, _ uuid.UUID, kind string, _ *uuid.UUID, payload []byte) error {
+	s.timelineEvents = append(s.timelineEvents, timelineEventCall{kind: kind, payload: payload})
 	return nil
 }
 func (s *flowAlertStore) GetIntegrationByKind(_ context.Context, kind string) (db.Integration, error) {
 	switch kind {
 	case "jira":
+		if s.jiraIntegration.ID == uuid.Nil {
+			return db.Integration{}, pgx.ErrNoRows
+		}
 		return s.jiraIntegration, nil
 	case "slack":
+		if s.slackIntegration.ID == uuid.Nil {
+			return db.Integration{}, pgx.ErrNoRows
+		}
 		return s.slackIntegration, nil
 	default:
 		return db.Integration{}, pgx.ErrNoRows
@@ -142,16 +164,23 @@ func (s *flowAlertStore) EnqueueEscalation(context.Context, uuid.UUID, time.Time
 	return s.enqueueErr
 }
 func (s *flowAlertStore) ListEnabledIntegrationsForWorkspace(context.Context, uuid.UUID) ([]integrations.IntegrationRow, error) {
-	if s.listIntegrationsErr != nil {
-		return nil, s.listIntegrationsErr
-	}
 	return []integrations.IntegrationRow{
 		{ID: s.jiraIntegration.ID, Kind: "jira", Config: s.jiraIntegration.Config, Enabled: true},
 		{ID: s.slackIntegration.ID, Kind: "slack", Config: s.slackIntegration.Config, Enabled: true},
 	}, nil
 }
 func (s *flowAlertStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
-	return uuid.Nil, nil
+	return s.workspaceID, nil
+}
+func (s *flowAlertStore) GetWorkspaceIntegration(_ context.Context, _ uuid.UUID, kind string) (db.Integration, error) {
+	if s.workspaceIntegrationErr != nil {
+		return db.Integration{}, s.workspaceIntegrationErr
+	}
+	integration, ok := s.workspaceIntegrations[kind]
+	if !ok {
+		return db.Integration{}, pgx.ErrNoRows
+	}
+	return integration, nil
 }
 
 func TestAlertProcessorEnqueueEscalationError(t *testing.T) {
@@ -166,7 +195,7 @@ func TestAlertProcessorEnqueueEscalationError(t *testing.T) {
 
 func TestAlertProcessorLoadRegistryError(t *testing.T) {
 	store := newFlowAlertStore(t)
-	store.listIntegrationsErr = errors.New("db down")
+	store.workspaceIntegrationErr = errors.New("db down")
 	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
@@ -228,6 +257,35 @@ func TestAlertProcessorCreatesIncident(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, store.created)
+}
+
+func TestAlertProcessorCreatesIncidentAndRecordsUnavailableConnector(t *testing.T) {
+	store := newFlowAlertStore(t)
+	store.jiraIntegration = db.Integration{}
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+
+	err := p.Handle(context.Background(), Job{
+		ID: "j1", Kind: "process_alert",
+		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
+	})
+
+	require.NoError(t, err)
+	require.True(t, store.created)
+	var payload map[string]string
+	for _, event := range store.timelineEvents {
+		if event.kind != "integration_skipped" {
+			continue
+		}
+		require.NoError(t, json.Unmarshal(event.payload, &payload))
+		if payload["kind"] == "jira" {
+			break
+		}
+	}
+	require.Equal(t, map[string]string{
+		"kind":    "jira",
+		"reason":  "no_global",
+		"message": "Jira skipped: no global connector. Configure global Jira or set the workspace slot to Custom.",
+	}, payload)
 }
 
 func TestAlertProcessorLinksExistingIncident(t *testing.T) {
@@ -302,7 +360,9 @@ type escalateFlowStore struct {
 func (s escalateFlowStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
 	return s.incident, nil
 }
-func (s escalateFlowStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) { return s.user, nil }
+func (s escalateFlowStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
+	return s.user, nil
+}
 func (s escalateFlowStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
 	return nil
 }

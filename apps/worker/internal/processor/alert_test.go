@@ -121,7 +121,7 @@ func (m *alertMockStore) CreateIncidentWithAlert(context.Context, db.CreateIncid
 	return db.Incident{}, nil
 }
 func (m *alertMockStore) LinkAlertToIncident(context.Context, uuid.UUID, uuid.UUID) error { return nil }
-func (m *alertMockStore) ListRoutingRules(context.Context) ([]db.RoutingRule, error)     { return nil, nil }
+func (m *alertMockStore) ListRoutingRules(context.Context) ([]db.RoutingRule, error)      { return nil, nil }
 func (m *alertMockStore) CurrentOnCallUsers(context.Context, uuid.UUID, time.Time) ([]db.OnCallUser, error) {
 	return nil, nil
 }
@@ -141,6 +141,9 @@ func (m *alertMockStore) GetUserByID(context.Context, uuid.UUID) (db.User, error
 func (m *alertMockStore) EnqueueEscalation(context.Context, uuid.UUID, time.Time) error { return nil }
 func (m *alertMockStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
 	return uuid.Nil, nil
+}
+func (m *alertMockStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
 }
 func (m *alertMockStore) ListEnabledIntegrationsForWorkspace(context.Context, uuid.UUID) ([]integrations.IntegrationRow, error) {
 	return nil, nil
@@ -172,7 +175,7 @@ func TestWorkerProcessesJob(t *testing.T) {
 	alertID := uuid.New()
 	store := &mockStore{
 		claim: true,
-		job: Job{ID: "j1", Kind: "process_alert", Payload: json.RawMessage(`{"alert_id":"` + alertID.String() + `"}`)},
+		job:   Job{ID: "j1", Kind: "process_alert", Payload: json.RawMessage(`{"alert_id":"` + alertID.String() + `"}`)},
 	}
 	alertStore := &alertMockStore{linkedIncident: db.Incident{ID: uuid.New()}, alertID: alertID}
 	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
@@ -248,9 +251,9 @@ func TestEscalateProcessorLoadRegistryError(t *testing.T) {
 	assignee := uuid.New()
 	incidentID := uuid.New()
 	store := escalateMockStore{
-		incident:  db.Incident{ID: incidentID, Status: "open", AssigneeID: &assignee, Title: "CPU", Severity: "critical", CreatedAt: time.Now()},
-		user:      db.User{ID: assignee, Locale: "en", SlackUserID: strPtr("U1")},
-		listErr:   errors.New("db down"),
+		incident: db.Incident{ID: incidentID, Status: "open", AssigneeID: &assignee, Title: "CPU", Severity: "critical", CreatedAt: time.Now()},
+		user:     db.User{ID: assignee, Locale: "en", SlackUserID: strPtr("U1")},
+		listErr:  errors.New("db down"),
 	}
 	p := NewEscalateProcessor(nil, store, "")
 	require.Error(t, p.Handle(context.Background(), Job{
