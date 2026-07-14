@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
 import {
   IntegrationConfigFields,
@@ -123,5 +123,58 @@ describe('IntegrationConfigFields helpers', () => {
     );
     expect(screen.getByText('Slack bot token')).toBeInTheDocument();
     expect(screen.getAllByText('Leave blank to keep the current value').length).toBeGreaterThan(0);
+  });
+
+  it('renders mode-specific workspace fields and reports field changes', () => {
+    const form = emptyIntegrationConfigForm();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <I18nextProvider i18n={i18n}>
+        <IntegrationConfigFields
+          kind="jira"
+          form={form}
+          onChange={onChange}
+          workspaceOnly
+          editing={false}
+          mode="inherit"
+        />
+      </I18nextProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
+    expect(onChange).toHaveBeenCalledWith({ ...form, project_key: 'OPS' });
+
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <IntegrationConfigFields
+          kind="slack"
+          form={form}
+          onChange={onChange}
+          workspaceOnly
+          editing={false}
+          mode="inherit"
+        />
+      </I18nextProvider>,
+    );
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <IntegrationConfigFields
+          kind="express"
+          form={form}
+          onChange={onChange}
+          workspaceOnly
+          editing={false}
+          mode="custom"
+        />
+      </I18nextProvider>,
+    );
+    fireEvent.change(screen.getByLabelText('eXpress bot ID'), { target: { value: 'bot-1' } });
+    fireEvent.change(screen.getByLabelText('eXpress bot host'), { target: { value: 'https://cts' } });
+    fireEvent.change(screen.getByLabelText('eXpress secret key'), { target: { value: 'secret' } });
+    expect(onChange).toHaveBeenCalledWith({ ...form, bot_id: 'bot-1' });
+    expect(onChange).toHaveBeenCalledWith({ ...form, host: 'https://cts' });
+    expect(onChange).toHaveBeenCalledWith({ ...form, secret_key: 'secret' });
   });
 });

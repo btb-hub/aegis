@@ -698,4 +698,175 @@ describe('WorkspaceDetailPage', () => {
     expect(screen.queryByRole('button', { name: 'Add routing rule' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add existing teams' })).not.toBeInTheDocument();
   });
+
+  it('shows all workspace integration slots and only the Jira overlay in inherit mode', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [routingRule] });
+      }
+      if (url === '/api/v1/integrations') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'jira-slot',
+              workspace_id: workspaceId,
+              kind: 'jira',
+              name: 'Jira',
+              enabled: true,
+              mode: 'inherit',
+              slot_status: 'using_global',
+              config: { project_key: 'OPS' },
+            },
+            {
+              id: 'slack-slot',
+              workspace_id: workspaceId,
+              kind: 'slack',
+              name: 'Slack',
+              enabled: true,
+              mode: 'inherit',
+              slot_status: 'missing',
+              config: {},
+            },
+            {
+              id: 'express-slot',
+              workspace_id: workspaceId,
+              kind: 'express',
+              name: 'eXpress',
+              enabled: true,
+              mode: 'inherit',
+              slot_status: 'using_global',
+              config: {},
+            },
+          ],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
+    });
+    expect(screen.getByText('Jira')).toBeInTheDocument();
+    expect(screen.getByText('Slack')).toBeInTheDocument();
+    expect(screen.getByText('eXpress')).toBeInTheDocument();
+    expect(screen.getAllByText('Inherit')).toHaveLength(3);
+    expect(screen.getAllByText('Using global')).toHaveLength(2);
+    expect(screen.getByText('Missing — no global')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Configure' })[0]);
+    expect(screen.getByLabelText('Mode')).toHaveValue('inherit');
+    expect(screen.getByLabelText('Jira project key')).toHaveValue('OPS');
+    expect(screen.queryByLabelText('Jira base URL')).not.toBeInTheDocument();
+  });
+
+  it('saves a custom workspace integration with full credentials', async () => {
+    let patchBody: Record<string, unknown> | undefined;
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'Default',
+          slug: 'default',
+          description: 'Default workspace',
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/integrations/jira-slot' && init?.method === 'PATCH') {
+        patchBody = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return jsonResponse({ id: 'jira-slot' });
+      }
+      if (url === '/api/v1/integrations') {
+        return jsonResponse({
+          items: [
+            {
+              id: 'jira-slot',
+              workspace_id: workspaceId,
+              kind: 'jira',
+              name: 'Jira',
+              enabled: true,
+              mode: 'inherit',
+              slot_status: 'using_global',
+              config: { project_key: 'OPS' },
+            },
+          ],
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Configure' })[0]);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'custom' } });
+    fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'inherit' } });
+    expect(screen.getByLabelText('Mode')).toHaveValue('custom');
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'inherit' } });
+    expect(screen.getByLabelText('Mode')).toHaveValue('inherit');
+    expect(confirm).toHaveBeenCalledTimes(2);
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'custom' } });
+    fireEvent.change(screen.getByLabelText('Jira base URL'), { target: { value: 'https://jira.example.com' } });
+    fireEvent.change(screen.getByLabelText('Jira email'), { target: { value: 'ops@example.com' } });
+    fireEvent.change(screen.getByLabelText('Jira API token'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
+
+    await waitFor(() => {
+      expect(patchBody).toEqual({
+        mode: 'custom',
+        enabled: true,
+        config: {
+          base_url: 'https://jira.example.com',
+          email: 'ops@example.com',
+          api_token: 'secret',
+          project_key: 'OPS',
+        },
+      });
+    });
+    expect(screen.getByText('Integration saved')).toBeInTheDocument();
+  });
 });
