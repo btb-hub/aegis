@@ -9,8 +9,6 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	"github.com/aegis/aegis/pkg/integrations/loader"
-	"github.com/aegis/aegis/pkg/integrations/resolve"
 	"github.com/aegis/aegis/pkg/routing"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -157,7 +155,7 @@ func (p *AlertProcessor) matchTeam(ctx context.Context, labels map[string]string
 }
 
 func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Incident, assigneeID *uuid.UUID, teamID uuid.UUID) error {
-	reg, notices, err := p.loadRegistry(ctx, teamID)
+	reg, notices, err := loadWorkspaceRegistry(ctx, p.store, teamID, p.publicURL)
 	if err != nil {
 		return err
 	}
@@ -227,91 +225,6 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 		return nil
 	})
 	return nil
-}
-
-type skipNotice struct {
-	Kind   string
-	Reason string
-}
-
-func (p *AlertProcessor) loadRegistry(ctx context.Context, teamID uuid.UUID) (*integrations.Registry, []skipNotice, error) {
-	workspaceID, err := p.store.GetTeamWorkspaceID(ctx, teamID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	rows := make([]integrations.IntegrationRow, 0, 3)
-	notices := make([]skipNotice, 0, 3)
-	for _, kind := range []string{"jira", "slack", "express"} {
-		var slot *resolve.Slot
-		workspaceIntegration, slotErr := p.store.GetWorkspaceIntegration(ctx, workspaceID, kind)
-		if slotErr == nil {
-			mode := "inherit"
-			if workspaceIntegration.Mode != nil {
-				mode = *workspaceIntegration.Mode
-			}
-			slot = &resolve.Slot{
-				Mode:    mode,
-				Enabled: workspaceIntegration.Enabled,
-				Config:  workspaceIntegration.Config,
-			}
-		} else if slotErr != pgx.ErrNoRows {
-			return nil, nil, slotErr
-		}
-
-		var global *resolve.Slot
-		globalIntegration, globalErr := p.store.GetIntegrationByKind(ctx, kind)
-		if globalErr == nil {
-			global = &resolve.Slot{
-				Enabled: globalIntegration.Enabled,
-				Config:  globalIntegration.Config,
-			}
-		} else if globalErr != pgx.ErrNoRows {
-			return nil, nil, globalErr
-		}
-
-		result := resolve.Resolve(resolve.Input{Kind: kind, Slot: slot, Global: global})
-		if !result.OK {
-			notices = append(notices, skipNotice{Kind: kind, Reason: result.Reason})
-			continue
-		}
-		rows = append(rows, integrations.IntegrationRow{
-			ID:      workspaceIntegration.ID,
-			Kind:    kind,
-			Config:  result.Config,
-			Enabled: true,
-		})
-	}
-
-	reg := integrations.NewRegistry()
-	loader.RegisterFromRows(reg, rows, p.publicURL)
-	return reg, notices, nil
-}
-
-func skipMessage(notice skipNotice) string {
-	name := map[string]string{
-		"jira":    "Jira",
-		"slack":   "Slack",
-		"express": "eXpress",
-	}[notice.Kind]
-	if name == "" {
-		name = notice.Kind
-	}
-
-	switch notice.Reason {
-	case resolve.ReasonNoGlobal:
-		return fmt.Sprintf("%s skipped: no global connector. Configure global %s or set the workspace slot to Custom.", name, name)
-	case resolve.ReasonGlobalDisabled:
-		return fmt.Sprintf("%s skipped: the global connector is disabled. Enable global %s or set the workspace slot to Custom.", name, name)
-	case resolve.ReasonSlotDisabled:
-		return fmt.Sprintf("%s skipped: the workspace slot is disabled. Enable it in workspace Integrations.", name)
-	case resolve.ReasonSlotMissing:
-		return fmt.Sprintf("%s skipped: the workspace slot is missing. Configure it in workspace Integrations.", name)
-	case resolve.ReasonCustomIncomplete:
-		return fmt.Sprintf("%s skipped: the workspace connector is incomplete. Complete its settings in workspace Integrations.", name)
-	default:
-		return fmt.Sprintf("%s skipped: the connector is unavailable. Check workspace Integrations.", name)
-	}
 }
 
 func decodeAlertLabels(raw []byte) (map[string]string, error) {

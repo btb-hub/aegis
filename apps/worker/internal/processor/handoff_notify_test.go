@@ -16,14 +16,14 @@ import (
 )
 
 type handoffNotifyTestStore struct {
-	incident      db.Incident
-	user          db.User
-	userErr       error
-	incidentErr   error
-	listErr       error
-	rows          []integrations.IntegrationRow
-	appendCalled  bool
-	notifyCalled  bool
+	incident     db.Incident
+	user         db.User
+	userErr      error
+	incidentErr  error
+	listErr      error
+	rows         []integrations.IntegrationRow
+	appendCalled bool
+	notifyCalled bool
 }
 
 func (s *handoffNotifyTestStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
@@ -50,8 +50,32 @@ func (s *handoffNotifyTestStore) ListEnabledIntegrations(context.Context) ([]int
 	return s.rows, nil
 }
 
-func (s *handoffNotifyTestStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
-	return db.Integration{ID: uuid.New()}, nil
+func (s *handoffNotifyTestStore) GetIntegrationByKind(_ context.Context, kind string) (db.Integration, error) {
+	for _, row := range s.rows {
+		if row.Kind == kind {
+			return db.Integration{ID: row.ID, Kind: row.Kind, Config: row.Config, Enabled: row.Enabled}, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
+}
+
+func (s *handoffNotifyTestStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	if s.listErr != nil {
+		return uuid.Nil, s.listErr
+	}
+	return uuid.New(), nil
+}
+
+func (s *handoffNotifyTestStore) GetWorkspaceIntegration(_ context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error) {
+	for _, row := range s.rows {
+		if row.Kind == kind {
+			return db.Integration{
+				ID: row.ID, Kind: row.Kind, Config: row.Config, Enabled: row.Enabled,
+				WorkspaceID: &workspaceID, Mode: strPtr("custom"),
+			}, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
 }
 
 func (s *handoffNotifyTestStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
@@ -201,9 +225,9 @@ func TestHandoffNotifyProcessorSlackPageSuccess(t *testing.T) {
 	assigneeID := uuid.New()
 	slackID := "U123"
 	cfg, err := json.Marshal(map[string]string{
-		"bot_token":       "xoxb-test",
-		"signing_secret":  "secret",
-		"api_base_url":    server.URL,
+		"bot_token":      "xoxb-test",
+		"signing_secret": "secret",
+		"api_base_url":   server.URL,
 	})
 	require.NoError(t, err)
 

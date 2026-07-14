@@ -71,6 +71,12 @@ func (handoffNotifyMockStore) ListEnabledIntegrations(context.Context) ([]integr
 func (handoffNotifyMockStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
 	return db.Integration{}, pgx.ErrNoRows
 }
+func (handoffNotifyMockStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (handoffNotifyMockStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
+}
 func (handoffNotifyMockStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
 	return db.Notification{}, nil
 }

@@ -85,6 +85,17 @@ func (m escalateMockStore) GetIntegrationByKind(context.Context, string) (db.Int
 	return db.Integration{}, pgx.ErrNoRows
 }
 
+func (m escalateMockStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	if m.listErr != nil {
+		return uuid.Nil, m.listErr
+	}
+	return uuid.Nil, nil
+}
+
+func (m escalateMockStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
+}
+
 func (m escalateMockStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
 	return db.Notification{}, nil
 }

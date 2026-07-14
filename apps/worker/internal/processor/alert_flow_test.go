@@ -327,7 +327,10 @@ func TestAlertProcessorNoRoutingMatch(t *testing.T) {
 func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 	incidentID := uuid.New()
 	assignee := uuid.New()
+	workspaceID := uuid.New()
+	pageCalls := 0
 	slackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pageCalls++
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "ts": "9.9"})
 	}))
 	defer slackServer.Close()
@@ -336,25 +339,72 @@ func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 	})
 	slackID := "U123"
 
-	store := escalateFlowStore{
+	store := &escalateFlowStore{
 		incident: db.Incident{
 			ID: incidentID, Status: "open", AssigneeID: &assignee,
-			Title: "CPU", Severity: "critical", CreatedAt: time.Now(),
+			TeamID: uuid.New(), Title: "CPU", Severity: "critical", CreatedAt: time.Now(),
 		},
-		user:             db.User{ID: assignee, Locale: "en", SlackUserID: &slackID},
-		slackIntegration: db.Integration{ID: uuid.New(), Kind: "slack", Config: slackCfg, Enabled: true},
+		user:        db.User{ID: assignee, Locale: "en", SlackUserID: &slackID},
+		workspaceID: workspaceID,
+		workspaceIntegrations: map[string]db.Integration{
+			"slack": {
+				ID: uuid.New(), Kind: "slack", Config: slackCfg, Enabled: true,
+				WorkspaceID: &workspaceID, Mode: strPtr("custom"),
+			},
+		},
 	}
 	p := NewEscalateProcessor(nil, store, "http://localhost:8080")
 	require.NoError(t, p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "escalate_incident",
 		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 	}))
+	require.Equal(t, 1, pageCalls)
+}
+
+func TestEscalateProcessorSkipsInheritSlotWithoutGlobal(t *testing.T) {
+	incidentID := uuid.New()
+	assignee := uuid.New()
+	workspaceID := uuid.New()
+	store := &escalateFlowStore{
+		incident: db.Incident{
+			ID: incidentID, Status: "open", AssigneeID: &assignee,
+			TeamID: uuid.New(), Title: "CPU", Severity: "critical", CreatedAt: time.Now(),
+		},
+		user:        db.User{ID: assignee, Locale: "en", SlackUserID: strPtr("U123")},
+		workspaceID: workspaceID,
+		workspaceIntegrations: map[string]db.Integration{
+			"slack": {
+				ID: uuid.New(), Kind: "slack", Config: []byte(`{}`), Enabled: true,
+				WorkspaceID: &workspaceID, Mode: strPtr("inherit"),
+			},
+		},
+	}
+	p := NewEscalateProcessor(nil, store, "http://localhost:8080")
+
+	require.NoError(t, p.Handle(context.Background(), Job{
+		ID: "j1", Kind: "escalate_incident",
+		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
+	}))
+
+	var notice map[string]string
+	for _, event := range store.timelineEvents {
+		if event.kind == "integration_skipped" {
+			require.NoError(t, json.Unmarshal(event.payload, &notice))
+			if notice["kind"] == "slack" {
+				break
+			}
+		}
+	}
+	require.Equal(t, "no_global", notice["reason"])
 }
 
 type escalateFlowStore struct {
-	incident         db.Incident
-	user             db.User
-	slackIntegration db.Integration
+	incident              db.Incident
+	user                  db.User
+	workspaceID           uuid.UUID
+	globalIntegrations    map[string]db.Integration
+	workspaceIntegrations map[string]db.Integration
+	timelineEvents        []timelineEventCall
 }
 
 func (s escalateFlowStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
@@ -363,17 +413,30 @@ func (s escalateFlowStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incid
 func (s escalateFlowStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
 	return s.user, nil
 }
-func (s escalateFlowStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
+func (s *escalateFlowStore) AppendTimelineEvent(_ context.Context, _ uuid.UUID, kind string, _ *uuid.UUID, payload []byte) error {
+	s.timelineEvents = append(s.timelineEvents, timelineEventCall{kind: kind, payload: payload})
 	return nil
 }
-func (s escalateFlowStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
-	return s.slackIntegration, nil
+func (s escalateFlowStore) GetIntegrationByKind(_ context.Context, kind string) (db.Integration, error) {
+	integration, ok := s.globalIntegrations[kind]
+	if !ok {
+		return db.Integration{}, pgx.ErrNoRows
+	}
+	return integration, nil
 }
 func (s escalateFlowStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
 	return db.Notification{}, nil
 }
 func (s escalateFlowStore) ListEnabledIntegrations(context.Context) ([]integrations.IntegrationRow, error) {
-	return []integrations.IntegrationRow{
-		{ID: s.slackIntegration.ID, Kind: "slack", Config: s.slackIntegration.Config, Enabled: true},
-	}, nil
+	return nil, nil
+}
+func (s escalateFlowStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return s.workspaceID, nil
+}
+func (s escalateFlowStore) GetWorkspaceIntegration(_ context.Context, _ uuid.UUID, kind string) (db.Integration, error) {
+	integration, ok := s.workspaceIntegrations[kind]
+	if !ok {
+		return db.Integration{}, pgx.ErrNoRows
+	}
+	return integration, nil
 }
