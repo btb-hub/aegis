@@ -244,20 +244,43 @@ docker compose -f deploy/docker-compose.yml --profile dev up --build
 Built-in scenarios include high CPU, disk full, OOM kills, HTTP 5xx spikes, DB connection pool
 exhaustion, certificate expiry, queue backlog, replication lag, and DNS failures.
 
-## Setup wizard (Phase 6)
+## Configuration model (preferred)
 
-Route: `/setup` in the web app (multi-step wizard; progress in `localStorage`).
+**Configure each area on its own admin page.** Do not require the multi-step setup wizard to change
+one setting (for example Jira credentials or workspace membership).
 
-**Workspace step (Phase 11):** Primary path is **Workspaces** (`/workspaces`) — create a project and assign existing teams. The wizard keeps a **Quick setup** shortcut (workspace + L2/L3 + escalation path in one click) for greenfield installs. If a non-default workspace already has teams, the step can be skipped.
+| Area | Preferred UI | API |
+|------|--------------|-----|
+| Connectors (Jira, Slack, eXpress) | `/integrations` — create, edit, test, enable/disable | `/api/v1/integrations` |
+| Teams / shifts / users | Dedicated pages under the app shell | respective `/api/v1/...` routes |
+| Workspaces / escalation / routing | **`/workspaces`** (create, bind teams) + team path admin + workspace routing | workspace / path / routing APIs |
 
-1. **Health** — `GET /healthz` on the API (≈ 2 min)
-2. **OIDC** — sign in via `/login` and confirm `GET /auth/me` (≈ 30–60 min with IdP app registration, or use **Dev sign in** locally when `DEV_AUTH_ENABLED=true`)
-3. **Workspace & teams** — open **Workspaces** or use quick L2/L3 setup in the wizard (≈ 15–30 min)
-4. **Integrations** — save + test Jira, Slack, eXpress via `/api/v1/integrations` (≈ 2–4 h depending on credentials)
-5. **Test alert** — `POST /api/v1/setup/test-alert` from the wizard (≈ 5 min)
+The setup wizard (`/setup`) is an **optional first-run checklist**. It must not gate connector or
+other day-2 configuration. Product decisions:
+[`EPIC-12`](../backlog/epics/EPIC-12-workspace-admin.md) (workspaces),
+[`EPIC-13`](../backlog/epics/EPIC-13-integration-admin.md) (integrations).
+
+**Workspaces:** Primary path is **Workspaces** (`/workspaces`) — create a project and assign existing
+teams. The wizard keeps a **Quick setup** shortcut (workspace + L2/L3 + escalation path in one click)
+for greenfield installs. If a non-default workspace already has teams, the wizard step can be skipped.
+
+### Suggested independent first-day path (NFR-1)
+
+1. **Health** — `GET /healthz` (≈ 2 min)
+2. **Sign-in** — `/login` (OIDC, or **Dev sign in** when `DEV_AUTH_ENABLED=true`) and confirm `GET /auth/me` (≈ 30–60 min with IdP, or seconds with dev auth)
+3. **Workspace & teams** — open **`/workspaces`** (or wizard quick L2/L3 setup) (≈ 15–30 min)
+4. **Integrations** — open **`/integrations`**, save + test Jira / Slack / eXpress (≈ 2–4 h depending on credentials). Do **not** require `/setup`.
+5. **Test alert** — `POST /api/v1/setup/test-alert` (admin; also reachable from the wizard when used) (≈ 5 min)
 6. **Dashboard** — open `/dashboard` and confirm the five widgets load
 
 Target: **≤ 1 working day** for an engineer with IdP and connector credentials ready (NFR-1). Without pre-provisioned credentials, allow half a day for OAuth app setup and token issuance.
+
+## Setup wizard (optional)
+
+Route: `/setup` (multi-step; progress in `localStorage`). Useful as a guided tour for a greenfield
+install. Steps still cover health → OIDC → workspace/teams → integrations → test alert → dashboard, but
+**each capability above is also available without the wizard**. Prefer deep links from wizard steps into
+the dedicated admin pages (`/workspaces`, `/integrations` as those pages mature).
 
 ## Production notes (MVP)
 
