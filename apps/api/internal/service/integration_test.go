@@ -44,12 +44,13 @@ func (m *integrationMockRepo) UpsertIntegration(_ context.Context, kind, name st
 	m.items = append(m.items, item)
 	return item, nil
 }
-func (m *integrationMockRepo) UpdateIntegration(_ context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool) (db.Integration, error) {
+func (m *integrationMockRepo) UpdateIntegration(_ context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool, mode *string) (db.Integration, error) {
 	for i, item := range m.items {
 		if item.ID == id {
 			item.Name = name
 			item.Config = config
 			item.Enabled = enabled
+			item.Mode = mode
 			m.items[i] = item
 			return item, nil
 		}

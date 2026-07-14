@@ -27,7 +27,7 @@ type IntegrationRepository interface {
 	GetIntegration(ctx context.Context, id uuid.UUID) (db.Integration, error)
 	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
 	UpsertIntegration(ctx context.Context, kind, name string, config json.RawMessage, enabled bool, workspaceID *uuid.UUID) (db.Integration, error)
-	UpdateIntegration(ctx context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool) (db.Integration, error)
+	UpdateIntegration(ctx context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool, mode *string) (db.Integration, error)
 	DeleteIntegration(ctx context.Context, id uuid.UUID) error
 	ListEnabledIntegrations(ctx context.Context) ([]integrations.IntegrationRow, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
@@ -120,7 +120,7 @@ func (s *IntegrationService) Update(ctx context.Context, id uuid.UUID, name *str
 			return db.Integration{}, err
 		}
 	}
-	item, err := s.repo.UpdateIntegration(ctx, id, nextName, nextConfig, nextEnabled)
+	item, err := s.repo.UpdateIntegration(ctx, id, nextName, nextConfig, nextEnabled, existing.Mode)
 	if err != nil {
 		return db.Integration{}, mapIntegrationError(err)
 	}

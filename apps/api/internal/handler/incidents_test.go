@@ -213,7 +213,7 @@ func (m *phase2HandlerRepo) UpsertIntegration(_ context.Context, kind, name stri
 	m.integrations[item.ID] = item
 	return item, nil
 }
-func (m *phase2HandlerRepo) UpdateIntegration(_ context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool) (db.Integration, error) {
+func (m *phase2HandlerRepo) UpdateIntegration(_ context.Context, id uuid.UUID, name string, config json.RawMessage, enabled bool, mode *string) (db.Integration, error) {
 	item, ok := m.integrations[id]
 	if !ok {
 		return db.Integration{}, pgx.ErrNoRows
@@ -221,6 +221,7 @@ func (m *phase2HandlerRepo) UpdateIntegration(_ context.Context, id uuid.UUID, n
 	item.Name = name
 	item.Config = config
 	item.Enabled = enabled
+	item.Mode = mode
 	item.UpdatedAt = time.Now()
 	m.integrations[id] = item
 	return item, nil
