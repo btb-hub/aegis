@@ -143,3 +143,13 @@ func (s *UserService) UpdateUserRole(ctx context.Context, actorID, targetID uuid
 func (s *UserService) IsRolePinned(email string) bool {
 	return s.cfg.IsAdminEmail(email)
 }
+
+// IdentitiesForUser loads the linked identities for a single user, for
+// response shapes that mirror ListUsers (e.g. after a role update).
+func (s *UserService) IdentitiesForUser(ctx context.Context, userID uuid.UUID) ([]db.UserIdentity, error) {
+	identityMap, err := s.repo.ListUserIdentitiesByUserIDs(ctx, []uuid.UUID{userID})
+	if err != nil {
+		return nil, err
+	}
+	return identityMap[userID], nil
+}

@@ -31,6 +31,7 @@ type userListRepoMock struct {
 	countUsersByRoleErr error
 	updateUserRoleErr   error
 	writeAuditLogErr    error
+	listIdentitiesErr   error
 }
 
 func (m *userListRepoMock) GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error) {
@@ -111,6 +112,9 @@ func (m *userListRepoMock) CountUsers(ctx context.Context, params db.ListUsersPa
 }
 
 func (m *userListRepoMock) ListUserIdentitiesByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][]db.UserIdentity, error) {
+	if m.listIdentitiesErr != nil {
+		return nil, m.listIdentitiesErr
+	}
 	out := make(map[uuid.UUID][]db.UserIdentity, len(userIDs))
 	for _, userID := range userIDs {
 		if identities, ok := m.identities[userID]; ok {
@@ -335,4 +339,27 @@ func TestIsRolePinned(t *testing.T) {
 
 	require.True(t, svc.IsRolePinned("pinned@example.com"))
 	require.False(t, svc.IsRolePinned("other@example.com"))
+}
+
+func TestIdentitiesForUser(t *testing.T) {
+	userID := uuid.New()
+	repo := &userListRepoMock{
+		identities: map[uuid.UUID][]db.UserIdentity{
+			userID: {{Provider: "google", ProviderSub: "g-1"}},
+		},
+	}
+	svc := NewUserService(repo, &config.Config{})
+
+	identities, err := svc.IdentitiesForUser(context.Background(), userID)
+	require.NoError(t, err)
+	require.Len(t, identities, 1)
+	require.Equal(t, "google", identities[0].Provider)
+}
+
+func TestIdentitiesForUserError(t *testing.T) {
+	repo := &userListRepoMock{listIdentitiesErr: errors.New("db unavailable")}
+	svc := NewUserService(repo, &config.Config{})
+
+	_, err := svc.IdentitiesForUser(context.Background(), uuid.New())
+	require.EqualError(t, err, "db unavailable")
 }
