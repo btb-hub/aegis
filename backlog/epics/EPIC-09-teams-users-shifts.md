@@ -216,6 +216,19 @@ when session present.
 
 ---
 
+### AEG-072 — ADMIN_EMAILS first-admin bootstrap
+
+- **Status:** Ready → set to In Review when PR opens
+- **Depends on:** AEG-064
+- **PRD:** REQ-AUTH-04, REQ-AUDIT-01
+- **Acceptance:**
+  - [ ] `ADMIN_EMAILS` parsed (trim, lower-case); invalid tokens fail config load
+  - [ ] OIDC login promotes listed emails to `admin` with audit; unlisted unchanged; already-admin no-op
+  - [ ] DevAuth path unchanged
+  - [ ] Documented in setup + security + `.env.example`
+
+---
+
 ## Dependency graph
 
 ```text
