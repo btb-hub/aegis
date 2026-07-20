@@ -59,6 +59,16 @@ func (m *userListRepoMock) ListUserIdentitiesByUserIDs(ctx context.Context, user
 	return out, nil
 }
 
+func (m *userListRepoMock) CountUsersByRole(ctx context.Context, role string) (int, error) {
+	n := 0
+	for _, user := range m.directory {
+		if user.Role == role {
+			n++
+		}
+	}
+	return n, nil
+}
+
 func setupUserRouter(t *testing.T) *userHandlerEnv {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -79,7 +89,7 @@ func setupUserRouter(t *testing.T) *userHandlerEnv {
 
 	cfg := &config.Config{SessionTTL: time.Hour}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
-	users := service.NewUserService(repo)
+	users := service.NewUserService(repo, cfg)
 	health := service.NewHealthService(nil)
 
 	r := gin.New()
