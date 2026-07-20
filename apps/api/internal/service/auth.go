@@ -26,6 +26,8 @@ type UserRepository interface {
 	ListUserIdentities(ctx context.Context, userID uuid.UUID) ([]db.UserIdentity, error)
 	UpdateUserLocale(ctx context.Context, id uuid.UUID, locale string) (db.User, error)
 	UpdateUserProfile(ctx context.Context, id uuid.UUID, displayName, locale string) (db.User, error)
+	UpdateUserRole(ctx context.Context, id uuid.UUID, role string) (db.User, error)
+	WriteAuditLog(ctx context.Context, actorID *uuid.UUID, action, resourceType string, resourceID uuid.UUID, details map[string]any) error
 }
 
 type SessionRepository interface {
@@ -136,6 +138,23 @@ func (s *AuthService) CompleteLogin(ctx context.Context, provider, code string) 
 		return "", db.User{}, err
 	}
 	user = result.User
+
+	if s.cfg.IsAdminEmail(user.Email) && user.Role != string(rbac.RoleAdmin) {
+		oldRole := user.Role
+		updated, err := s.users.UpdateUserRole(ctx, user.ID, string(rbac.RoleAdmin))
+		if err != nil {
+			return "", db.User{}, err
+		}
+		actorID := user.ID
+		if err := s.users.WriteAuditLog(ctx, &actorID, "user.role_changed", "user", user.ID, map[string]any{
+			"old_role": oldRole,
+			"new_role": string(rbac.RoleAdmin),
+			"reason":   "admin_emails_env",
+		}); err != nil {
+			return "", db.User{}, err
+		}
+		user = updated
+	}
 
 	rawToken, hash, err := sessiontoken.New()
 	if err != nil {
