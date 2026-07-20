@@ -13,6 +13,7 @@ import { ShiftsLandingPage } from './pages/ShiftsLandingPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { TeamShiftsRoute } from './pages/TeamShiftsRoute';
+import { UsersPage } from './pages/UsersPage';
 import { WorkspaceDetailPage } from './pages/WorkspaceDetailPage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
 
@@ -40,6 +41,9 @@ function pageFromPath(pathname: string): AppPage {
   }
   if (pathname.startsWith('/incidents')) {
     return 'incidents';
+  }
+  if (pathname.startsWith('/users')) {
+    return 'users';
   }
   return 'shifts';
 }
@@ -152,6 +156,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <SetupWizardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <UsersPage />
             </ProtectedRoute>
           }
         />
