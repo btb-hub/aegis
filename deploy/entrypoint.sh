@@ -15,7 +15,7 @@ fi
 echo "entrypoint: running migrations"
 migrate -path "$MIGRATIONS_PATH" -database "$DATABASE_URL" up
 
-export HTTP_ADDR="${HTTP_ADDR:-127.0.0.1:8080}"
+export HTTP_ADDR="127.0.0.1:8080"
 
 pids=()
 
