@@ -27,7 +27,7 @@ RUN npm run build
 FROM nginx:1.27-alpine
 
 ARG TARGETARCH
-RUN apk add --no-cache curl ca-certificates \
+RUN apk add --no-cache bash curl ca-certificates \
   && curl -fsSL "https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-${TARGETARCH}.tar.gz" \
     | tar xz -C /usr/local/bin \
   && chmod +x /usr/local/bin/migrate \
