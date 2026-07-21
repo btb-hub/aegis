@@ -150,18 +150,19 @@ image-smoke: image
 	@test -n "$${SESSION_SECRET}" || (echo "SESSION_SECRET required" >&2; exit 1)
 	@test -n "$${WEBHOOK_SECRET}" || (echo "WEBHOOK_SECRET required" >&2; exit 1)
 	@test -n "$${PUBLIC_URL}" || (echo "PUBLIC_URL required" >&2; exit 1)
+	@set -euo pipefail; \
+	trap 'docker rm -f aegis-smoke >/dev/null 2>&1 || true' EXIT; \
 	docker run --rm -d --name aegis-smoke -p 3000:3000 \
 	  -e DATABASE_URL \
 	  -e SESSION_SECRET \
 	  -e WEBHOOK_SECRET \
 	  -e PUBLIC_URL \
 	  -e HTTP_ADDR=127.0.0.1:8080 \
-	  $(IMAGE_NAME)
-	@echo "Waiting for /healthz..."
-	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+	  $(IMAGE_NAME); \
+	echo "Waiting for /healthz..."; \
+	for i in 1 2 3 4 5 6 7 8 9 10; do \
 	  if curl -fsS http://127.0.0.1:3000/healthz >/dev/null; then break; fi; \
 	  sleep 2; \
-	done
-	curl -fsS http://127.0.0.1:3000/healthz
+	done; \
+	curl -fsS http://127.0.0.1:3000/healthz; \
 	curl -fsS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000/ | grep -E '200|304'
-	docker stop aegis-smoke
