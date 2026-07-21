@@ -74,6 +74,46 @@ describe('AppShell', () => {
     expect(screen.getByRole('button', { name: 'Workspaces' })).toBeInTheDocument();
   });
 
+  it('hides Users navigation for non-admin users', () => {
+    renderShell(
+      <AppShell
+        currentPage="shifts"
+        onNavigate={vi.fn()}
+        user={{
+          id: 'user-1',
+          email: 'member@example.com',
+          display_name: 'Member',
+          role: 'member',
+          locale: 'en',
+          provider: 'google',
+        }}
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument();
+  });
+
+  it('shows Users navigation for admin users', () => {
+    renderShell(
+      <AppShell
+        currentPage="shifts"
+        onNavigate={vi.fn()}
+        user={{
+          id: 'user-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        }}
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument();
+  });
+
   it('shows signed-in user and sign out button', () => {
     const onSignOut = vi.fn().mockResolvedValue(undefined);
     renderShell(

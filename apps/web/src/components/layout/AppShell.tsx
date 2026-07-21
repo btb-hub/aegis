@@ -5,7 +5,16 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import type { AuthUser } from '../../lib/authTypes';
 import { Button } from '../ui/Button';
 
-export type AppPage = 'shifts' | 'teams' | 'workspaces' | 'incidents' | 'alerts' | 'integrations' | 'dashboard' | 'setup';
+export type AppPage =
+  | 'shifts'
+  | 'teams'
+  | 'workspaces'
+  | 'incidents'
+  | 'alerts'
+  | 'integrations'
+  | 'dashboard'
+  | 'setup'
+  | 'users';
 
 type AppShellProps = {
   children: ReactNode;
@@ -19,6 +28,8 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  const isAdmin = user?.role === 'admin';
+
   const navItems: Array<{ id: AppPage; label: string }> = [
     { id: 'shifts', label: t('nav.shifts') },
     { id: 'teams', label: t('nav.teams') },
@@ -28,6 +39,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
     { id: 'dashboard', label: t('nav.dashboard') },
     { id: 'integrations', label: t('nav.integrations') },
     { id: 'setup', label: t('nav.setup') },
+    ...(isAdmin ? [{ id: 'users' as AppPage, label: t('nav.users') }] : []),
   ];
 
   return (
