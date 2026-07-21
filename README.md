@@ -52,8 +52,8 @@ department dashboards to analyse what's happening. The product must be easy to *
 
 ## Deploy (DevOps)
 
-MVP ships as **Docker Compose**: Postgres 16, schema migrations, API, worker, and web. No Redis.
-Helm/Kubernetes is out of scope for MVP (see roadmap *Later*).
+Use **Docker Compose** for local source builds: Postgres 16, schema migrations, API, worker, and
+web. Production uses the GHCR all-in-one image and Kubernetes sketch; Helm remains later.
 
 **Authoritative detail:** [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md)
 (prerequisites, env reference, migrations, production checklist). Env templates:
@@ -193,8 +193,8 @@ built and tested; backend endpoints exist for a future API wiring pass.
 ### Not yet built (post-MVP)
 
 See [`backlog/roadmap.md`](./backlog/roadmap.md) *Later*: Mattermost/Telegram, mobile push,
-phone/SMS paging, status pages, runbook automation, multi-tenant SaaS, self-hosted IdP, Helm/K8s
-deploy, and related items.
+phone/SMS paging, status pages, runbook automation, multi-tenant SaaS, self-hosted IdP, Helm charts,
+and related items.
 
 ## Run locally
 
