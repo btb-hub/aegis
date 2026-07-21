@@ -145,11 +145,12 @@ Delete rejects the default workspace (`00000000-0000-0000-0000-000000000001`) wi
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/users` | session + admin | Paginated user directory for member pickers |
+| GET | `/users` | session + admin | Paginated user directory for member pickers and the Users admin page |
+| PATCH | `/users/{id}` | session + admin | Body `{"role": "admin"\|"member"\|"viewer"}`. Conflicts: `last_admin`, `admin_emails_pinned`. |
 
 Query params: `q` (search email and display name), `page` (default 1), `page_size` (default 100, max 100).
 
-**Implemented (AEG-065):** Response items match `GET /auth/me` user fields: `id`, `email`, `display_name`, `role`, `avatar_url`, `slack_user_id`, `express_user_huid`, and `identities[]`. Sorted by `display_name` ascending.
+**Implemented (AEG-065):** Response items match `GET /auth/me` user fields: `id`, `email`, `display_name`, `role`, `avatar_url`, `slack_user_id`, `express_user_huid`, and `identities[]`. Sorted by `display_name` ascending. List items also include `role_pinned` (boolean), which reports whether the user's email is pinned to `admin` by the `ADMIN_EMAILS` config and therefore cannot be demoted from the UI.
 
 ```json
 {
@@ -161,6 +162,7 @@ Query params: `q` (search email and display name), `page` (default 1), `page_siz
       "role": "member",
       "locale": "en",
       "provider": "google",
+      "role_pinned": false,
       "identities": [
         {"provider": "google", "provider_sub": "…", "linked_at": "2026-07-03T12:00:00Z"}
       ]
@@ -171,6 +173,8 @@ Query params: `q` (search email and display name), `page` (default 1), `page_siz
   "page_size": 100
 }
 ```
+
+**PATCH `/users/{id}`:** Changes a user's role. Returns the updated user in the same shape as a list item (including `role_pinned`). Rejects with `409 CONFLICT` and code `last_admin` when demoting the last remaining admin, and with `409` and code `admin_emails_pinned` when demoting a user whose email is pinned to admin by `ADMIN_EMAILS`.
 
 Create/update schedule body:
 

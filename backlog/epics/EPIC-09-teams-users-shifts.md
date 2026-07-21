@@ -218,7 +218,7 @@ when session present.
 
 ### AEG-072 — ADMIN_EMAILS first-admin bootstrap
 
-- **Status:** Ready → set to In Review when PR opens
+- **Status:** Done
 - **Depends on:** AEG-064
 - **PRD:** REQ-AUTH-04, REQ-AUDIT-01
 - **Acceptance:**
@@ -226,6 +226,19 @@ when session present.
   - [ ] OIDC login promotes listed emails to `admin` with audit; unlisted unchanged; already-admin no-op
   - [ ] DevAuth path unchanged
   - [ ] Documented in setup + security + `.env.example`
+
+---
+
+### AEG-073 — Admin user role management
+
+- **Status:** In Review
+- **Depends on:** AEG-072, AEG-065
+- **PRD:** REQ-AUTH-04, REQ-AUDIT-01
+- **Acceptance:**
+  - [ ] `PATCH /api/v1/users/{id}` with last-admin + ADMIN_EMAILS pin guards + audit
+  - [ ] `GET /users` includes `role_pinned`
+  - [ ] `/users` admin UI with en/ru copy + tests
+  - [ ] API spec updated
 
 ---
 

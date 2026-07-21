@@ -57,7 +57,7 @@ func main() {
 	integrationsSvc := service.NewIntegrationService(store, cfg.PublicURL)
 	expressLinks := service.NewExpressLinkService(store)
 	savedViews := service.NewSavedViewService(store)
-	users := service.NewUserService(store)
+	users := service.NewUserService(store, cfg)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
