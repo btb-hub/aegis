@@ -68,6 +68,9 @@ Helm/Kubernetes is out of scope for MVP (see roadmap *Later*).
    from your secret store). Set strong `SESSION_SECRET` and `WEBHOOK_SECRET`. Set `PUBLIC_URL` to
    the public HTTPS origin users hit (e.g. `https://aegis.example.com`). Configure at least one
    OIDC provider (Google, Slack, and/or eXpress) with redirect URLs under `{PUBLIC_URL}/auth/...`.
+   Set `ADMIN_EMAILS` (comma-separated) to the operators who should become **admin** on first
+   OIDC sign-in — this bootstraps the first admin. See
+   [First admin](./docs/07-setup-deployment.md#first-admin-production).
 3. **Never enable in production:** `DEV_AUTH_ENABLED`, `SEED_DEV`, or the Compose `--profile dev`
    alert simulator. Do not point production `DATABASE_URL` at a shared/dev database.
 4. **Start stack** (from repo root, `.env` present):
@@ -88,10 +91,11 @@ Helm/Kubernetes is out of scope for MVP (see roadmap *Later*).
 
 5. **Health:** use `GET /healthz` (liveness) and `GET /readyz` (Postgres ready) on the API.
    Prometheus scrape: `GET /metrics` on the API.
-6. **Day-2 config (in the UI, not only env):** sign in as admin → `/integrations` (global
-   Jira/Slack/eXpress) → `/workspaces` (projects + connector slots) → teams/schedules → send a
-   test alert. Connector credentials may live in env initially; prefer DB-backed config via
-   Integrations after go-live. See [`docs/integrations/README.md`](./docs/integrations/README.md).
+6. **Day-2 config (in the UI, not only env):** sign in as admin (the first admin comes from
+   `ADMIN_EMAILS`, step 2) → `/integrations` (global Jira/Slack/eXpress) → `/workspaces` (projects
+   + connector slots) → teams/schedules → send a test alert. Connector credentials may live in env
+   initially; prefer DB-backed config via Integrations after go-live. See
+   [`docs/integrations/README.md`](./docs/integrations/README.md).
 7. **Upgrade / redeploy:** pull the release tag, rebuild/restart Compose (`make up-detached` or
    `docker compose ... up --build -d`). Migrations run automatically via the `migrate` service
    before API/worker start. Prefer rolling only after a Postgres backup.
