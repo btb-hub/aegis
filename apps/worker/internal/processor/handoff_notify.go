@@ -8,15 +8,15 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	"github.com/aegis/aegis/pkg/integrations/loader"
 	"github.com/google/uuid"
 )
 
 type HandoffNotifyStore interface {
 	GetIncidentByID(ctx context.Context, id uuid.UUID) (db.Incident, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
-	ListEnabledIntegrations(ctx context.Context) ([]integrations.IntegrationRow, error)
 	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
+	GetTeamWorkspaceID(ctx context.Context, teamID uuid.UUID) (uuid.UUID, error)
+	GetWorkspaceIntegration(ctx context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error)
 	CreateNotification(ctx context.Context, incidentID, integrationID uuid.UUID, status, externalRef string) (db.Notification, error)
 	AppendTimelineEvent(ctx context.Context, incidentID uuid.UUID, kind string, actorID *uuid.UUID, payload []byte) error
 }
@@ -59,14 +59,25 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 		return nil
 	}
 
-	reg, err := p.loadRegistry(ctx)
+	reg, notices, err := loadWorkspaceRegistry(ctx, p.store, incident.TeamID, p.publicURL)
 	if err != nil {
 		return err
+	}
+	for _, notice := range notices {
+		if notice.Kind == "jira" && incident.JiraIssueKey == nil {
+			continue
+		}
+		eventPayload, _ := json.Marshal(map[string]string{
+			"kind":    notice.Kind,
+			"reason":  notice.Reason,
+			"message": skipMessage(notice),
+		})
+		_ = p.store.AppendTimelineEvent(ctx, incident.ID, "integration_skipped", nil, eventPayload)
 	}
 	ref := toIncidentRef(incident)
 
 	if incident.JiraIssueKey != nil {
-		integrations.ForEachTicket(reg, func(provider integrations.TicketProvider) error {
+		integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
 			updater, ok := provider.(integrations.AssigneeUpdater)
 			if !ok {
 				return nil
@@ -87,7 +98,7 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
-	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
+	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
 		externalRef, err := provider.SendPage(ctx, ref, recipient)
 		status := "sent"
 		if err != nil {
@@ -98,22 +109,11 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 			eventPayload, _ := json.Marshal(map[string]any{"provider": provider.Kind(), "ref": externalRef, "handoff": true})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "paged", nil, eventPayload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})
 
 	return nil
-}
-
-func (p *HandoffNotifyProcessor) loadRegistry(ctx context.Context) (*integrations.Registry, error) {
-	rows, err := p.store.ListEnabledIntegrations(ctx)
-	if err != nil {
-		return nil, err
-	}
-	reg := integrations.NewRegistry()
-	loader.RegisterFromRows(reg, rows, p.publicURL)
-	return reg, nil
 }

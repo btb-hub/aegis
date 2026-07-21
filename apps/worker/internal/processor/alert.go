@@ -9,7 +9,6 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
-	"github.com/aegis/aegis/pkg/integrations/loader"
 	"github.com/aegis/aegis/pkg/routing"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -30,7 +29,7 @@ type AlertStore interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	EnqueueEscalation(ctx context.Context, incidentID uuid.UUID, runAt time.Time) error
 	GetTeamWorkspaceID(ctx context.Context, teamID uuid.UUID) (uuid.UUID, error)
-	ListEnabledIntegrationsForWorkspace(ctx context.Context, workspaceID uuid.UUID) ([]integrations.IntegrationRow, error)
+	GetWorkspaceIntegration(ctx context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error)
 }
 
 type AlertProcessor struct {
@@ -156,13 +155,21 @@ func (p *AlertProcessor) matchTeam(ctx context.Context, labels map[string]string
 }
 
 func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Incident, assigneeID *uuid.UUID, teamID uuid.UUID) error {
-	reg, err := p.loadRegistry(ctx, teamID)
+	reg, notices, err := loadWorkspaceRegistry(ctx, p.store, teamID, p.publicURL)
 	if err != nil {
 		return err
 	}
+	for _, notice := range notices {
+		payload, _ := json.Marshal(map[string]string{
+			"kind":    notice.Kind,
+			"reason":  notice.Reason,
+			"message": skipMessage(notice),
+		})
+		_ = p.store.AppendTimelineEvent(ctx, incident.ID, "integration_skipped", nil, payload)
+	}
 	ref := toIncidentRef(incident)
 
-	integrations.ForEachTicket(reg, func(provider integrations.TicketProvider) error {
+	integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
 		key, err := provider.CreateTicket(ctx, ref)
 		status := "sent"
 		externalRef := key
@@ -176,9 +183,8 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 			payload, _ := json.Marshal(map[string]any{"jira_issue_key": key})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "jira_linked", nil, payload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})
@@ -199,7 +205,7 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
-	integrations.ForEachChat(reg, func(provider integrations.ChatProvider) error {
+	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
 		ref, err := provider.SendPage(ctx, toIncidentRef(incident), recipient)
 		status := "sent"
 		externalRef := ref
@@ -211,27 +217,12 @@ func (p *AlertProcessor) notifyIntegrations(ctx context.Context, incident db.Inc
 			payload, _ := json.Marshal(map[string]any{"provider": provider.Kind(), "ref": ref})
 			_ = p.store.AppendTimelineEvent(ctx, incident.ID, "paged", nil, payload)
 		}
-		integration, err := p.store.GetIntegrationByKind(ctx, provider.Kind())
-		if err == nil {
-			_, _ = p.store.CreateNotification(ctx, incident.ID, integration.ID, status, externalRef)
+		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
+			_, _ = p.store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
 		}
 		return nil
 	})
 	return nil
-}
-
-func (p *AlertProcessor) loadRegistry(ctx context.Context, teamID uuid.UUID) (*integrations.Registry, error) {
-	workspaceID, err := p.store.GetTeamWorkspaceID(ctx, teamID)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := p.store.ListEnabledIntegrationsForWorkspace(ctx, workspaceID)
-	if err != nil {
-		return nil, err
-	}
-	reg := integrations.NewRegistry()
-	loader.RegisterFromRows(reg, rows, p.publicURL)
-	return reg, nil
 }
 
 func decodeAlertLabels(raw []byte) (map[string]string, error) {

@@ -27,7 +27,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 04 | [`docs/04-api-spec.md`](./docs/04-api-spec.md) | REST endpoints and contracts |
 | 05 | [`docs/integrations/`](./docs/integrations/) | Jira, Slack, eXpress |
 | 06 | [`docs/features/`](./docs/features/) | Shifts, incidents, alerting, L2↔L3 |
-| 07 | [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md) | How IT installs and runs it |
+| 07 | [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md) | Local run + DevOps production deploy |
 | 08 | [`docs/08-analytics.md`](./docs/08-analytics.md) | Metrics, dashboards, exports |
 | 09 | [`docs/09-security.md`](./docs/09-security.md) | OIDC auth, RBAC, secrets, audit |
 | 10 | [`docs/10-agent-loop.md`](./docs/10-agent-loop.md) | The development loop in detail |
@@ -44,10 +44,72 @@ department dashboards to analyse what's happening. The product must be easy to *
 - **Auth:** OIDC via Google, Slack, and eXpress; optional **Dev sign in** on localhost (`DEV_AUTH_ENABLED`).
 - **Locales:** English and Russian (`en`, `ru`).
 - **Coverage:** `make test` enforces ≥90% unit-test coverage on business logic (NFR-5).
-- **Deploy:** Docker Compose — `make setup && make up`, or native dev with `make dev-db` + `make dev-api`.
+- **Deploy:** Docker Compose (MVP). DevOps runbook below; full notes in
+  [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
 - **Alert intake:** generic webhook endpoint, compatible with Alertmanager / Grafana / Zabbix payloads.
 - **Out:** anything not needed to ship the four MVP features. See `docs/00-product-brief.md` for the
   explicit non-goals.
+
+## Deploy (DevOps)
+
+MVP ships as **Docker Compose**: Postgres 16, schema migrations, API, worker, and web. No Redis.
+Helm/Kubernetes is out of scope for MVP (see roadmap *Later*).
+
+**Authoritative detail:** [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md)
+(prerequisites, env reference, migrations, production checklist). Env templates:
+[`deploy/.env.example`](./deploy/.env.example).
+
+### Production-like rollout
+
+1. **Host requirements:** Docker 24+ with Compose v2; outbound HTTPS for OIDC IdPs and connectors;
+   inbound HTTPS for users and alert webhooks (terminate TLS on a reverse proxy — nginx/Caddy —
+   not bundled in Compose).
+2. **Secrets / config:** copy `deploy/.env.example` → `.env` on the host (or inject the same keys
+   from your secret store). Set strong `SESSION_SECRET` and `WEBHOOK_SECRET`. Set `PUBLIC_URL` to
+   the public HTTPS origin users hit (e.g. `https://aegis.example.com`). Configure at least one
+   OIDC provider (Google, Slack, and/or eXpress) with redirect URLs under `{PUBLIC_URL}/auth/...`.
+3. **Never enable in production:** `DEV_AUTH_ENABLED`, `SEED_DEV`, or the Compose `--profile dev`
+   alert simulator. Do not point production `DATABASE_URL` at a shared/dev database.
+4. **Start stack** (from repo root, `.env` present):
+
+   ```bash
+   make up-detached    # builds images, applies golang-migrate, starts postgres/api/worker/web
+   make ps             # confirm services
+   curl -fsS "$PUBLIC_URL/healthz"   # or http://localhost:8080/healthz behind the proxy
+   curl -fsS http://localhost:8080/readyz
+   ```
+
+   Equivalent without Make:
+
+   ```bash
+   cp deploy/.env.example .env   # first time only
+   docker compose -f deploy/docker-compose.yml up --build -d
+   ```
+
+5. **Health:** use `GET /healthz` (liveness) and `GET /readyz` (Postgres ready) on the API.
+   Prometheus scrape: `GET /metrics` on the API.
+6. **Day-2 config (in the UI, not only env):** sign in as admin → `/integrations` (global
+   Jira/Slack/eXpress) → `/workspaces` (projects + connector slots) → teams/schedules → send a
+   test alert. Connector credentials may live in env initially; prefer DB-backed config via
+   Integrations after go-live. See [`docs/integrations/README.md`](./docs/integrations/README.md).
+7. **Upgrade / redeploy:** pull the release tag, rebuild/restart Compose (`make up-detached` or
+   `docker compose ... up --build -d`). Migrations run automatically via the `migrate` service
+   before API/worker start. Prefer rolling only after a Postgres backup.
+8. **Backup:** schedule dumps or snapshots of the `pgdata` volume (Compose volume named `pgdata`).
+   Restore by stopping the stack, restoring data, starting again; then confirm `/readyz`.
+9. **Rollback:** redeploy the previous image tags/commit; if a migration must reverse, use
+   `make migrate-down` (one step) only with a restore plan — downs are provided but not all are
+   zero-downtime.
+
+| Service | Port (host) | Role |
+|---------|-------------|------|
+| postgres | 5432 | State (back this volume up) |
+| api | 8080 | HTTP API, OIDC, webhooks, `/healthz` `/readyz` `/metrics` |
+| worker | — | Jobs: alert processing, escalation, on-call materialisation, handoff notify |
+| web | 3000 | SPA; proxies `/api` and `/auth` to the API (see `deploy/nginx.web.conf`) |
+
+Compose file: [`deploy/docker-compose.yml`](./deploy/docker-compose.yml). Images:
+`deploy/Dockerfile.{api,worker,web}`.
 
 ## Implementation status
 
@@ -98,6 +160,11 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000009_handoffs` | handoffs for L2→L3 tracking and analytics |
 | `000010_dev_auth_provider` | allow `dev` OIDC provider for local dev login |
 | `000011_user_identities` | `user_identities`, `avatar_url`, `audit_log`; backfill SSO identities |
+| `000012_workspaces` | workspaces + team membership |
+| `000013_support_tier` | support tier on teams |
+| `000014_escalation_paths` | escalation paths |
+| `000015_workspace_integrations` | per-workspace integration rows |
+| `000016_integration_slot_mode` | slot `mode` (`inherit`/`custom`) + backfill three slots |
 
 ### Frontend (`apps/web/`)
 

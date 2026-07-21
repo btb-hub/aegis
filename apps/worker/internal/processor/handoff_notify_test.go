@@ -16,14 +16,15 @@ import (
 )
 
 type handoffNotifyTestStore struct {
-	incident      db.Incident
-	user          db.User
-	userErr       error
-	incidentErr   error
-	listErr       error
-	rows          []integrations.IntegrationRow
-	appendCalled  bool
-	notifyCalled  bool
+	incident       db.Incident
+	user           db.User
+	userErr        error
+	incidentErr    error
+	listErr        error
+	rows           []integrations.IntegrationRow
+	timelineEvents []timelineEventCall
+	appendCalled   bool
+	notifyCalled   bool
 }
 
 func (s *handoffNotifyTestStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
@@ -50,8 +51,32 @@ func (s *handoffNotifyTestStore) ListEnabledIntegrations(context.Context) ([]int
 	return s.rows, nil
 }
 
-func (s *handoffNotifyTestStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
-	return db.Integration{ID: uuid.New()}, nil
+func (s *handoffNotifyTestStore) GetIntegrationByKind(_ context.Context, kind string) (db.Integration, error) {
+	for _, row := range s.rows {
+		if row.Kind == kind {
+			return db.Integration{ID: row.ID, Kind: row.Kind, Config: row.Config, Enabled: row.Enabled}, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
+}
+
+func (s *handoffNotifyTestStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	if s.listErr != nil {
+		return uuid.Nil, s.listErr
+	}
+	return uuid.New(), nil
+}
+
+func (s *handoffNotifyTestStore) GetWorkspaceIntegration(_ context.Context, workspaceID uuid.UUID, kind string) (db.Integration, error) {
+	for _, row := range s.rows {
+		if row.Kind == kind {
+			return db.Integration{
+				ID: row.ID, Kind: row.Kind, Config: row.Config, Enabled: row.Enabled,
+				WorkspaceID: &workspaceID, Mode: strPtr("custom"),
+			}, nil
+		}
+	}
+	return db.Integration{}, pgx.ErrNoRows
 }
 
 func (s *handoffNotifyTestStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
@@ -59,8 +84,9 @@ func (s *handoffNotifyTestStore) CreateNotification(context.Context, uuid.UUID, 
 	return db.Notification{}, nil
 }
 
-func (s *handoffNotifyTestStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
+func (s *handoffNotifyTestStore) AppendTimelineEvent(_ context.Context, _ uuid.UUID, kind string, _ *uuid.UUID, payload []byte) error {
 	s.appendCalled = true
+	s.timelineEvents = append(s.timelineEvents, timelineEventCall{kind: kind, payload: payload})
 	return nil
 }
 
@@ -132,6 +158,51 @@ func TestHandoffNotifyProcessorNoAssignee(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestHandoffNotifyProcessorOnlyRecordsJiraSkipWhenIncidentHasJiraIssue(t *testing.T) {
+	incidentID := uuid.New()
+	assigneeID := uuid.New()
+	store := &handoffNotifyTestStore{
+		incident: db.Incident{ID: incidentID, AssigneeID: &assigneeID, Title: "CPU", Severity: "critical"},
+		user:     db.User{ID: assigneeID, Email: "l3@example.com", Locale: "en"},
+	}
+	p := NewHandoffNotifyProcessor(nil, store, "http://localhost:8080")
+
+	require.NoError(t, p.Handle(context.Background(), Job{
+		ID:      "job-1",
+		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
+	}))
+
+	var skippedKinds []string
+	for _, event := range store.timelineEvents {
+		if event.kind != "integration_skipped" {
+			continue
+		}
+		var notice map[string]string
+		require.NoError(t, json.Unmarshal(event.payload, &notice))
+		skippedKinds = append(skippedKinds, notice["kind"])
+	}
+	require.Equal(t, []string{"slack", "express"}, skippedKinds)
+
+	jiraKey := "OPS-42"
+	store.incident.JiraIssueKey = &jiraKey
+	store.timelineEvents = nil
+	require.NoError(t, p.Handle(context.Background(), Job{
+		ID:      "job-2",
+		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
+	}))
+
+	skippedKinds = nil
+	for _, event := range store.timelineEvents {
+		if event.kind != "integration_skipped" {
+			continue
+		}
+		var notice map[string]string
+		require.NoError(t, json.Unmarshal(event.payload, &notice))
+		skippedKinds = append(skippedKinds, notice["kind"])
+	}
+	require.Equal(t, []string{"jira", "slack", "express"}, skippedKinds)
+}
+
 func TestHandoffNotifyProcessorIncidentLookupError(t *testing.T) {
 	p := NewHandoffNotifyProcessor(nil, &handoffNotifyTestStore{incidentErr: pgx.ErrNoRows}, "http://localhost:8080")
 	err := p.Handle(context.Background(), Job{
@@ -201,9 +272,9 @@ func TestHandoffNotifyProcessorSlackPageSuccess(t *testing.T) {
 	assigneeID := uuid.New()
 	slackID := "U123"
 	cfg, err := json.Marshal(map[string]string{
-		"bot_token":       "xoxb-test",
-		"signing_secret":  "secret",
-		"api_base_url":    server.URL,
+		"bot_token":      "xoxb-test",
+		"signing_secret": "secret",
+		"api_base_url":   server.URL,
 	})
 	require.NoError(t, err)
 

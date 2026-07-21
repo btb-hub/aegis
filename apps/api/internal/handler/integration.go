@@ -26,10 +26,12 @@ func (h *IntegrationHandler) Register(r gin.IRouter) {
 	api.Use(middleware.RequireSession(h.auth))
 
 	api.GET("/integrations", h.listIntegrations)
+	api.GET("/integrations/:id", h.getIntegration)
 
 	admin := api.Group("")
 	admin.Use(middleware.RequireAdmin())
 	admin.POST("/integrations", h.upsertIntegration)
+	admin.PATCH("/integrations/:id", h.patchIntegration)
 	admin.DELETE("/integrations/:id", h.deleteIntegration)
 	admin.POST("/integrations/:id/test", h.testIntegration)
 }
@@ -41,10 +43,35 @@ func (h *IntegrationHandler) listIntegrations(c *gin.Context) {
 		return
 	}
 	out := make([]map[string]any, 0, len(items))
+	globalEnabled := make(map[string]bool)
 	for _, item := range items {
-		out = append(out, service.IntegrationJSON(item))
+		if item.WorkspaceID == nil && item.Enabled {
+			globalEnabled[item.Kind] = true
+		}
+	}
+	for _, item := range items {
+		out = append(out, service.IntegrationJSON(item, globalEnabled[item.Kind]))
 	}
 	WriteJSON(c, http.StatusOK, gin.H{"items": out})
+}
+
+func (h *IntegrationHandler) getIntegration(c *gin.Context) {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	item, err := h.integrations.Get(c.Request.Context(), id)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	out, err := h.integrations.JSON(c.Request.Context(), item)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, out)
 }
 
 func (h *IntegrationHandler) upsertIntegration(c *gin.Context) {
@@ -74,6 +101,39 @@ func (h *IntegrationHandler) upsertIntegration(c *gin.Context) {
 		return
 	}
 	WriteJSON(c, http.StatusCreated, service.IntegrationJSON(item))
+}
+
+func (h *IntegrationHandler) patchIntegration(c *gin.Context) {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	var body struct {
+		Name    *string          `json:"name"`
+		Enabled *bool            `json:"enabled"`
+		Config  *json.RawMessage `json:"config"`
+		Mode    *string          `json:"mode"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	var config json.RawMessage
+	if body.Config != nil {
+		config = *body.Config
+	}
+	item, err := h.integrations.Update(c.Request.Context(), id, body.Name, body.Enabled, config, body.Mode)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	out, err := h.integrations.JSON(c.Request.Context(), item)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, out)
 }
 
 func (h *IntegrationHandler) deleteIntegration(c *gin.Context) {

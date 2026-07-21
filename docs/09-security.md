@@ -51,6 +51,10 @@ Enforced in service layer + handler checks.
 - All tokens in env or `integrations.config` — not in git.
 - `.env.example` lists keys with empty values.
 - Logs redact `Authorization`, tokens, webhook secrets.
+- `GET /integrations` and `GET /integrations/{id}` redact secret config keys
+  (`api_token`, `bot_token`, `signing_secret`, `secret_key`) as `***`. Prefer
+  `PATCH /integrations/{id}` with blank secrets to keep stored values rather than
+  round-tripping list payloads.
 
 ## Webhook security
 

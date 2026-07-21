@@ -17,7 +17,7 @@ type WorkspaceRepository interface {
 	ListWorkspacesWithCounts(ctx context.Context) ([]db.WorkspaceSummary, error)
 	GetWorkspace(ctx context.Context, id uuid.UUID) (db.Workspace, error)
 	GetWorkspaceUsage(ctx context.Context, id uuid.UUID) (db.WorkspaceUsage, error)
-	CreateWorkspace(ctx context.Context, name, slug, description string) (db.Workspace, error)
+	CreateWorkspaceWithSlots(ctx context.Context, name, slug, description string) (db.Workspace, error)
 	UpdateWorkspace(ctx context.Context, id uuid.UUID, name, slug, description string) (db.Workspace, error)
 	DeleteWorkspace(ctx context.Context, id uuid.UUID) error
 }
@@ -62,7 +62,7 @@ func (s *WorkspaceService) Create(ctx context.Context, name, slug, description s
 	if slug == "" {
 		slug = db.Slugify(name)
 	}
-	item, err := s.repo.CreateWorkspace(ctx, name, slug, strings.TrimSpace(description))
+	item, err := s.repo.CreateWorkspaceWithSlots(ctx, name, slug, strings.TrimSpace(description))
 	if err != nil {
 		return db.Workspace{}, mapWorkspaceError(err)
 	}
@@ -93,11 +93,10 @@ func (s *WorkspaceService) Delete(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return mapWorkspaceError(err)
 	}
-	if usage.TeamCount > 0 || usage.EscalationPathCount > 0 || usage.IntegrationCount > 0 {
+	if usage.TeamCount > 0 || usage.EscalationPathCount > 0 {
 		return apperrors.ConflictWithDetails("workspace is not empty", map[string]any{
 			"team_count":            usage.TeamCount,
 			"escalation_path_count": usage.EscalationPathCount,
-			"integration_count":     usage.IntegrationCount,
 		})
 	}
 	if err := s.repo.DeleteWorkspace(ctx, id); err != nil {

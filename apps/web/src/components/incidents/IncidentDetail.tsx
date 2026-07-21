@@ -219,7 +219,8 @@ export function IncidentDetail({
             <li key={event.id} className="rounded-md border border-zinc-200 px-4 py-3">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-medium">
-                  {t(`incidents.timeline.${event.kind}`, { defaultValue: event.kind })}
+                  {event.payload.message ??
+                    t(`incidents.timeline.${event.kind}`, { defaultValue: event.kind })}
                 </span>
                 <time className="text-xs text-zinc-500">
                   {formatDateTime(new Date(event.createdAt), i18n.language, {

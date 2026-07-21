@@ -1,0 +1,45 @@
+# Task 6 report
+
+## Status
+
+Implemented workspace slot provisioning and mode-aware integration API behavior.
+
+## Changes
+
+- Workspace creation calls `EnsureWorkspaceSlots` for the new workspace.
+- Workspace integration POST requests return conflict; provisioned slots are configured through PATCH.
+- PATCH accepts `mode`: Inherit stores overlays only, while Custom requires complete provider config.
+- Workspace integration JSON includes `mode` and `slot_status`.
+- Connection tests resolve workspace Custom/Inherit configuration through `resolve.Resolve`.
+- Added service and handler regression coverage for provisioning, mode transitions, status, and POST conflict.
+
+## Verification
+
+`go test ./apps/api/internal/service/ ./apps/api/internal/handler/ -count=1`
+
+Result: both packages passed.
+
+## Concern
+
+Workspace creation and slot provisioning are separate repository calls, so a slot provisioning error can leave the workspace created. The store operation is idempotent, but atomic creation would require a repository transaction boundary.
+
+## Important finding follow-up
+
+Resolved the non-atomic workspace creation concern. `WorkspaceService.Create` now calls
+`CreateWorkspaceWithSlots`, which inserts the workspace and its Jira, Slack, and eXpress slots in
+one database transaction. Any insert or commit error rolls back the workspace and releases its slug.
+The existing `CreateWorkspace` and `EnsureWorkspaceSlots` methods remain available for bare creation
+and idempotent migration/backfill use.
+
+Verification: `go test ./apps/api/internal/service/ ./apps/api/internal/handler/ ./pkg/db/ -count=1`
+passed.
+
+## Important deletion regression follow-up
+
+Workspace deletion now treats provisioned Jira, Slack, and eXpress connector slots as workspace-owned
+configuration rather than usage blockers. Teams and escalation paths still prevent deletion, while
+the existing `integrations.workspace_id` foreign key (`ON DELETE CASCADE`) removes connector slots
+with the workspace. Added a regression test covering service creation followed by deletion when the
+workspace has only its three connector slots.
+
+Verification: `go test ./apps/api/internal/service/ ./pkg/db/ -count=1`.

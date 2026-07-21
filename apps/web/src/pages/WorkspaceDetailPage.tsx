@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
+import { WorkspaceSlotsPanel } from '../components/integrations/WorkspaceSlotsPanel';
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
 import { Checkbox } from '../components/ui/Checkbox';
@@ -356,6 +357,8 @@ export function WorkspaceDetailPage() {
               emptyMessage={t('workspaces.teams.empty')}
             />
           </section>
+
+          <WorkspaceSlotsPanel workspaceId={workspaceId} isAdmin={isAdmin} />
 
           <section className="space-y-4">
             <h2 className="text-lg font-semibold text-zinc-900">{t('workspaces.routing.title')}</h2>

@@ -128,7 +128,26 @@ Append-only: `incident_id`, `kind`, `actor_id`, `payload` jsonb, `created_at`.
 
 ### integrations
 
-`kind` (`jira`, `slack`, `express`), `config` jsonb (encrypted at rest optional MVP), `enabled` bool.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| kind | text | `jira`, `slack`, or `express` |
+| name | text | Display name |
+| config | jsonb | Provider config; secret fields are redacted by the API |
+| enabled | bool | Disabled rows are not resolved at runtime |
+| workspace_id | uuid FK nullable | NULL for a global connector; set for a workspace slot |
+| mode | text nullable | Workspace slots use `inherit` or `custom`; global rows use NULL |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+Each workspace has one slot for each supported kind (Jira, Slack, and eXpress). Workspace creation
+inserts all three slots in the same transaction with `mode = inherit`, `enabled = true`, and an empty
+config; migration `000016_integration_slot_mode` backfills missing slots for existing workspaces.
+
+An `inherit` slot stores only supported non-secret overlays: Jira `project_key` and Slack
+`channel_id`. Runtime merges these values over the enabled global connector of the same kind. A
+`custom` slot stores a complete provider config and does not use global credentials. Switching a
+slot to `inherit` removes workspace secret fields.
 
 ### notifications
 
@@ -153,6 +172,7 @@ users ──< team_memberships >── teams
 teams ──< schedules ──< schedule_layers
 teams ──< overrides
 teams ──< on_call_slots >── users
+workspaces ──< integrations
 alerts ──< incident_alerts >── incidents
 incidents ──< timeline_events
 incidents ──< notifications

@@ -216,11 +216,54 @@ Schedule and override changes materialise on-call slots synchronously for the te
 
 ## Integrations (Phase 2–3)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET/POST | `/integrations` | List/create |
-| GET/PATCH/DELETE | `/integrations/{id}` | CRUD |
-| POST | `/integrations/{id}/test` | Test connection |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/integrations` | session | List global connectors and workspace slots. Secret config keys are redacted as `***`. Includes `config_complete`; workspace rows also include `mode` and `slot_status`. |
+| POST | `/integrations` | admin | Upsert a global connector by `kind`. Global rows require full provider credentials. Workspace slots are provisioned automatically and return `409` if passed to this endpoint. |
+| GET | `/integrations/{id}` | session | Get one connector (secrets redacted). |
+| PATCH | `/integrations/{id}` | admin | Update `name`, `enabled`, and/or `config`; workspace slots also accept `mode` (`inherit` or `custom`). Omitted, blank, or `***` secret fields keep the stored value. |
+| DELETE | `/integrations/{id}` | admin | Delete a connector row. Workspace slots are normally retained and configured with PATCH. |
+| POST | `/integrations/{id}/test` | admin | Resolve the effective config, then test the provider connection. Resolve failures return a validation error with `details.kind` and `details.reason`. |
+
+Secret config keys redacted in responses: `api_token`, `bot_token`, `signing_secret`, `secret_key`. Non-secret fields (`base_url`, `email`, `project_key`, `issue_type`, `bot_id`, `host`, …) remain visible to admins.
+
+Every workspace is created with three enabled slots (`jira`, `slack`, and `express`) in
+`mode = inherit`. Migration `000016_integration_slot_mode` supplies missing slots for existing
+workspaces. Configure these stable rows with PATCH rather than POSTing additional workspace rows.
+
+Workspace slot modes:
+
+- `inherit`: resolve the enabled global connector of the same kind and overlay supported non-secret
+  workspace values (Jira `project_key`; Slack `channel_id`). Switching to this mode strips workspace
+  secrets.
+- `custom`: use only the workspace config, which must contain the provider's complete credentials.
+
+`config_complete` reports row-level validity (workspace Jira requires `project_key`; global rows must
+parse as a complete provider config). `slot_status` reports effective workspace readiness:
+`disabled`, `ready` (complete Custom config), `needs_setup` (incomplete Custom config),
+`using_global` (enabled Inherit slot with an enabled global connector), or `missing` (enabled Inherit
+slot without an enabled global connector).
+
+Example workspace slot fields:
+
+```json
+{
+  "workspace_id": "uuid",
+  "kind": "jira",
+  "mode": "inherit",
+  "enabled": true,
+  "config": {"project_key": "OPS"},
+  "config_complete": true,
+  "slot_status": "using_global"
+}
+```
+
+Test connection uses the same resolver as alert notification, escalation, and handoff. Resolver
+reason codes are `slot_disabled`, `slot_missing`, `custom_incomplete`, `no_global`, and
+`global_disabled`. A Test request returns a structured validation error for these conditions.
+Runtime delivery instead soft-skips only the unavailable provider, appends an
+`integration_skipped` timeline event with `kind`, `reason`, and an actionable `message`, and
+continues the Aegis incident lifecycle and other provider deliveries.
 
 ## eXpress link (Phase 3)
 

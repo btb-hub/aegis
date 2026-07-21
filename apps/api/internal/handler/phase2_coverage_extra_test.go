@@ -199,7 +199,7 @@ func TestIncidentsTimelineNotFound(t *testing.T) {
 	_ = repo
 }
 
-func TestIntegrationsUpsertWithWorkspace(t *testing.T) {
+func TestIntegrationsUpsertWithWorkspaceReturnsConflict(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
 	workspaceID := uuid.New()
@@ -215,7 +215,7 @@ func TestIntegrationsUpsertWithWorkspace(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusCreated, w.Code)
+	require.Equal(t, http.StatusConflict, w.Code)
 }
 
 func TestIntegrationsUpsertInvalidWorkspaceID(t *testing.T) {
