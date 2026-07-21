@@ -19,11 +19,13 @@ type mockAudit struct {
 }
 
 type identityMockUsers struct {
-	users      map[uuid.UUID]db.User
-	identities map[string]db.UserIdentity
-	byEmail    map[string]uuid.UUID
-	resolveErr error
-	audits     []mockAudit
+	users         map[uuid.UUID]db.User
+	identities    map[string]db.UserIdentity
+	byEmail       map[string]uuid.UUID
+	resolveErr    error
+	updateRoleErr error
+	auditErr      error
+	audits        []mockAudit
 }
 
 func newIdentityMockUsers() *identityMockUsers {
@@ -192,6 +194,9 @@ func (m *identityMockUsers) UpdateUserProfile(ctx context.Context, id uuid.UUID,
 }
 
 func (m *identityMockUsers) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) (db.User, error) {
+	if m.updateRoleErr != nil {
+		return db.User{}, m.updateRoleErr
+	}
 	user, ok := m.users[id]
 	if !ok {
 		return db.User{}, errors.New("not found")
@@ -202,6 +207,9 @@ func (m *identityMockUsers) UpdateUserRole(ctx context.Context, id uuid.UUID, ro
 }
 
 func (m *identityMockUsers) WriteAuditLog(ctx context.Context, actorID *uuid.UUID, action, resourceType string, resourceID uuid.UUID, details map[string]any) error {
+	if m.auditErr != nil {
+		return m.auditErr
+	}
 	m.audits = append(m.audits, mockAudit{ActorID: actorID, Action: action, ResourceType: resourceType, ResourceID: resourceID, Details: details})
 	return nil
 }
