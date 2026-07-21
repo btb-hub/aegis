@@ -30,7 +30,8 @@ ARG TARGETARCH
 RUN apk add --no-cache curl ca-certificates \
   && curl -fsSL "https://github.com/golang-migrate/migrate/releases/download/v4.17.1/migrate.linux-${TARGETARCH}.tar.gz" \
     | tar xz -C /usr/local/bin \
-  && chmod +x /usr/local/bin/migrate
+  && chmod +x /usr/local/bin/migrate \
+  && apk del curl
 
 COPY --from=go-api /api /app/api
 COPY --from=go-worker /worker /app/worker
@@ -43,4 +44,5 @@ RUN chmod +x /entrypoint.sh /app/api /app/worker
 
 ENV HTTP_ADDR=127.0.0.1:8080
 EXPOSE 3000
+WORKDIR /app
 ENTRYPOINT ["/entrypoint.sh"]
