@@ -100,6 +100,28 @@ Open `http://localhost:6006`. Build static catalog for CI: `npm run build-storyb
 | `EXPRESS_OIDC_CLIENT_SECRET` | |
 | `EXPRESS_OIDC_REDIRECT_URL` | |
 
+## First admin (production)
+
+OIDC users are created as `member`. To grant admin on a deployed instance:
+
+1. Set `ADMIN_EMAILS=you@company.com` (comma-separated for multiple) in `.env`.
+2. Restart the API so config reloads.
+3. Sign in with OIDC using that email.
+4. Confirm `GET /auth/me` returns `"role": "admin"`.
+
+Emails in `ADMIN_EMAILS` are re-asserted as admin on every OIDC login. Removing an email from the list stops re-promotion but does not demote automatically.
+
+### Recovery without restart
+
+If you cannot change env yet:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'you@company.com'
+RETURNING id, email, role;
+```
+
+Session middleware reloads role from the DB on each request.
+
 ### Local dev auth (development only)
 
 | Variable | Description |

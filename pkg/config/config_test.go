@@ -143,3 +143,34 @@ func TestParseBoolEnvValues(t *testing.T) {
 	t.Setenv(key, "false")
 	require.False(t, parseBoolEnv(key))
 }
+
+func TestLoadAdminEmails(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("ADMIN_EMAILS", " Alice@Co.com , bob@co.com,, ")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.IsAdminEmail("alice@co.com"))
+	require.True(t, cfg.IsAdminEmail("BOB@CO.COM"))
+	require.False(t, cfg.IsAdminEmail("other@co.com"))
+	require.Len(t, cfg.AdminEmails, 2)
+}
+
+func TestLoadAdminEmailsEmpty(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("ADMIN_EMAILS", "")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Empty(t, cfg.AdminEmails)
+	require.False(t, cfg.IsAdminEmail("anyone@co.com"))
+}
+
+func TestLoadAdminEmailsRejectsInvalid(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("ADMIN_EMAILS", "not-an-email")
+
+	_, err := Load()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ADMIN_EMAILS")
+}

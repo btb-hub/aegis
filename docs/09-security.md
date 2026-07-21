@@ -44,6 +44,8 @@ MVP supports exactly three identity providers:
 
 Enforced in service layer + handler checks.
 
+- `ADMIN_EMAILS` — standing allowlist: matching OIDC logins are forced to `admin` and audited as `user.role_changed` / `reason=admin_emails_env`. Treat as access-defining ops config.
+
 ## Secrets (REQ-AUTH-05, NFR-4)
 
 - All tokens in env or `integrations.config` — not in git.

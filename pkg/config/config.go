@@ -33,6 +33,7 @@ type Config struct {
 	DevAuthEnabled         bool
 	DevAuthDefaultRole     string
 	DevAuthEmail           string
+	AdminEmails            map[string]struct{}
 }
 
 func Load() (*Config, error) {
@@ -74,6 +75,13 @@ func Load() (*Config, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
+
+	adminEmails, err := parseAdminEmails(os.Getenv("ADMIN_EMAILS"))
+	if err != nil {
+		return nil, err
+	}
+	cfg.AdminEmails = adminEmails
+
 	return cfg, nil
 }
 
@@ -165,6 +173,29 @@ func parseCSV(raw string) []string {
 		}
 	}
 	return out
+}
+
+func parseAdminEmails(raw string) (map[string]struct{}, error) {
+	out := make(map[string]struct{})
+	for _, part := range strings.Split(raw, ",") {
+		email := strings.ToLower(strings.TrimSpace(part))
+		if email == "" {
+			continue
+		}
+		if !strings.Contains(email, "@") {
+			return nil, fmt.Errorf("invalid ADMIN_EMAILS entry %q: must contain @", part)
+		}
+		out[email] = struct{}{}
+	}
+	return out, nil
+}
+
+func (c *Config) IsAdminEmail(email string) bool {
+	if c == nil || len(c.AdminEmails) == 0 {
+		return false
+	}
+	_, ok := c.AdminEmails[strings.ToLower(strings.TrimSpace(email))]
+	return ok
 }
 
 func ParsePort(addr string) (int, error) {

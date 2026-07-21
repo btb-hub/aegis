@@ -119,6 +119,17 @@ func (m *authMockUsers) UpdateUserProfile(ctx context.Context, id uuid.UUID, dis
 	return user, nil
 }
 
+func (m *authMockUsers) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) (db.User, error) {
+	user := m.users[id]
+	user.Role = role
+	m.users[id] = user
+	return user, nil
+}
+
+func (m *authMockUsers) WriteAuditLog(ctx context.Context, actorID *uuid.UUID, action, resourceType string, resourceID uuid.UUID, details map[string]any) error {
+	return nil
+}
+
 type authMockSessions struct{ byHash map[string]db.Session }
 
 func (m *authMockSessions) CreateSession(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (db.Session, error) {

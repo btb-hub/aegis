@@ -230,6 +230,122 @@ func TestAuthUpdateProfileBothFields(t *testing.T) {
 	require.Equal(t, "ru", user.Locale)
 }
 
+type emailOIDC struct {
+	email string
+	sub   string
+}
+
+func (m *emailOIDC) AuthCodeURL(provider, state string) (string, error) {
+	return "https://idp.example/authorize?state=" + state, nil
+}
+
+func (m *emailOIDC) Exchange(ctx context.Context, provider, code string) (*OIDCUserInfo, error) {
+	return &OIDCUserInfo{Sub: m.sub, Email: m.email, DisplayName: "User"}, nil
+}
+
+func TestCompleteLoginPromotesAdminEmail(t *testing.T) {
+	cfg := &config.Config{
+		SessionTTL:  24 * time.Hour,
+		AdminEmails: map[string]struct{}{"admin@co.com": {}},
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newIdentityMockUsers()
+	sessions := &mockSessions{byHash: map[string]db.Session{}}
+	svc := NewAuthService(cfg, users, sessions, &emailOIDC{email: "Admin@Co.com", sub: "sub-admin"})
+
+	token, user, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+	require.Equal(t, "admin", user.Role)
+	require.Equal(t, "admin", users.users[user.ID].Role)
+	require.NotEmpty(t, users.audits)
+	require.Equal(t, "user.role_changed", users.audits[0].Action)
+}
+
+func TestCompleteLoginDoesNotPromoteUnlisted(t *testing.T) {
+	cfg := &config.Config{
+		SessionTTL:  24 * time.Hour,
+		AdminEmails: map[string]struct{}{"admin@co.com": {}},
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newIdentityMockUsers()
+	sessions := &mockSessions{byHash: map[string]db.Session{}}
+	svc := NewAuthService(cfg, users, sessions, &emailOIDC{email: "member@co.com", sub: "sub-m"})
+
+	_, user, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+	require.Equal(t, "member", user.Role)
+	require.Empty(t, users.audits)
+}
+
+func TestCompleteLoginAdminEmailAlreadyAdminNoAudit(t *testing.T) {
+	cfg := &config.Config{
+		SessionTTL:  24 * time.Hour,
+		AdminEmails: map[string]struct{}{"admin@co.com": {}},
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newIdentityMockUsers()
+	existing := db.User{
+		ID: uuid.New(), Provider: "google", ProviderSub: "sub-a",
+		Email: "admin@co.com", DisplayName: "A", Role: "admin", Locale: "en",
+	}
+	users.users[existing.ID] = existing
+	users.byEmail["admin@co.com"] = existing.ID
+	users.identities["google:sub-a"] = db.UserIdentity{ID: uuid.New(), UserID: existing.ID, Provider: "google", ProviderSub: "sub-a"}
+
+	sessions := &mockSessions{byHash: map[string]db.Session{}}
+	svc := NewAuthService(cfg, users, sessions, &emailOIDC{email: "admin@co.com", sub: "sub-a"})
+
+	_, user, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+	require.Equal(t, "admin", user.Role)
+	require.Empty(t, users.audits)
+}
+
+func TestCompleteLoginPromoteUpdateRoleFailure(t *testing.T) {
+	cfg := &config.Config{
+		SessionTTL:  24 * time.Hour,
+		AdminEmails: map[string]struct{}{"admin@co.com": {}},
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newIdentityMockUsers()
+	users.updateRoleErr = errors.New("role update failed")
+	sessions := &mockSessions{byHash: map[string]db.Session{}}
+	svc := NewAuthService(cfg, users, sessions, &emailOIDC{email: "admin@co.com", sub: "sub-fail-role"})
+
+	_, _, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "role update failed")
+	require.Empty(t, sessions.byHash)
+}
+
+func TestCompleteLoginPromoteAuditFailure(t *testing.T) {
+	cfg := &config.Config{
+		SessionTTL:  24 * time.Hour,
+		AdminEmails: map[string]struct{}{"admin@co.com": {}},
+		OIDC: map[string]config.OIDCProvider{
+			"google": {ClientID: "id", ClientSecret: "secret", RedirectURL: "http://localhost/cb"},
+		},
+	}
+	users := newIdentityMockUsers()
+	users.auditErr = errors.New("audit failed")
+	sessions := &mockSessions{byHash: map[string]db.Session{}}
+	svc := NewAuthService(cfg, users, sessions, &emailOIDC{email: "admin@co.com", sub: "sub-fail-audit"})
+
+	_, _, err := svc.CompleteLogin(context.Background(), "google", "code")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "audit failed")
+	require.Empty(t, sessions.byHash)
+}
+
 func TestUserJSON(t *testing.T) {
 	id := uuid.New()
 	data, err := MarshalUser(db.User{ID: id, Email: "x@y.z", Role: "member", Locale: "en", Provider: "google"}, nil)
