@@ -198,6 +198,9 @@ deploy, and related items.
 
 ## Run locally
 
+Production/K8s: pull `ghcr.io/btb-hub/aegis` — see
+[`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md#production-image-ghcr).
+
 Full deployment notes: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
 
 **Prerequisites:** Docker 24+ with Compose v2. For native dev (option 2): Go 1.25+, Node 20+, and GNU Make (or use `scripts/dev.ps1` on Windows).

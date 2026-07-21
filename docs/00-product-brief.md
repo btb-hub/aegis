@@ -57,7 +57,7 @@ Sign-in uses OIDC via **Google**, **Slack**, and **eXpress** (same three provide
 - Redis or other auxiliary datastores
 - Native mobile push, SMS/phone paging
 - Multi-tenant SaaS, status pages, runbook automation
-- Helm/Kubernetes deploy (Docker Compose only for MVP)
+- Helm charts and multi-replica Kubernetes operators (single all-in-one image + sketch manifests are in-scope; Compose remains the local source-build path)
 - Locales beyond English and Russian
 
 ## References

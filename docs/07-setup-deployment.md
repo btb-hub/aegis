@@ -1,6 +1,47 @@
 # Setup & deployment
 
-MVP runs on **Docker Compose** — Postgres, API, worker, web. No Redis.
+Local source builds run on **Docker Compose** — Postgres, API, worker, web. Production deploys use
+the all-in-one GHCR image with external Postgres. No Redis.
+
+## Production image (GHCR)
+
+Third parties and Kubernetes deploy from a **single public image** — API, worker, and web in one
+container — with **external Postgres**. Docker Compose is for local source builds only.
+
+### Pull and run
+
+```bash
+docker pull ghcr.io/btb-hub/aegis:vX.Y.Z
+
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL=postgres://user:pass@db-host:5432/aegis?sslmode=require \
+  -e SESSION_SECRET=... \
+  -e WEBHOOK_SECRET=... \
+  -e PUBLIC_URL=https://aegis.example.com \
+  ghcr.io/btb-hub/aegis:vX.Y.Z
+```
+
+Add the OIDC and connector variables from [`deploy/.env.example`](../deploy/.env.example). Open
+`https://aegis.example.com` (or `http://localhost:3000` for a local trial). Probes:
+`GET /healthz`, `GET /readyz` on port 3000.
+
+For a local image smoke test on Darwin with Postgres running on the host, use
+`host.docker.internal` as the database hostname in `DATABASE_URL`.
+
+Migrations run automatically on start. **Run a single replica** — concurrent migrate-on-start
+across replicas is not supported yet.
+
+### Kubernetes sketch
+
+See [`deploy/k8s/aegis.yaml`](../deploy/k8s/aegis.yaml). Create a Secret named `aegis-env` with the
+same keys as `.env`, point Ingress at Service port 80, and set `PUBLIC_URL` to the Ingress URL.
+OIDC redirect URIs must match that host. Helm remains out of scope.
+
+### Publishing (maintainers)
+
+Push a version tag (`v0.1.0`, …). GitHub Actions builds `linux/amd64` + `linux/arm64` and pushes
+`ghcr.io/btb-hub/aegis:<tag>` and `:latest`. After the first push, set the GHCR package visibility
+to **Public** in the GitHub UI (one-time).
 
 ## Prerequisites
 

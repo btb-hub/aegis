@@ -1,7 +1,7 @@
 # Design: All-in-one GHCR image for third-party and Kubernetes deploy
 
 **Date:** 2026-07-21  
-**Status:** Draft for review  
+**Status:** Approved
 **Context:** Aegis today ships only source builds via Docker Compose. Third parties cannot pull a published image; production targets Kubernetes, not Compose. Helm remains post-MVP.
 
 ## Goals
