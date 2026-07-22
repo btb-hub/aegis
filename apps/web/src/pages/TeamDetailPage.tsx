@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { TeamMemberPicker } from '../components/teams/TeamMemberPicker';
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
+import { Checkbox } from '../components/ui/Checkbox';
 import { DataTable } from '../components/ui/DataTable';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -20,7 +21,9 @@ import {
   deleteEscalationPath,
   fetchIncomingPaths,
   fetchOutgoingPaths,
+  fetchWorkspaces,
   type EscalationPath,
+  type WorkspaceSummary,
 } from '../lib/workspacesApi';
 
 const roleOptions = (t: (key: string) => string) =>
@@ -39,7 +42,8 @@ export function TeamDetailPage() {
 
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [workspaceTeams, setWorkspaceTeams] = useState<Team[]>([]);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [outgoingPaths, setOutgoingPaths] = useState<EscalationPath[]>([]);
   const [incomingPaths, setIncomingPaths] = useState<EscalationPath[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +56,7 @@ export function TeamDetailPage() {
   const [pendingTier, setPendingTier] = useState('');
   const [savingTier, setSavingTier] = useState(false);
   const [targetTeamId, setTargetTeamId] = useState('');
+  const [crossWorkspace, setCrossWorkspace] = useState(false);
   const [addingPath, setAddingPath] = useState(false);
   const [removingPathId, setRemovingPathId] = useState<string | null>(null);
 
@@ -59,29 +64,65 @@ export function TeamDetailPage() {
   const roles = useMemo(() => roleOptions(t), [t]);
   const tiers = useMemo(() => tierOptions(t), [t]);
 
-  const teamById = useMemo(
-    () => new Map(workspaceTeams.map((item) => [item.id, item])),
-    [workspaceTeams],
-  );
+  const teamById = useMemo(() => new Map(allTeams.map((item) => [item.id, item])), [allTeams]);
+  const workspaceById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of workspaces) {
+      map.set(item.id, item.name);
+    }
+    return map;
+  }, [workspaces]);
 
   const validTargetTeams = useMemo(() => {
     if (!team?.support_tier) {
       return [];
     }
     const allowedTiers = validEscalationTargetTiers(team.support_tier);
-    return workspaceTeams.filter(
+    return allTeams.filter((item) => {
+      if (item.id === team.id || !item.support_tier || !allowedTiers.includes(item.support_tier)) {
+        return false;
+      }
+      if (outgoingPaths.some((path) => path.to_team_id === item.id)) {
+        return false;
+      }
+      if (!crossWorkspace && item.workspace_id !== team.workspace_id) {
+        return false;
+      }
+      return true;
+    });
+  }, [team, allTeams, outgoingPaths, crossWorkspace]);
+
+  const targetTeamOptions = useMemo(
+    () =>
+      validTargetTeams.map((item) => {
+        if (item.workspace_id === team?.workspace_id) {
+          return { value: item.id, label: item.name };
+        }
+        return {
+          value: item.id,
+          label: t('teams.detail.team_option_other', {
+            name: item.name,
+            workspace: workspaceById.get(item.workspace_id) ?? item.workspace_id,
+          }),
+        };
+      }),
+    [validTargetTeams, team?.workspace_id, workspaceById, t],
+  );
+
+  const hasOtherWorkspaceTargets = useMemo(() => {
+    if (!team?.support_tier) {
+      return false;
+    }
+    const allowedTiers = validEscalationTargetTiers(team.support_tier);
+    return allTeams.some(
       (item) =>
         item.id !== team.id &&
+        item.workspace_id !== team.workspace_id &&
         item.support_tier &&
         allowedTiers.includes(item.support_tier) &&
         !outgoingPaths.some((path) => path.to_team_id === item.id),
     );
-  }, [team, workspaceTeams, outgoingPaths]);
-
-  const targetTeamOptions = useMemo(
-    () => validTargetTeams.map((item) => ({ value: item.id, label: item.name })),
-    [validTargetTeams],
-  );
+  }, [team, allTeams, outgoingPaths]);
 
   const loadTeam = useCallback(async () => {
     setLoading(true);
@@ -104,19 +145,22 @@ export function TeamDetailPage() {
       }
       const teamData = (await teamResponse.json()) as Team;
       const membersData = (await membersResponse.json()) as { items: TeamMember[] };
-      const allTeams = await fetchTeams();
+      const [teamList, workspaceList] = await Promise.all([fetchTeams(), fetchWorkspaces()]);
       setTeam(teamData);
       setMembers(membersData.items ?? []);
-      setWorkspaceTeams(allTeams.filter((item) => item.workspace_id === teamData.workspace_id));
+      setAllTeams(teamList);
+      setWorkspaces(workspaceList);
       setOutgoingPaths(outgoing);
       setIncomingPaths(incoming);
       setPendingTier(teamData.support_tier ?? '');
       setTargetTeamId('');
+      setCrossWorkspace(false);
     } catch {
       setLoadError(t('teams.detail.load_error'));
       setTeam(null);
       setMembers([]);
-      setWorkspaceTeams([]);
+      setAllTeams([]);
+      setWorkspaces([]);
       setOutgoingPaths([]);
       setIncomingPaths([]);
     } finally {
@@ -257,9 +301,12 @@ export function TeamDetailPage() {
     setAddingPath(true);
     setToast(null);
     try {
+      const target = teamById.get(targetTeamId);
+      const needsCross = Boolean(target && target.workspace_id !== team.workspace_id);
       await addEscalationPath(team.workspace_id, {
         from_team_id: team.id,
         to_team_id: targetTeamId,
+        cross_workspace: crossWorkspace || needsCross,
       });
       setToast({ message: t('teams.detail.path_add_success'), variant: 'success' });
       await loadTeam();
@@ -291,9 +338,16 @@ export function TeamDetailPage() {
     if (!pathTeam) {
       return id;
     }
+    const isForeign = Boolean(team && pathTeam.workspace_id !== team.workspace_id);
+    const label = isForeign
+      ? t('teams.detail.team_option_other', {
+          name: pathTeam.name,
+          workspace: workspaceById.get(pathTeam.workspace_id) ?? pathTeam.workspace_id,
+        })
+      : pathTeam.name;
     return (
       <Link to={`/teams/${pathTeam.id}`} className="text-accent hover:underline">
-        {pathTeam.name}
+        {label}
       </Link>
     );
   };
@@ -498,6 +552,19 @@ export function TeamDetailPage() {
             {isAdmin && team?.support_tier ? (
               <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
                 <h3 className="text-sm font-semibold text-zinc-900">{t('teams.detail.add_path')}</h3>
+                <Checkbox
+                  id="escalation-cross-workspace"
+                  label={t('teams.detail.cross_workspace')}
+                  checked={crossWorkspace}
+                  onChange={(checked) => {
+                    setCrossWorkspace(checked);
+                    setTargetTeamId('');
+                  }}
+                />
+                <p className="text-sm text-zinc-600">{t('teams.detail.cross_workspace_help')}</p>
+                {crossWorkspace && !hasOtherWorkspaceTargets ? (
+                  <p className="text-sm text-zinc-600">{t('teams.detail.no_other_workspace_targets')}</p>
+                ) : null}
                 {validTargetTeams.length === 0 ? (
                   <p className="text-sm text-zinc-600">{t('teams.detail.no_valid_targets')}</p>
                 ) : (

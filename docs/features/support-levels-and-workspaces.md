@@ -97,6 +97,13 @@ update still uses the Platform workspace integration.
 
 ---
 
+### Scenario G — Shared DevOps via cross-workspace routing
+
+Platform and Data each keep their own L2 teams. **DevOps** lives only in an Ops workspace. Admins
+on Platform and Data create routing rules with `cross_workspace: true` targeting DevOps, and may
+configure L2→L3 escalation paths the same way. Incident ownership is DevOps; Jira/Slack resolve
+from Ops (DevOps home). Rule lists stay on the configuring workspace detail pages.
+
 ## Decision: workspace vs tenant
 
 The user asked whether **different tenants per project** would be better.
@@ -211,7 +218,8 @@ workspace slot from `custom` to `inherit` removes workspace secret fields.
 ### Relationships
 
 ```text
-workspaces ──< teams ──< schedules, overrides, routing_rules
+workspaces ──< teams ──< schedules, overrides
+workspaces ──< routing_rules (ownership) ──> teams (target; may be cross-workspace)
 workspaces ──< integrations (optional overrides)
 teams ──< escalation_paths >── teams
 teams ──< incidents
@@ -336,17 +344,19 @@ The workspace detail page and `/integrations` inventory both show the provisione
 mode, and effective status. The worker resolves integrations by incident workspace and soft-skips
 unavailable providers without failing incident processing.
 
-### Routing rules (UI consumes existing API)
+### Routing rules (Model A — shared team targets)
 
 | Method | Path | Notes |
 |--------|------|-------|
-| GET | `/routing-rules` | UI filters by teams in selected workspace |
-| POST | `/routing-rules` | Target team must belong to workspace |
-| PATCH | `/routing-rules/{id}` | |
+| GET | `/routing-rules` | UI filters by rule `workspace_id` (configuring workspace) |
+| POST | `/routing-rules` | Body includes `workspace_id` + optional `cross_workspace`; foreign target requires the flag |
+| PATCH | `/routing-rules/{id}` | Same validation as create |
 | DELETE | `/routing-rules/{id}` | |
 
-Optional future: add `routing_rules.workspace_id` for direct scoping; Phase 10 can filter via team
-membership in workspace.
+Each team keeps a single home `teams.workspace_id`. A workspace may own a routing rule that targets
+a shared team in another workspace when `cross_workspace` is true (e.g. App → DevOps). Rules owned
+by workspace A are listed on A's detail page even when the target team lives elsewhere; they are
+not listed under the target team's home workspace. Worker matching stays global by labels/priority.
 
 ---
 

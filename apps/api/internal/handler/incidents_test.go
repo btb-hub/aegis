@@ -166,12 +166,25 @@ func (m *phase2HandlerRepo) ListRoutingRules(context.Context) ([]db.RoutingRule,
 	}
 	return items, nil
 }
-func (m *phase2HandlerRepo) GetRoutingRule(context.Context, uuid.UUID) (db.RoutingRule, error) {
-	return db.RoutingRule{}, pgx.ErrNoRows
+func (m *phase2HandlerRepo) GetRoutingRule(_ context.Context, id uuid.UUID) (db.RoutingRule, error) {
+	rule, ok := m.rules[id]
+	if !ok {
+		return db.RoutingRule{}, pgx.ErrNoRows
+	}
+	return rule, nil
 }
-func (m *phase2HandlerRepo) CreateRoutingRule(_ context.Context, teamID uuid.UUID, matchLabels map[string]string, priority int32) (db.RoutingRule, error) {
+func (m *phase2HandlerRepo) CreateRoutingRule(
+	_ context.Context,
+	workspaceID, teamID uuid.UUID,
+	matchLabels map[string]string,
+	priority int32,
+	crossWorkspace bool,
+) (db.RoutingRule, error) {
 	raw, _ := json.Marshal(matchLabels)
-	rule := db.RoutingRule{ID: uuid.New(), TeamID: teamID, MatchLabels: raw, Priority: priority, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	rule := db.RoutingRule{
+		ID: uuid.New(), WorkspaceID: workspaceID, TeamID: teamID, MatchLabels: raw,
+		Priority: priority, CrossWorkspace: crossWorkspace, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
 	m.rules[rule.ID] = rule
 	return rule, nil
 }
@@ -183,12 +196,21 @@ func (m *phase2HandlerRepo) DeleteRoutingRule(_ context.Context, id uuid.UUID) e
 	return nil
 }
 
-func (m *phase2HandlerRepo) UpdateRoutingRule(_ context.Context, id, teamID uuid.UUID, matchLabels map[string]string, priority int32) (db.RoutingRule, error) {
+func (m *phase2HandlerRepo) UpdateRoutingRule(
+	_ context.Context,
+	id, workspaceID, teamID uuid.UUID,
+	matchLabels map[string]string,
+	priority int32,
+	crossWorkspace bool,
+) (db.RoutingRule, error) {
 	if _, ok := m.rules[id]; !ok {
 		return db.RoutingRule{}, pgx.ErrNoRows
 	}
 	raw, _ := json.Marshal(matchLabels)
-	rule := db.RoutingRule{ID: id, TeamID: teamID, MatchLabels: raw, Priority: priority, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	rule := db.RoutingRule{
+		ID: id, WorkspaceID: workspaceID, TeamID: teamID, MatchLabels: raw,
+		Priority: priority, CrossWorkspace: crossWorkspace, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
 	m.rules[id] = rule
 	return rule, nil
 }
@@ -609,10 +631,11 @@ func TestIncidentsListAndAcknowledge(t *testing.T) {
 func TestRoutingRulesCRUD(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
+	workspaceID := uuid.New()
 	teamID := uuid.New()
-	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: workspaceID, Name: "Platform"}
 
-	body := bytes.NewBufferString(`{"team_id":"` + teamID.String() + `","match_labels":{"team":"platform"},"priority":10}`)
+	body := bytes.NewBufferString(`{"workspace_id":"` + workspaceID.String() + `","team_id":"` + teamID.String() + `","match_labels":{"team":"platform"},"priority":10}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/routing-rules", body)
 	req.AddCookie(admin)
 	req.Header.Set("Content-Type", "application/json")

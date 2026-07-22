@@ -20,6 +20,22 @@ function mockTeamDetailFetch(url: string, init?: RequestInit, extra?: Record<str
   if (url.includes('/escalation-paths/outgoing') || url.includes('/escalation-paths/incoming')) {
     return jsonResponse({ items: [] });
   }
+  if (url === '/api/v1/workspaces') {
+    return jsonResponse({
+      items: [
+        {
+          id: '00000000-0000-0000-0000-000000000001',
+          name: 'Default',
+          slug: 'default',
+          description: '',
+          team_count: 1,
+          routing_rule_count: 0,
+          created_at: '',
+          updated_at: '',
+        },
+      ],
+    });
+  }
   if (url === '/api/v1/teams') {
     return jsonResponse({ items: [team] });
   }
@@ -247,6 +263,22 @@ describe('TeamDetailPage', () => {
       if (url.includes('/escalation-paths/outgoing') || url.includes('/escalation-paths/incoming')) {
         return jsonResponse({ items: [] });
       }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000001',
+              name: 'Default',
+              slug: 'default',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
       if (url === '/api/v1/teams') {
         return jsonResponse({ items: [] });
       }
@@ -304,6 +336,22 @@ describe('TeamDetailPage', () => {
       }
       if (url.includes('/escalation-paths/incoming')) {
         return jsonResponse({ items: [] });
+      }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000001',
+              name: 'Default',
+              slug: 'default',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
       }
       if (url === '/api/v1/teams') {
         return jsonResponse({ items: [team, l3Team] });
@@ -383,6 +431,22 @@ describe('TeamDetailPage', () => {
       if (url.includes('/escalation-paths/incoming')) {
         return jsonResponse({ items: [] });
       }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000001',
+              name: 'Default',
+              slug: 'default',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
       if (url === '/api/v1/teams') {
         return jsonResponse({ items: [team, l3Team] });
       }
@@ -420,6 +484,130 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Escalation path removed')).toBeInTheDocument();
+    });
+  });
+
+  it('adds a cross-workspace escalation path when the toggle is enabled', async () => {
+    const otherWorkspaceId = '00000000-0000-0000-0000-000000000002';
+    const devops = {
+      id: 'team-devops',
+      workspace_id: otherWorkspaceId,
+      name: 'DevOps',
+      description: '',
+      support_tier: 'l3',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+    let posted: Record<string, unknown> | null = null;
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url.includes('/escalation-paths') && init?.method === 'POST') {
+        posted = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return jsonResponse({
+          id: 'path-cross',
+          from_team_id: 'team-1',
+          to_team_id: 'team-devops',
+          workspace_id: team.workspace_id,
+          cross_workspace: true,
+          created_at: '2026-07-01T00:00:00Z',
+        }, 201);
+      }
+      if (url.includes('/escalation-paths/outgoing')) {
+        return jsonResponse({ items: [] });
+      }
+      if (url.includes('/escalation-paths/incoming')) {
+        return jsonResponse({ items: [] });
+      }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: '00000000-0000-0000-0000-000000000001',
+              name: 'Default',
+              slug: 'default',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, devops] });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: team.workspace_id,
+              name: 'App',
+              slug: 'app',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+            {
+              id: otherWorkspaceId,
+              name: 'Ops',
+              slug: 'ops',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
+      if (url === '/api/v1/teams/team-1/members') {
+        return jsonResponse({ items: [] });
+      }
+      if (url === '/api/v1/teams/team-1') {
+        return jsonResponse(team);
+      }
+      if (url.includes('/workspaces/')) {
+        return jsonResponse({
+          id: team.workspace_id,
+          name: 'App',
+          slug: 'app',
+          description: '',
+        });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Add path' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText('Allow team from another workspace'));
+    fireEvent.change(screen.getByLabelText('To team'), { target: { value: 'team-devops' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add path' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Escalation path added')).toBeInTheDocument();
+    });
+    expect(posted).toMatchObject({
+      from_team_id: 'team-1',
+      to_team_id: 'team-devops',
+      cross_workspace: true,
     });
   });
 });

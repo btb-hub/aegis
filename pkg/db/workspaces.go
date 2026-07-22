@@ -29,7 +29,7 @@ SELECT w.id, w.name, w.slug, w.description, w.created_at, w.updated_at,
        COUNT(DISTINCT rr.id)::int AS routing_rule_count
 FROM workspaces w
 LEFT JOIN teams t ON t.workspace_id = w.id
-LEFT JOIN routing_rules rr ON rr.team_id = t.id
+LEFT JOIN routing_rules rr ON rr.workspace_id = w.id
 GROUP BY w.id
 ORDER BY w.name`
 	rows, err := s.pool.Query(ctx, q)

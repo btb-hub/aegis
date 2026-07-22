@@ -19,9 +19,11 @@ const team = {
 
 const routingRule = {
   id: 'rule-1',
+  workspace_id: workspaceId,
   team_id: 'team-1',
   match_labels: { team: 'platform' },
   priority: 100,
+  cross_workspace: false,
   created_at: '2026-07-01T00:00:00Z',
   updated_at: '2026-07-01T00:00:00Z',
 };
@@ -155,15 +157,19 @@ describe('WorkspaceDetailPage', () => {
       }
       if (url === '/api/v1/routing-rules' && init?.method === 'POST') {
         const body = JSON.parse(String(init.body)) as {
+          workspace_id?: string;
           team_id: string;
           match_labels: Record<string, string>;
           priority: number;
+          cross_workspace?: boolean;
         };
         const created: typeof routingRule = {
           id: 'rule-2',
+          workspace_id: body.workspace_id ?? workspaceId,
           team_id: body.team_id,
           match_labels: body.match_labels as { team: string },
           priority: body.priority,
+          cross_workspace: Boolean(body.cross_workspace),
           created_at: '2026-07-01T00:00:00Z',
           updated_at: '2026-07-01T00:00:00Z',
         };
@@ -680,6 +686,22 @@ describe('WorkspaceDetailPage', () => {
           description: 'Default workspace',
         });
       }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: workspaceId,
+              name: 'Default',
+              slug: 'default',
+              description: 'Default workspace',
+              team_count: 1,
+              routing_rule_count: 1,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
       if (url === '/api/v1/teams') {
         return jsonResponse({ items: [team] });
       }
@@ -723,6 +745,22 @@ describe('WorkspaceDetailPage', () => {
           name: 'Default',
           slug: 'default',
           description: 'Default workspace',
+        });
+      }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: workspaceId,
+              name: 'Default',
+              slug: 'default',
+              description: 'Default workspace',
+              team_count: 1,
+              routing_rule_count: 1,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
         });
       }
       if (url === '/api/v1/teams') {
@@ -792,6 +830,22 @@ describe('WorkspaceDetailPage', () => {
           name: 'Default',
           slug: 'default',
           description: 'Default workspace',
+        });
+      }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: workspaceId,
+              name: 'Default',
+              slug: 'default',
+              description: 'Default workspace',
+              team_count: 1,
+              routing_rule_count: 1,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
         });
       }
       if (url === '/api/v1/teams') {
@@ -879,6 +933,22 @@ describe('WorkspaceDetailPage', () => {
           description: 'Default workspace',
         });
       }
+            if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: workspaceId,
+              name: 'Default',
+              slug: 'default',
+              description: 'Default workspace',
+              team_count: 1,
+              routing_rule_count: 1,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
       if (url === '/api/v1/teams') {
         return jsonResponse({ items: [team] });
       }
@@ -942,5 +1012,205 @@ describe('WorkspaceDetailPage', () => {
       });
     });
     expect(screen.getByText('Integration saved')).toBeInTheDocument();
+  });
+
+  it('lists cross-workspace routing rules by rule workspace_id and hides foreign-owned rules', async () => {
+    const otherWorkspaceId = '00000000-0000-0000-0000-000000000002';
+    const devops = {
+      id: 'team-devops',
+      workspace_id: otherWorkspaceId,
+      name: 'DevOps',
+      description: '',
+      support_tier: 'l3',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+    const ownedCrossRule = {
+      ...routingRule,
+      id: 'rule-cross',
+      team_id: 'team-devops',
+      match_labels: { service: 'shared' },
+      cross_workspace: true,
+    };
+    const foreignOwnedRule = {
+      ...routingRule,
+      id: 'rule-other-ws',
+      workspace_id: otherWorkspaceId,
+      team_id: 'team-1',
+      match_labels: { service: 'orphan' },
+      cross_workspace: false,
+    };
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'App',
+          slug: 'app',
+          description: '',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: workspaceId,
+              name: 'App',
+              slug: 'app',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 1,
+              created_at: '',
+              updated_at: '',
+            },
+            {
+              id: otherWorkspaceId,
+              name: 'Ops',
+              slug: 'ops',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 1,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, devops] });
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: [ownedCrossRule, foreignOwnedRule] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('service=shared')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: 'DevOps (Ops)' })).toBeInTheDocument();
+    expect(screen.queryByText('service=orphan')).not.toBeInTheDocument();
+  });
+
+  it('creates a cross-workspace routing rule when the toggle is enabled', async () => {
+    const otherWorkspaceId = '00000000-0000-0000-0000-000000000002';
+    const devops = {
+      id: 'team-devops',
+      workspace_id: otherWorkspaceId,
+      name: 'DevOps',
+      description: '',
+      support_tier: 'l3',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+    let rules: typeof routingRule[] = [];
+    let posted: Record<string, unknown> | null = null;
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === `/api/v1/workspaces/${workspaceId}`) {
+        return jsonResponse({
+          id: workspaceId,
+          name: 'App',
+          slug: 'app',
+          description: '',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [
+            {
+              id: workspaceId,
+              name: 'App',
+              slug: 'app',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+            {
+              id: otherWorkspaceId,
+              name: 'Ops',
+              slug: 'ops',
+              description: '',
+              team_count: 1,
+              routing_rule_count: 0,
+              created_at: '',
+              updated_at: '',
+            },
+          ],
+        });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [team, devops] });
+      }
+      if (url === '/api/v1/routing-rules' && init?.method === 'POST') {
+        posted = JSON.parse(String(init.body)) as Record<string, unknown>;
+        const created = {
+          id: 'rule-cross',
+          workspace_id: workspaceId,
+          team_id: String(posted.team_id),
+          match_labels: posted.match_labels as { team: string },
+          priority: Number(posted.priority),
+          cross_workspace: Boolean(posted.cross_workspace),
+          created_at: '2026-07-01T00:00:00Z',
+          updated_at: '2026-07-01T00:00:00Z',
+        };
+        rules = [created];
+        return jsonResponse(created, 201);
+      }
+      if (url === '/api/v1/routing-rules') {
+        return jsonResponse({ items: rules });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add routing rule' })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add routing rule' }));
+    fireEvent.click(screen.getByLabelText('Allow team from another workspace'));
+    fireEvent.change(screen.getByLabelText('Target team'), { target: { value: 'team-devops' } });
+    fireEvent.change(screen.getByLabelText('Label key'), { target: { value: 'service' } });
+    fireEvent.change(screen.getByLabelText('Label value'), { target: { value: 'shared' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save rule' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Routing rule created')).toBeInTheDocument();
+    });
+    expect(posted).toMatchObject({
+      workspace_id: workspaceId,
+      team_id: 'team-devops',
+      cross_workspace: true,
+      match_labels: { service: 'shared' },
+    });
+    expect(screen.getByText('service=shared')).toBeInTheDocument();
   });
 });

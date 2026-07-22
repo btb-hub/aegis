@@ -40,10 +40,11 @@ func TestIncidentsTimelineAndRoutingList(t *testing.T) {
 func TestRoutingRulesUpdateAndDelete(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
+	workspaceID := uuid.New()
 	teamID := uuid.New()
-	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: workspaceID, Name: "Platform"}
 
-	body := bytes.NewBufferString(`{"team_id":"` + teamID.String() + `","match_labels":{"team":"platform"},"priority":10}`)
+	body := bytes.NewBufferString(`{"workspace_id":"` + workspaceID.String() + `","team_id":"` + teamID.String() + `","match_labels":{"team":"platform"},"priority":10}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/routing-rules", body)
 	req.AddCookie(admin)
 	req.Header.Set("Content-Type", "application/json")
@@ -55,7 +56,7 @@ func TestRoutingRulesUpdateAndDelete(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
 	ruleID := created["id"].(string)
 
-	patch := bytes.NewBufferString(`{"team_id":"` + teamID.String() + `","match_labels":{"team":"platform"},"priority":20}`)
+	patch := bytes.NewBufferString(`{"workspace_id":"` + workspaceID.String() + `","team_id":"` + teamID.String() + `","match_labels":{"team":"platform"},"priority":20}`)
 	req = httptest.NewRequest(http.MethodPatch, "/api/v1/routing-rules/"+ruleID, patch)
 	req.AddCookie(admin)
 	req.Header.Set("Content-Type", "application/json")

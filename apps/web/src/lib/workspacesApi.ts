@@ -16,9 +16,11 @@ export type EscalationPath = {
 
 export type RoutingRule = {
   id: string;
+  workspace_id: string;
   team_id: string;
   match_labels: Record<string, string>;
   priority: number;
+  cross_workspace: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -153,9 +155,11 @@ export async function fetchRoutingRules(): Promise<RoutingRule[]> {
 }
 
 export async function createRoutingRule(payload: {
+  workspace_id: string;
   team_id: string;
   match_labels: Record<string, string>;
   priority: number;
+  cross_workspace: boolean;
 }): Promise<RoutingRule> {
   return apiFetch<RoutingRule>('/api/v1/routing-rules', {
     method: 'POST',
@@ -166,7 +170,13 @@ export async function createRoutingRule(payload: {
 
 export async function updateRoutingRule(
   id: string,
-  payload: { team_id: string; match_labels: Record<string, string>; priority: number },
+  payload: {
+    workspace_id: string;
+    team_id: string;
+    match_labels: Record<string, string>;
+    priority: number;
+    cross_workspace: boolean;
+  },
 ): Promise<RoutingRule> {
   return apiFetch<RoutingRule>(`/api/v1/routing-rules/${id}`, {
     method: 'PATCH',

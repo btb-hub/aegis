@@ -100,9 +100,11 @@ describe('workspacesApi', () => {
     );
 
     const rule = await createRoutingRule({
+      workspace_id: 'ws-1',
       team_id: 'team-1',
       match_labels: { service: 'payments' },
       priority: 50,
+      cross_workspace: false,
     });
     expect(rule.priority).toBe(50);
     expect(vi.mocked(fetch)).toHaveBeenCalledWith(
@@ -124,9 +126,11 @@ describe('workspacesApi', () => {
     );
 
     const rule = await updateRoutingRule('rule-1', {
+      workspace_id: 'ws-1',
       team_id: 'team-1',
       match_labels: { team: 'core' },
       priority: 20,
+      cross_workspace: true,
     });
     expect(rule.match_labels.team).toBe('core');
   });

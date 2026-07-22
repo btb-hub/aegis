@@ -161,12 +161,14 @@ type OnCallUser struct {
 }
 
 type RoutingRule struct {
-	ID          uuid.UUID `json:"id"`
-	TeamID      uuid.UUID `json:"team_id"`
-	MatchLabels []byte    `json:"match_labels"`
-	Priority    int32     `json:"priority"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID             uuid.UUID `json:"id"`
+	WorkspaceID    uuid.UUID `json:"workspace_id"`
+	TeamID         uuid.UUID `json:"team_id"`
+	MatchLabels    []byte    `json:"match_labels"`
+	Priority       int32     `json:"priority"`
+	CrossWorkspace bool      `json:"cross_workspace"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type Incident struct {

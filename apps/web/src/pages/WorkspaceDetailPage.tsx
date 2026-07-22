@@ -21,10 +21,12 @@ import {
   deleteRoutingRule,
   fetchRoutingRules,
   fetchWorkspace,
+  fetchWorkspaces,
   updateRoutingRule,
   updateWorkspace,
   WorkspaceApiError,
   type RoutingRule,
+  type WorkspaceSummary,
 } from '../lib/workspacesApi';
 
 type RuleFormState = {
@@ -32,6 +34,7 @@ type RuleFormState = {
   priority: string;
   labelKey: string;
   labelValue: string;
+  cross_workspace: boolean;
 };
 
 type WorkspaceFormState = {
@@ -45,6 +48,7 @@ const emptyRuleForm: RuleFormState = {
   priority: '100',
   labelKey: '',
   labelValue: '',
+  cross_workspace: false,
 };
 
 export function WorkspaceDetailPage() {
@@ -54,6 +58,7 @@ export function WorkspaceDetailPage() {
   const isAdmin = user?.role === 'admin';
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [allTeams, setAllTeams] = useState<Team[]>([]);
   const [rules, setRules] = useState<RoutingRule[]>([]);
@@ -78,15 +83,43 @@ export function WorkspaceDetailPage() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
-  const teamById = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
-  const teamOptions = useMemo(
-    () => teams.map((team) => ({ value: team.id, label: team.name })),
-    [teams],
-  );
+  const teamById = useMemo(() => new Map(allTeams.map((team) => [team.id, team])), [allTeams]);
+  const workspaceById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const item of workspaces) {
+      map.set(item.id, item.name);
+    }
+    if (workspace) {
+      map.set(workspace.id, workspace.name);
+    }
+    return map;
+  }, [workspaces, workspace]);
+
+  const teamOptions = useMemo(() => {
+    const source = form.cross_workspace ? allTeams : teams;
+    return source.map((team) => {
+      if (team.workspace_id === workspaceId) {
+        return { value: team.id, label: team.name };
+      }
+      const otherName = workspaceById.get(team.workspace_id) ?? team.workspace_id;
+      return {
+        value: team.id,
+        label: t('workspaces.routing.team_option_other', {
+          name: team.name,
+          workspace: otherName,
+        }),
+      };
+    });
+  }, [form.cross_workspace, allTeams, teams, workspaceId, workspaceById, t]);
 
   const workspaceRules = useMemo(
-    () => rules.filter((rule) => teamById.has(rule.team_id)),
-    [rules, teamById],
+    () => rules.filter((rule) => rule.workspace_id === workspaceId),
+    [rules, workspaceId],
+  );
+
+  const hasOtherWorkspaceTeams = useMemo(
+    () => allTeams.some((team) => team.workspace_id !== workspaceId),
+    [allTeams, workspaceId],
   );
 
   const assignableTeams = useMemo(() => {
@@ -106,18 +139,21 @@ export function WorkspaceDetailPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [workspaceData, teamList, ruleList] = await Promise.all([
+      const [workspaceData, workspaceList, teamList, ruleList] = await Promise.all([
         fetchWorkspace(workspaceId),
+        fetchWorkspaces(),
         fetchTeams(),
         fetchRoutingRules(),
       ]);
       setWorkspace(workspaceData);
+      setWorkspaces(workspaceList);
       setAllTeams(teamList);
       setTeams(teamList.filter((team) => team.workspace_id === workspaceId));
       setRules(ruleList);
     } catch {
       setLoadError(t('workspaces.detail.load_error'));
       setWorkspace(null);
+      setWorkspaces([]);
       setTeams([]);
       setAllTeams([]);
       setRules([]);
@@ -218,6 +254,7 @@ export function WorkspaceDetailPage() {
       priority: String(rule.priority),
       labelKey,
       labelValue,
+      cross_workspace: rule.cross_workspace,
     });
     setFormOpen(true);
   };
@@ -233,10 +270,14 @@ export function WorkspaceDetailPage() {
     setToast(null);
     try {
       const priority = Number.parseInt(form.priority, 10);
+      const selectedTeam = allTeams.find((team) => team.id === form.team_id);
+      const needsCross = Boolean(selectedTeam && selectedTeam.workspace_id !== workspaceId);
       const payload = {
+        workspace_id: workspaceId,
         team_id: form.team_id,
         priority: Number.isFinite(priority) ? priority : 100,
         match_labels: { [form.labelKey.trim()]: form.labelValue.trim() },
+        cross_workspace: form.cross_workspace || needsCross,
       };
       if (editingRule) {
         await updateRoutingRule(editingRule.id, payload);
@@ -371,10 +412,19 @@ export function WorkspaceDetailPage() {
                   cellClassName: 'font-medium text-zinc-900',
                   render: (rule) => {
                     const team = teamById.get(rule.team_id);
-                    // workspaceRules only includes rows whose team_id is in teamById
+                    if (!team) {
+                      return rule.team_id;
+                    }
+                    const isForeign = team.workspace_id !== workspaceId;
+                    const label = isForeign
+                      ? t('workspaces.routing.team_option_other', {
+                          name: team.name,
+                          workspace: workspaceById.get(team.workspace_id) ?? team.workspace_id,
+                        })
+                      : team.name;
                     return (
-                      <Link to={`/teams/${team!.id}`} className="text-accent hover:underline">
-                        {team!.name}
+                      <Link to={`/teams/${team.id}`} className="text-accent hover:underline">
+                        {label}
                       </Link>
                     );
                   },
@@ -490,6 +540,27 @@ export function WorkspaceDetailPage() {
         }
         primaryLoading={saving}
       >
+        <Checkbox
+          id="routing-cross-workspace"
+          label={t('workspaces.routing.cross_workspace')}
+          checked={form.cross_workspace}
+          onChange={(checked) => {
+            setForm((f) => {
+              const next = { ...f, cross_workspace: checked };
+              if (!checked) {
+                const stillValid = teams.some((team) => team.id === f.team_id);
+                if (!stillValid) {
+                  next.team_id = teams[0]?.id ?? '';
+                }
+              }
+              return next;
+            });
+          }}
+        />
+        <p className="text-sm text-zinc-600">{t('workspaces.routing.cross_workspace_help')}</p>
+        {form.cross_workspace && !hasOtherWorkspaceTeams ? (
+          <p className="text-sm text-zinc-600">{t('workspaces.routing.no_other_workspace_teams')}</p>
+        ) : null}
         <Select
           id="routing-team"
           label={t('workspaces.routing.team_label')}
