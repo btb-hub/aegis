@@ -21,3 +21,10 @@ pkg/coverage-pkg.out
 apps/web/coverage/
 apps/web/storybook-static/
 bin/
+.bmad-loop/runs/
+.bmad-loop/cache/
+.bmad-loop/policy.toml
+.worktrees/
+_bmad-output/
+_bmad/config.user.toml
+_bmad/config.user.yaml
