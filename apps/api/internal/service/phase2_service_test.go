@@ -66,13 +66,24 @@ func TestIncidentServiceAlerts(t *testing.T) {
 
 func TestRoutingServiceCreateTeamNotFound(t *testing.T) {
 	svc := NewRoutingService(&routingMockRepo{})
-	_, err := svc.CreateRule(context.Background(), uuid.New(), map[string]string{"team": "platform"}, 1)
+	_, err := svc.CreateRule(context.Background(), RoutingRuleInput{
+		WorkspaceID: uuid.New(),
+		TeamID:      uuid.New(),
+		MatchLabels: map[string]string{"team": "platform"},
+		Priority:    1,
+	})
 	require.Error(t, err)
 }
 
 func TestRoutingServiceValidateEmptyLabelValue(t *testing.T) {
+	workspaceID := uuid.New()
 	teamID := uuid.New()
-	svc := NewRoutingService(&routingMockRepo{team: db.Team{ID: teamID}})
-	_, err := svc.CreateRule(context.Background(), teamID, map[string]string{"team": ""}, 1)
+	svc := NewRoutingService(&routingMockRepo{team: db.Team{ID: teamID, WorkspaceID: workspaceID}})
+	_, err := svc.CreateRule(context.Background(), RoutingRuleInput{
+		WorkspaceID: workspaceID,
+		TeamID:      teamID,
+		MatchLabels: map[string]string{"team": ""},
+		Priority:    1,
+	})
 	require.Error(t, err)
 }

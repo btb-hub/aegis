@@ -37,9 +37,10 @@ func TestIntegrationUpsertInvalidBody(t *testing.T) {
 func TestRoutingRulesCreateInvalidMatchLabels(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
+	workspaceID := uuid.New()
 	teamID := uuid.New()
-	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
-	body := bytes.NewBufferString(`{"team_id":"` + teamID.String() + `","match_labels":{},"priority":1}`)
+	repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: workspaceID, Name: "Platform"}
+	body := bytes.NewBufferString(`{"workspace_id":"` + workspaceID.String() + `","team_id":"` + teamID.String() + `","match_labels":{},"priority":1}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/routing-rules", body)
 	req.AddCookie(admin)
 	req.Header.Set("Content-Type", "application/json")
@@ -90,7 +91,7 @@ func TestRoutingRulesValidationErrors(t *testing.T) {
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	req = httptest.NewRequest(http.MethodPatch, "/api/v1/routing-rules/"+uuid.New().String(), bytes.NewBufferString(`{"team_id":"bad","match_labels":{},"priority":1}`))
+	req = httptest.NewRequest(http.MethodPatch, "/api/v1/routing-rules/"+uuid.New().String(), bytes.NewBufferString(`{"workspace_id":"`+uuid.New().String()+`","team_id":"bad","match_labels":{},"priority":1}`))
 	req.AddCookie(admin)
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
@@ -174,7 +175,7 @@ func TestIncidentsResolveConflict(t *testing.T) {
 func TestRoutingRulesCreateTeamNotFound(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
-	body := bytes.NewBufferString(`{"team_id":"` + uuid.New().String() + `","match_labels":{"team":"platform"},"priority":1}`)
+	body := bytes.NewBufferString(`{"workspace_id":"` + uuid.New().String() + `","team_id":"` + uuid.New().String() + `","match_labels":{"team":"platform"},"priority":1}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/routing-rules", body)
 	req.AddCookie(admin)
 	req.Header.Set("Content-Type", "application/json")

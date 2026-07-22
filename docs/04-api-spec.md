@@ -208,10 +208,15 @@ Schedule and override changes materialise on-call slots synchronously for the te
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/routing-rules` | List routing rules |
-| POST | `/routing-rules` | Create routing rule (admin) |
-| PATCH | `/routing-rules/{id}` | Update routing rule (admin) |
+| GET | `/routing-rules` | List routing rules (includes `workspace_id`, `cross_workspace`) |
+| POST | `/routing-rules` | Create routing rule (admin). Body requires `workspace_id`, `team_id`, `match_labels`, `priority`; optional `cross_workspace` (default false). Foreign target teams require `cross_workspace: true`. |
+| PATCH | `/routing-rules/{id}` | Update routing rule (admin). Same body fields as create. |
 | DELETE | `/routing-rules/{id}` | Delete routing rule (admin) |
+
+Routing rule ownership is the configuring workspace (`workspace_id`). The target `team_id` may live
+in another workspace when `cross_workspace` is true (Model A — shared team, single home). Worker
+matching remains global by labels/priority across workspaces; the matched team's home workspace
+supplies integrations.
 | GET | `/incidents` | List with filters |
 | GET | `/incidents/{id}` | Detail + timeline |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |

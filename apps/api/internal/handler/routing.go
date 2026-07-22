@@ -46,21 +46,12 @@ func (h *RoutingHandler) listRules(c *gin.Context) {
 }
 
 func (h *RoutingHandler) createRule(c *gin.Context) {
-	var body struct {
-		TeamID      string            `json:"team_id"`
-		MatchLabels map[string]string `json:"match_labels"`
-		Priority    int32             `json:"priority"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		WriteError(c, service.ErrInvalidBody())
-		return
-	}
-	teamID, err := uuid.Parse(body.TeamID)
+	input, err := parseRoutingRuleBody(c)
 	if err != nil {
-		WriteError(c, apperrors.Validation("team_id must be a valid uuid", nil))
+		WriteError(c, err)
 		return
 	}
-	rule, err := h.routing.CreateRule(c.Request.Context(), teamID, body.MatchLabels, body.Priority)
+	rule, err := h.routing.CreateRule(c.Request.Context(), input)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -74,21 +65,12 @@ func (h *RoutingHandler) updateRule(c *gin.Context) {
 		WriteError(c, err)
 		return
 	}
-	var body struct {
-		TeamID      string            `json:"team_id"`
-		MatchLabels map[string]string `json:"match_labels"`
-		Priority    int32             `json:"priority"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		WriteError(c, service.ErrInvalidBody())
-		return
-	}
-	teamID, err := uuid.Parse(body.TeamID)
+	input, err := parseRoutingRuleBody(c)
 	if err != nil {
-		WriteError(c, apperrors.Validation("team_id must be a valid uuid", nil))
+		WriteError(c, err)
 		return
 	}
-	rule, err := h.routing.UpdateRule(c.Request.Context(), ruleID, teamID, body.MatchLabels, body.Priority)
+	rule, err := h.routing.UpdateRule(c.Request.Context(), ruleID, input)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -107,4 +89,32 @@ func (h *RoutingHandler) deleteRule(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func parseRoutingRuleBody(c *gin.Context) (service.RoutingRuleInput, error) {
+	var body struct {
+		WorkspaceID    string            `json:"workspace_id"`
+		TeamID         string            `json:"team_id"`
+		MatchLabels    map[string]string `json:"match_labels"`
+		Priority       int32             `json:"priority"`
+		CrossWorkspace bool              `json:"cross_workspace"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		return service.RoutingRuleInput{}, service.ErrInvalidBody()
+	}
+	workspaceID, err := uuid.Parse(body.WorkspaceID)
+	if err != nil {
+		return service.RoutingRuleInput{}, apperrors.Validation("workspace_id must be a valid uuid", nil)
+	}
+	teamID, err := uuid.Parse(body.TeamID)
+	if err != nil {
+		return service.RoutingRuleInput{}, apperrors.Validation("team_id must be a valid uuid", nil)
+	}
+	return service.RoutingRuleInput{
+		WorkspaceID:    workspaceID,
+		TeamID:         teamID,
+		MatchLabels:    body.MatchLabels,
+		Priority:       body.Priority,
+		CrossWorkspace: body.CrossWorkspace,
+	}, nil
 }

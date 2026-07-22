@@ -9,9 +9,22 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+type routingRuleScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanRoutingRule(row routingRuleScanner) (RoutingRule, error) {
+	var rule RoutingRule
+	err := row.Scan(
+		&rule.ID, &rule.WorkspaceID, &rule.TeamID, &rule.MatchLabels, &rule.Priority,
+		&rule.CrossWorkspace, &rule.CreatedAt, &rule.UpdatedAt,
+	)
+	return rule, err
+}
+
 func (s *Store) ListRoutingRules(ctx context.Context) ([]RoutingRule, error) {
 	const q = `
-SELECT id, team_id, match_labels, priority, created_at, updated_at
+SELECT id, workspace_id, team_id, match_labels, priority, cross_workspace, created_at, updated_at
 FROM routing_rules
 ORDER BY priority DESC, created_at ASC`
 	rows, err := s.pool.Query(ctx, q)
@@ -22,8 +35,8 @@ ORDER BY priority DESC, created_at ASC`
 
 	var rules []RoutingRule
 	for rows.Next() {
-		var rule RoutingRule
-		if err := rows.Scan(&rule.ID, &rule.TeamID, &rule.MatchLabels, &rule.Priority, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
+		rule, err := scanRoutingRule(rows)
+		if err != nil {
 			return nil, err
 		}
 		rules = append(rules, rule)
@@ -33,45 +46,47 @@ ORDER BY priority DESC, created_at ASC`
 
 func (s *Store) GetRoutingRule(ctx context.Context, id uuid.UUID) (RoutingRule, error) {
 	const q = `
-SELECT id, team_id, match_labels, priority, created_at, updated_at
+SELECT id, workspace_id, team_id, match_labels, priority, cross_workspace, created_at, updated_at
 FROM routing_rules
 WHERE id = $1`
-	var rule RoutingRule
-	err := s.pool.QueryRow(ctx, q, id).Scan(&rule.ID, &rule.TeamID, &rule.MatchLabels, &rule.Priority, &rule.CreatedAt, &rule.UpdatedAt)
-	return rule, err
+	return scanRoutingRule(s.pool.QueryRow(ctx, q, id))
 }
 
-func (s *Store) CreateRoutingRule(ctx context.Context, teamID uuid.UUID, matchLabels map[string]string, priority int32) (RoutingRule, error) {
+func (s *Store) CreateRoutingRule(
+	ctx context.Context,
+	workspaceID, teamID uuid.UUID,
+	matchLabels map[string]string,
+	priority int32,
+	crossWorkspace bool,
+) (RoutingRule, error) {
 	labelsJSON, err := json.Marshal(matchLabels)
 	if err != nil {
 		return RoutingRule{}, err
 	}
 	const q = `
-INSERT INTO routing_rules (team_id, match_labels, priority)
-VALUES ($1, $2, $3)
-RETURNING id, team_id, match_labels, priority, created_at, updated_at`
-	var rule RoutingRule
-	err = s.pool.QueryRow(ctx, q, teamID, labelsJSON, priority).Scan(
-		&rule.ID, &rule.TeamID, &rule.MatchLabels, &rule.Priority, &rule.CreatedAt, &rule.UpdatedAt,
-	)
-	return rule, err
+INSERT INTO routing_rules (workspace_id, team_id, match_labels, priority, cross_workspace)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, workspace_id, team_id, match_labels, priority, cross_workspace, created_at, updated_at`
+	return scanRoutingRule(s.pool.QueryRow(ctx, q, workspaceID, teamID, labelsJSON, priority, crossWorkspace))
 }
 
-func (s *Store) UpdateRoutingRule(ctx context.Context, id, teamID uuid.UUID, matchLabels map[string]string, priority int32) (RoutingRule, error) {
+func (s *Store) UpdateRoutingRule(
+	ctx context.Context,
+	id, workspaceID, teamID uuid.UUID,
+	matchLabels map[string]string,
+	priority int32,
+	crossWorkspace bool,
+) (RoutingRule, error) {
 	labelsJSON, err := json.Marshal(matchLabels)
 	if err != nil {
 		return RoutingRule{}, err
 	}
 	const q = `
 UPDATE routing_rules
-SET team_id = $2, match_labels = $3, priority = $4, updated_at = now()
+SET workspace_id = $2, team_id = $3, match_labels = $4, priority = $5, cross_workspace = $6, updated_at = now()
 WHERE id = $1
-RETURNING id, team_id, match_labels, priority, created_at, updated_at`
-	var rule RoutingRule
-	err = s.pool.QueryRow(ctx, q, id, teamID, labelsJSON, priority).Scan(
-		&rule.ID, &rule.TeamID, &rule.MatchLabels, &rule.Priority, &rule.CreatedAt, &rule.UpdatedAt,
-	)
-	return rule, err
+RETURNING id, workspace_id, team_id, match_labels, priority, cross_workspace, created_at, updated_at`
+	return scanRoutingRule(s.pool.QueryRow(ctx, q, id, workspaceID, teamID, labelsJSON, priority, crossWorkspace))
 }
 
 func (s *Store) DeleteRoutingRule(ctx context.Context, id uuid.UUID) error {

@@ -124,7 +124,20 @@ Append-only: `incident_id`, `kind`, `actor_id`, `payload` jsonb, `created_at`.
 
 ### routing_rules
 
-`team_id`, `match_labels` jsonb, `priority` int.
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| workspace_id | uuid FK → workspaces | Configuring (owning) workspace — not necessarily the target team's home |
+| team_id | uuid FK → teams | Target team that owns matching incidents |
+| match_labels | jsonb | Alert label matchers |
+| priority | int | Higher wins; matching is global across workspaces |
+| cross_workspace | bool | Default false; required when `team_id` belongs to another workspace |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+Model A: a team has one home workspace. Other workspaces may own routing rules that target that
+shared team when `cross_workspace` is true. Incident ownership stays the matched `team_id`;
+integrations resolve from that team's home workspace.
 
 ### integrations
 

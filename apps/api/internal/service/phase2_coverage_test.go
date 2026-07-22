@@ -25,7 +25,12 @@ func TestMapRoutingErrorForeignKey(t *testing.T) {
 
 func TestRoutingServiceUpdateRuleTeamNotFound(t *testing.T) {
 	svc := NewRoutingService(&routingMockRepo{})
-	_, err := svc.UpdateRule(context.Background(), uuid.New(), uuid.New(), map[string]string{"team": "platform"}, 1)
+	_, err := svc.UpdateRule(context.Background(), uuid.New(), RoutingRuleInput{
+		WorkspaceID: uuid.New(),
+		TeamID:      uuid.New(),
+		MatchLabels: map[string]string{"team": "platform"},
+		Priority:    1,
+	})
 	require.Error(t, err)
 }
 
