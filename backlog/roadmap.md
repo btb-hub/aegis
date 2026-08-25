@@ -25,6 +25,7 @@ Phase 6). All stories in EPIC-01 through EPIC-07 are `Done`.
 | 9 | [EPIC-10](./epics/EPIC-10-ui-polish.md) | PR #21 |
 | 10 | [EPIC-11](./epics/EPIC-11-support-levels-workspaces.md) | — |
 | 12 | [EPIC-13](./epics/EPIC-13-integration-admin.md) | — |
+| 13 | [EPIC-14](./epics/EPIC-14-alert-ops-public-ingress.md) | — |
 
 ## Guiding order
 
@@ -211,6 +212,27 @@ eXpress). Fix the dedicated Integrations page instead of routing admins through 
 
 **Next story:** [AEG-093](./epics/EPIC-13-integration-admin.md) — Validate integration config and clarify
 test failures.
+
+## Phase 13 — Alert operations and public chat ingress
+
+*Exit: an admin finds routing from Alerts; an operator can assign, create an incident, or resolve from
+an alert row; BotX/Slack/webhook traffic is documented to skip Google IAP (or use a second public
+host), with copyable callback URLs on Integrations.*
+
+**Why now:** Colleagues received test alerts and could not find **Configure routing** (it lives on
+workspace detail). Alert rows are read-only — assign / create incident / resolve exist only on
+incidents, and incidents never appear when no rule matches. eXpress BotX cannot call
+`PUBLIC_URL` if interactive Google auth/IAP wraps the same origin; a reverse proxy is the intended
+workaround and must be a first-class deploy path.
+
+- Admin **Configure routing** on `/alerts` → `/workspaces` (AEG-097). No new Routing nav.
+- Alert list `incident_id`; manual `POST /incidents`; assign; unlinked alert resolve (AEG-098–101).
+- Alert row actions UI (AEG-102).
+- Public ingress docs + copyable BotX/Slack URLs (AEG-103).
+
+→ Epic: [EPIC-14 Alert operations & public ingress](./epics/EPIC-14-alert-ops-public-ingress.md)
+
+**Next story:** [AEG-097](./epics/EPIC-14-alert-ops-public-ingress.md) — Configure routing CTA on Alerts.
 
 ## Later (post-MVP, not now)
 
