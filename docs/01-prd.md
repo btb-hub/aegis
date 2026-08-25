@@ -95,6 +95,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-ALERT-05 | Inline analytics on current filter slice (counts by severity, top labels). |
 | REQ-ALERT-06 | CSV export of current slice (streamed). |
 | REQ-ALERT-07 | List performant at 10k+ rows (NFR-2). |
+| REQ-ALERT-08 | From the alert list, members and admins can assign, create an incident, or resolve. Assign and create always produce or update an incident (team required on create; default assignee is current on-call). Resolve of a linked alert resolves the incident; resolve of an unlinked firing alert marks the alert `resolved` without creating an incident. Viewers cannot mutate. |
 
 ---
 
@@ -120,6 +121,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. |
 | REQ-INT-05 | Per-connector "Test connection" on the Integrations admin page (`/integrations`). Standalone configure (create/edit credentials) without the setup wizard. |
 | REQ-INT-06 | Connector failure does not block other connectors; retry with backoff in worker. |
+| REQ-INT-07 | Machine HTTP (eXpress BotX, Slack interactive callback, alert webhook) and health checks must be reachable without interactive Google/IAP login. Document a path-based proxy skip or a separate public host. Do not place IAP in front of those paths on the UI origin. Callback verification (BotX JWT, Slack signature, webhook secret) stays required. |
 
 ---
 
