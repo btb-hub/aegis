@@ -252,8 +252,7 @@ only to Data L3.
 | **Page** | `/alerts` | `/incidents` |
 
 If you see alerts but no incidents, an admin needs a **routing rule** that matches your alert labels.
-Use **Setup** or ask an admin to check **Workspaces** → routing rules. A later story adds
-**Configure routing** on Alerts for admins so that path is visible from the list.
+Admins open routing with **Configure routing** on Alerts, or from **Workspaces** → routing rules.
 
 ---
 

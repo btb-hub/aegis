@@ -6,6 +6,14 @@ import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
 import { TeamShiftsRoute } from './TeamShiftsRoute';
 
+function currentMonthSlot() {
+  const start = new Date();
+  start.setUTCDate(1);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 8));
+  return { start_at: start.toISOString(), end_at: end.toISOString() };
+}
+
 function renderRoute(teamId = 'team-1') {
   return render(
     <I18nextProvider i18n={i18n}>
@@ -307,8 +315,7 @@ describe('TeamShiftsRoute', () => {
                 id: 'slot-1',
                 team_id: 'team-1',
                 user_id: 'u1',
-                start_at: '2026-07-01T00:00:00Z',
-                end_at: '2026-07-08T00:00:00Z',
+                ...currentMonthSlot(),
                 source: 'rotation',
               },
             ],
@@ -411,8 +418,7 @@ describe('TeamShiftsRoute', () => {
                 id: 'slot-1',
                 team_id: 'team-1',
                 user_id: 'u1',
-                start_at: '2026-07-01T00:00:00Z',
-                end_at: '2026-07-08T00:00:00Z',
+                ...currentMonthSlot(),
                 source: 'rotation',
               },
             ],
