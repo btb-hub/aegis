@@ -14,6 +14,7 @@ const alert: AlertItem = {
   title: 'CPU high',
   labels: {},
   received_at: '2026-06-26T10:00:00Z',
+  incident_id: null,
 };
 
 function renderWithI18n(ui: ReactNode) {

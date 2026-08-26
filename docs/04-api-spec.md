@@ -54,6 +54,8 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 
 **Implemented (AEG-037):** `GET /alerts/export` streams CSV with the same filter query params as list (no pagination). Response is `text/csv` with `Content-Disposition: attachment`.
 
+**Implemented (AEG-098):** Each list item and grouped `sample` includes `incident_id` (UUID string or JSON `null`; key always present). Precedence: the most recently linked incident with status `open` or `acknowledged` (`incident_alerts.created_at` DESC). Alerts linked only to `resolved` incidents, or with no links, return `incident_id: null`. CSV export may omit this column.
+
 **Response (list):**
 
 ```json
@@ -67,7 +69,8 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
       "title": "HighCPU",
       "body": "CPU high on host-1",
       "labels": {"alertname": "HighCPU", "team": "platform"},
-      "received_at": "2026-06-26T12:00:00Z"
+      "received_at": "2026-06-26T12:00:00Z",
+      "incident_id": "uuid-or-null"
     }
   ],
   "total": 42,
@@ -93,7 +96,8 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
         "title": "HighCPU",
         "body": "CPU high on host-1",
         "labels": {"alertname": "HighCPU", "team": "platform"},
-        "received_at": "2026-06-26T12:00:00Z"
+        "received_at": "2026-06-26T12:00:00Z",
+        "incident_id": "uuid-or-null"
       }
     }
   ],

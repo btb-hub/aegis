@@ -172,6 +172,11 @@ func AlertJSON(alert db.Alert) map[string]any {
 		"labels":      labels,
 		"received_at": alert.ReceivedAt,
 	}
+	if alert.IncidentID != nil {
+		out["incident_id"] = alert.IncidentID.String()
+	} else {
+		out["incident_id"] = nil
+	}
 	if alert.Body != nil {
 		out["body"] = *alert.Body
 	}

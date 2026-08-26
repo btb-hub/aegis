@@ -9,6 +9,7 @@ export type AlertItem = {
   body?: string;
   labels: Record<string, string>;
   received_at: string;
+  incident_id: string | null;
 };
 
 export type AlertGroup = {

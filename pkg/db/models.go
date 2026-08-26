@@ -50,16 +50,17 @@ type Job struct {
 }
 
 type Alert struct {
-	ID          uuid.UUID `json:"id"`
-	Fingerprint string    `json:"fingerprint"`
-	Status      string    `json:"status"`
-	Severity    string    `json:"severity"`
-	Title       string    `json:"title"`
-	Body        *string   `json:"body"`
-	Labels      []byte    `json:"labels"`
-	SearchTsv   *string   `json:"search_tsv"`
-	RawPayload  []byte    `json:"raw_payload"`
-	ReceivedAt  time.Time `json:"received_at"`
+	ID          uuid.UUID  `json:"id"`
+	Fingerprint string     `json:"fingerprint"`
+	Status      string     `json:"status"`
+	Severity    string     `json:"severity"`
+	Title       string     `json:"title"`
+	Body        *string    `json:"body"`
+	Labels      []byte     `json:"labels"`
+	SearchTsv   *string    `json:"search_tsv"`
+	RawPayload  []byte     `json:"raw_payload"`
+	ReceivedAt  time.Time  `json:"received_at"`
+	IncidentID  *uuid.UUID `json:"incident_id"`
 }
 
 type Workspace struct {

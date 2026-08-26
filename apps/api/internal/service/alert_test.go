@@ -248,6 +248,23 @@ func TestAlertJSONEmptyLabels(t *testing.T) {
 	labels, ok := out["labels"].(map[string]string)
 	require.True(t, ok)
 	require.Empty(t, labels)
+	require.Nil(t, out["incident_id"])
+}
+
+func TestAlertJSONIncidentID(t *testing.T) {
+	t.Run("nil incident id", func(t *testing.T) {
+		alert := db.Alert{ID: uuid.New(), Labels: []byte(`{}`)}
+		out := AlertJSON(alert)
+		require.Contains(t, out, "incident_id")
+		require.Nil(t, out["incident_id"])
+	})
+
+	t.Run("set incident id", func(t *testing.T) {
+		incidentID := uuid.New()
+		alert := db.Alert{ID: uuid.New(), Labels: []byte(`{}`), IncidentID: &incidentID}
+		out := AlertJSON(alert)
+		require.Equal(t, incidentID.String(), out["incident_id"])
+	})
 }
 
 func TestAlertAnalytics(t *testing.T) {
