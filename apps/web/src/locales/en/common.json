@@ -352,6 +352,8 @@
   "alerts.export": "Export CSV",
   "alerts.export_success": "Export started",
   "alerts.export_failed": "Export failed",
+  "alerts.configure_routing": "Configure routing",
+  "alerts.configure_routing_failed": "Could not load workspaces",
   "alerts.filter.search": "Search",
   "alerts.filter.search_placeholder": "Search title or body",
   "alerts.filter.severity": "Severity",

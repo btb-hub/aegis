@@ -352,6 +352,8 @@
   "alerts.export": "Экспорт CSV",
   "alerts.export_success": "Экспорт начат",
   "alerts.export_failed": "Не удалось экспортировать",
+  "alerts.configure_routing": "Настроить маршрутизацию",
+  "alerts.configure_routing_failed": "Не удалось загрузить рабочие области",
   "alerts.filter.search": "Поиск",
   "alerts.filter.search_placeholder": "Поиск по заголовку или тексту",
   "alerts.filter.severity": "Критичность",

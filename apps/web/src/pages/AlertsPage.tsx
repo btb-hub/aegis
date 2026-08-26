@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertAnalyticsPanel } from '../components/alerts/AlertAnalyticsPanel';
 import { AlertFilterBar } from '../components/alerts/AlertFilterBar';
 import { AlertGroupTable, AlertTable } from '../components/alerts/AlertTable';
 import { Banner } from '../components/ui/Banner';
+import { Button } from '../components/ui/Button';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
+import { useAuth } from '../context/AuthContext';
 import {
   defaultAlertFilters,
   filtersToExportQuery,
@@ -19,11 +22,15 @@ import {
   type AlertItem,
   type SavedView,
 } from '../lib/alertTypes';
+import { fetchWorkspaces } from '../lib/workspacesApi';
 
 const PAGE_SIZE = 25;
 
 export function AlertsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
   const [draftFilters, setDraftFilters] = useState<AlertFilters>(() => defaultAlertFilters());
   const [appliedFilters, setAppliedFilters] = useState<AlertFilters>(() => defaultAlertFilters());
   const [page, setPage] = useState(1);
@@ -39,6 +46,7 @@ export function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
+  const [routingLoading, setRoutingLoading] = useState(false);
 
   const loadSavedViews = useCallback(async () => {
     const response = await fetch('/api/v1/saved-views', { credentials: 'include' });
@@ -159,6 +167,22 @@ export function AlertsPage() {
     setToast({ message: t('alerts.export_success'), variant: 'success' });
   };
 
+  const openRouting = async () => {
+    setRoutingLoading(true);
+    try {
+      const workspaces = await fetchWorkspaces();
+      if (workspaces.length === 1) {
+        navigate(`/workspaces/${workspaces[0].id}`);
+      } else {
+        navigate('/workspaces');
+      }
+    } catch {
+      setToast({ message: t('alerts.configure_routing_failed'), variant: 'default' });
+    } finally {
+      setRoutingLoading(false);
+    }
+  };
+
   return (
     <PageContent>
       <PageHeader
@@ -171,6 +195,13 @@ export function AlertsPage() {
             { label: t('nav.alerts') },
           ],
         }}
+        actions={
+          isAdmin ? (
+            <Button variant="secondary" disabled={routingLoading} onClick={() => void openRouting()}>
+              {t('alerts.configure_routing')}
+            </Button>
+          ) : undefined
+        }
       />
 
       <AlertFilterBar
