@@ -51,7 +51,7 @@ func main() {
 	overrides := service.NewOverrideService(store)
 	oncall := service.NewOnCallService(store)
 	routingRules := service.NewRoutingService(store)
-	incidents := service.NewIncidentService(store)
+	incidents := service.NewIncidentService(store, cfg.IncidentDedupWindow, cfg.EscalationTimeout)
 	handoffs := service.NewHandoffService(store)
 	analytics := service.NewAnalyticsService(store)
 	integrationsSvc := service.NewIntegrationService(store, cfg.PublicURL)

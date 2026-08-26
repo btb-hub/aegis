@@ -102,7 +102,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{SessionTTL: time.Hour, PublicURL: "http://localhost:8080"}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
-	incidents := service.NewIncidentService(repo)
+	incidents := service.NewIncidentService(repo, time.Hour, time.Minute)
 	handoffs := service.NewHandoffService(repo)
 	routingRules := service.NewRoutingService(repo)
 	integrationsSvc := service.NewIntegrationService(repo, cfg.PublicURL)

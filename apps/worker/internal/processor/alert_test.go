@@ -16,11 +16,14 @@ import (
 
 func TestAlertProcessorIdempotentWhenLinked(t *testing.T) {
 	alertID := uuid.New()
+	openID := uuid.New()
 	store := &alertMockStore{
-		linkedIncident: db.Incident{ID: uuid.New()},
+		linkedIncident: db.Incident{ID: openID, Status: "open"},
 		alertID:        alertID,
+		alert:          db.Alert{ID: alertID, Status: "firing", Labels: []byte(`{"team":"platform"}`)},
+		manualErr:      db.ErrAlertAlreadyLinked,
 	}
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID:      "job-1",
 		Kind:    "process_alert",
@@ -30,13 +33,13 @@ func TestAlertProcessorIdempotentWhenLinked(t *testing.T) {
 }
 
 func TestAlertProcessorInvalidPayload(t *testing.T) {
-	p := NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, "http://localhost:8080")
+	p := NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{ID: "1", Payload: json.RawMessage(`{`)})
 	require.Error(t, err)
 }
 
 func TestAlertProcessorInvalidAlertID(t *testing.T) {
-	p := NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, "http://localhost:8080")
+	p := NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{ID: "1", Payload: json.RawMessage(`{"alert_id":"bad"}`)})
 	require.Error(t, err)
 }
@@ -55,6 +58,40 @@ func noopEscalate() *EscalateProcessor {
 
 func noopHandoffNotify() *HandoffNotifyProcessor {
 	return NewHandoffNotifyProcessor(nil, handoffNotifyMockStore{}, "http://localhost:8080")
+}
+
+func noopNotifyIncident() *NotifyIncidentProcessor {
+	return NewNotifyIncidentProcessor(nil, notifyIncidentMockStore{}, "http://localhost:8080")
+}
+
+type notifyIncidentMockStore struct {
+	incident db.Incident
+}
+
+func (notifyIncidentMockStore) GetIncidentByID(_ context.Context, _ uuid.UUID) (db.Incident, error) {
+	return db.Incident{ID: uuid.New(), TeamID: uuid.New(), Status: "open", Title: "CPU", Severity: "critical", CreatedAt: time.Now()}, nil
+}
+func (notifyIncidentMockStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
+	return db.User{}, pgx.ErrNoRows
+}
+func (notifyIncidentMockStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error { return nil }
+func (notifyIncidentMockStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
+	return nil
+}
+func (notifyIncidentMockStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
+	return db.Notification{}, nil
+}
+func (notifyIncidentMockStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (notifyIncidentMockStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
+}
+func (notifyIncidentMockStore) HasNotification(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return false, nil
+}
+func (notifyIncidentMockStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
 }
 
 type handoffNotifyMockStore struct{}
@@ -94,14 +131,16 @@ func (materialiseStoreStub) ListTeamIDsWithSchedules(ctx context.Context) ([]uui
 }
 
 type alertMockStore struct {
+	teamID         uuid.UUID
 	linkedIncident db.Incident
 	alertID        uuid.UUID
 	alert          db.Alert
 	getAlertErr    error
-	findErr        error
+	manualErr      error
+	ensureErr      error
 }
 
-func (m *alertMockStore) GetIncidentForAlert(_ context.Context, alertID uuid.UUID) (db.Incident, error) {
+func (m *alertMockStore) GetOpenIncidentForAlert(_ context.Context, alertID uuid.UUID) (db.Incident, error) {
 	if m.linkedIncident.ID != uuid.Nil && alertID == m.alertID {
 		return m.linkedIncident, nil
 	}
@@ -115,48 +154,31 @@ func (m *alertMockStore) GetAlertByID(context.Context, uuid.UUID) (db.Alert, err
 	if m.alert.ID != uuid.Nil {
 		return m.alert, nil
 	}
-	return db.Alert{}, nil
+	return db.Alert{Status: "firing"}, nil
 }
-func (m *alertMockStore) FindOpenIncidentByFingerprint(context.Context, string, time.Time) (db.Incident, error) {
-	if m.findErr != nil {
-		return db.Incident{}, m.findErr
+func (m *alertMockStore) ManualCreateFromAlert(context.Context, db.ManualCreateFromAlertInput) (db.ManualCreateFromAlertResult, error) {
+	if m.manualErr != nil {
+		return db.ManualCreateFromAlertResult{}, m.manualErr
 	}
-	return db.Incident{}, pgx.ErrNoRows
+	return db.ManualCreateFromAlertResult{Incident: db.Incident{ID: uuid.New(), Status: "open"}, Created: true}, nil
 }
-func (m *alertMockStore) CreateIncidentWithAlert(context.Context, db.CreateIncidentInput) (db.Incident, error) {
-	return db.Incident{}, nil
+func (m *alertMockStore) EnsureIncidentPostCreateJobs(context.Context, uuid.UUID, time.Time) error {
+	return m.ensureErr
 }
-func (m *alertMockStore) LinkAlertToIncident(context.Context, uuid.UUID, uuid.UUID) error { return nil }
-func (m *alertMockStore) ListRoutingRules(context.Context) ([]db.RoutingRule, error)      { return nil, nil }
+func (m *alertMockStore) ListRoutingRules(context.Context) ([]db.RoutingRule, error) {
+	teamID := m.teamID
+	if teamID == uuid.Nil {
+		teamID = uuid.New()
+	}
+	matchLabels, _ := json.Marshal(map[string]string{"team": "platform"})
+	return []db.RoutingRule{{TeamID: teamID, MatchLabels: matchLabels, Priority: 1}}, nil
+}
 func (m *alertMockStore) CurrentOnCallUsers(context.Context, uuid.UUID, time.Time) ([]db.OnCallUser, error) {
-	return nil, nil
-}
-func (m *alertMockStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error { return nil }
-func (m *alertMockStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
-	return nil
-}
-func (m *alertMockStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
-	return db.Integration{}, pgx.ErrNoRows
-}
-func (m *alertMockStore) CreateNotification(context.Context, uuid.UUID, uuid.UUID, string, string) (db.Notification, error) {
-	return db.Notification{}, nil
-}
-func (m *alertMockStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
-	return db.User{}, nil
-}
-func (m *alertMockStore) EnqueueEscalation(context.Context, uuid.UUID, time.Time) error { return nil }
-func (m *alertMockStore) GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error) {
-	return uuid.Nil, nil
-}
-func (m *alertMockStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
-	return db.Integration{}, pgx.ErrNoRows
-}
-func (m *alertMockStore) ListEnabledIntegrationsForWorkspace(context.Context, uuid.UUID) ([]integrations.IntegrationRow, error) {
 	return nil, nil
 }
 
 func TestWorkerNoJob(t *testing.T) {
-	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
+	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
 	err := w.RunOnce(context.Background())
 	require.NoError(t, err)
 }
@@ -177,14 +199,58 @@ func (m *mockStore) FailJob(ctx context.Context, id, message string) error {
 	return errors.New("fail")
 }
 
+func TestAlertProcessorEnsurePostCreateJobsError(t *testing.T) {
+	alertID := uuid.New()
+	openID := uuid.New()
+	store := &alertMockStore{
+		linkedIncident: db.Incident{ID: openID, Status: "open"},
+		alertID:        alertID,
+		alert:          db.Alert{ID: alertID, Status: "firing", Labels: []byte(`{"team":"platform"}`)},
+		manualErr:      db.ErrAlertAlreadyLinked,
+		ensureErr:      errors.New("ensure failed"),
+	}
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
+	err := p.Handle(context.Background(), Job{
+		Payload: json.RawMessage(`{"alert_id":"` + alertID.String() + `"}`),
+	})
+	require.Error(t, err)
+}
+
+func TestDecodeAlertLabelsDefaultsNilMap(t *testing.T) {
+	labels, err := decodeAlertLabels([]byte(`null`))
+	require.NoError(t, err)
+	require.NotNil(t, labels)
+	require.Empty(t, labels)
+}
+
+func TestDecodeAlertLabelsInvalidJSON(t *testing.T) {
+	_, err := decodeAlertLabels([]byte(`{`))
+	require.Error(t, err)
+}
+
+func TestAlertProcessorNonFiringAlertNoops(t *testing.T) {
+	alertID := uuid.New()
+	store := &alertMockStore{
+		alert: db.Alert{ID: alertID, Status: "resolved", Labels: []byte(`{"team":"platform"}`)},
+	}
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
+	err := p.Handle(context.Background(), Job{Payload: json.RawMessage(`{"alert_id":"` + alertID.String() + `"}`)})
+	require.NoError(t, err)
+}
+
 func TestWorkerProcessesJob(t *testing.T) {
 	alertID := uuid.New()
 	store := &mockStore{
 		claim: true,
 		job:   Job{ID: "j1", Kind: "process_alert", Payload: json.RawMessage(`{"alert_id":"` + alertID.String() + `"}`)},
 	}
-	alertStore := &alertMockStore{linkedIncident: db.Incident{ID: uuid.New()}, alertID: alertID}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
+	alertStore := &alertMockStore{
+		linkedIncident: db.Incident{ID: uuid.New(), Status: "open"},
+		alertID:        alertID,
+		alert:          db.Alert{ID: alertID, Status: "firing", Labels: []byte(`{"team":"platform"}`)},
+		manualErr:      db.ErrAlertAlreadyLinked,
+	}
+	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -198,7 +264,7 @@ func TestWorkerProcessesMaterialiseJob(t *testing.T) {
 			Payload: json.RawMessage(`{"team_id":"` + teamID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), NewMaterialiseProcessor(nil, &materialiseMockStore{}), noopEscalate(), noopHandoffNotify())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), NewMaterialiseProcessor(nil, &materialiseMockStore{}), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -211,14 +277,14 @@ func (m *claimErrorStore) ClaimNextJob(ctx context.Context) (bool, Job, error) {
 }
 
 func TestWorkerClaimError(t *testing.T) {
-	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), noopEscalate(), noopHandoffNotify())
+	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
 	err := w.RunOnce(context.Background())
 	require.Error(t, err)
 }
 
 func TestAlertProcessorGetAlertError(t *testing.T) {
 	store := &alertMockStore{getAlertErr: errors.New("db down")}
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + uuid.New().String() + `"}`),
 	})
@@ -227,7 +293,7 @@ func TestAlertProcessorGetAlertError(t *testing.T) {
 
 func TestAlertProcessorInvalidLabelsJSON(t *testing.T) {
 	store := &alertMockStore{alert: db.Alert{ID: uuid.New(), Status: "firing", Labels: []byte(`{`)}}
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
 	})
@@ -269,6 +335,20 @@ func TestEscalateProcessorLoadRegistryError(t *testing.T) {
 
 func strPtr(v string) *string { return &v }
 
+func TestWorkerProcessesNotifyIncidentJob(t *testing.T) {
+	incidentID := uuid.New()
+	store := &mockStore{
+		claim: true,
+		job: Job{
+			ID:      "j1",
+			Kind:    "notify_incident",
+			Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
+		},
+	}
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
+	require.NoError(t, w.RunOnce(context.Background()))
+}
+
 func TestWorkerProcessesEscalateJob(t *testing.T) {
 	incidentID := uuid.New()
 	store := &mockStore{
@@ -279,6 +359,6 @@ func TestWorkerProcessesEscalateJob(t *testing.T) {
 			Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute, ""), noopMaterialise(), NewEscalateProcessor(nil, escalateMockStore{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, ""), noopHandoffNotify())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), NewEscalateProcessor(nil, escalateMockStore{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, ""), noopHandoffNotify(), noopNotifyIncident())
 	require.NoError(t, w.RunOnce(context.Background()))
 }

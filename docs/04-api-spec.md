@@ -223,9 +223,21 @@ matching remains global by labels/priority across workspaces; the matched team's
 supplies integrations.
 | GET | `/incidents` | List with filters |
 | GET | `/incidents/{id}` | Detail + timeline |
+| POST | `/incidents` | Create incident from a firing alert (admin or member). Body: `{ "alert_id": "uuid", "team_id": "uuid", "assignee_id": "uuid" | omitted }`. Returns `200` with `IncidentJSON`. Enqueues notify and escalation jobs; does not call Jira/Slack/eXpress directly. |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |
 | POST | `/incidents/{id}/resolve` | Resolve |
 | GET | `/incidents/{id}/timeline` | Timeline events |
+
+`POST /incidents` errors:
+
+| Status | When | `details` |
+|--------|------|-----------|
+| 400 | Alert not firing, invalid team_id, assignee not on team | optional field hints |
+| 403 | Viewer role | — |
+| 404 | Unknown alert_id | — |
+| 409 | Open/acked link already exists for alert | — |
+| 409 | Fingerprint matches open incident on different team | `{ "incident_id": "<uuid>" }` |
+| 409 | Concurrent duplicate create | — |
 
 ## Integrations (Phase 2–3)
 

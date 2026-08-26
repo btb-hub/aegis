@@ -69,10 +69,26 @@ func (m *incidentMockRepo) GetUserByExpressHuid(_ context.Context, expressHuid u
 	return m.user, nil
 }
 
+func (m *incidentMockRepo) GetAlertByID(context.Context, uuid.UUID) (db.Alert, error) {
+	return db.Alert{}, pgx.ErrNoRows
+}
+func (m *incidentMockRepo) GetTeam(context.Context, uuid.UUID) (db.Team, error) {
+	return db.Team{}, pgx.ErrNoRows
+}
+func (m *incidentMockRepo) TeamMemberUserIDs(context.Context, uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	return nil, nil
+}
+func (m *incidentMockRepo) CurrentOnCallUsers(context.Context, uuid.UUID, time.Time) ([]db.OnCallUser, error) {
+	return nil, nil
+}
+func (m *incidentMockRepo) ManualCreateFromAlert(context.Context, db.ManualCreateFromAlertInput) (db.ManualCreateFromAlertResult, error) {
+	return db.ManualCreateFromAlertResult{}, nil
+}
+
 func TestIncidentServiceAcknowledge(t *testing.T) {
 	incidentID := uuid.New()
 	actorID := uuid.New()
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "open"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "open"}}, time.Hour, time.Minute)
 	incident, err := svc.Acknowledge(context.Background(), incidentID, actorID)
 	require.NoError(t, err)
 	require.Equal(t, "acknowledged", incident.Status)
@@ -80,7 +96,7 @@ func TestIncidentServiceAcknowledge(t *testing.T) {
 
 func TestIncidentServiceAcknowledgeConflict(t *testing.T) {
 	incidentID := uuid.New()
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "acknowledged"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, time.Hour, time.Minute)
 	_, err := svc.Acknowledge(context.Background(), incidentID, uuid.New())
 	require.Error(t, err)
 	appErr, ok := err.(*apperrors.Error)
@@ -94,7 +110,7 @@ func TestIncidentServiceAcknowledgeBySlackUser(t *testing.T) {
 	svc := NewIncidentService(&incidentMockRepo{
 		incident: db.Incident{ID: incidentID, Status: "open"},
 		user:     db.User{ID: userID, SlackUserID: strPtr("U123")},
-	})
+	}, time.Hour, time.Minute)
 	incident, err := svc.AcknowledgeBySlackUser(context.Background(), incidentID, "U123")
 	require.NoError(t, err)
 	require.Equal(t, "acknowledged", incident.Status)
@@ -107,7 +123,7 @@ func TestIncidentServiceAcknowledgeByExpressHuid(t *testing.T) {
 	svc := NewIncidentService(&incidentMockRepo{
 		incident: db.Incident{ID: incidentID, Status: "open"},
 		user:     db.User{ID: userID, ExpressUserHuid: db.ExpressHuidToPg(huid)},
-	})
+	}, time.Hour, time.Minute)
 	incident, err := svc.AcknowledgeByExpressHuid(context.Background(), incidentID, huid.String())
 	require.NoError(t, err)
 	require.Equal(t, "acknowledged", incident.Status)
@@ -117,7 +133,7 @@ func TestIncidentServiceAcknowledgeByExpressHuidInvalidHuid(t *testing.T) {
 	svc := NewIncidentService(&incidentMockRepo{
 		incident: db.Incident{ID: uuid.New(), Status: "open"},
 		user:     db.User{ID: uuid.New(), ExpressUserHuid: db.ExpressHuidToPg(uuid.New())},
-	})
+	}, time.Hour, time.Minute)
 	_, err := svc.AcknowledgeByExpressHuid(context.Background(), uuid.New(), "not-a-uuid")
 	require.Error(t, err)
 }
@@ -126,7 +142,7 @@ func TestIncidentServiceAcknowledgeByExpressHuidUserNotFound(t *testing.T) {
 	huid := uuid.MustParse("6fafda2c-6505-57a5-a088-25ea5d1d0364")
 	svc := NewIncidentService(&incidentMockRepo{
 		incident: db.Incident{ID: uuid.New(), Status: "open"},
-	})
+	}, time.Hour, time.Minute)
 	_, err := svc.AcknowledgeByExpressHuid(context.Background(), uuid.New(), huid.String())
 	require.Error(t, err)
 }

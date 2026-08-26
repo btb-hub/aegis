@@ -45,6 +45,13 @@ type phase2HandlerRepo struct {
 	escalationPaths   []db.EscalationPath
 	alertRepo         *authMockAlertRepo
 	bounceFails       bool
+	firingAlerts      map[uuid.UUID]db.Alert
+	alertOpenLinks    map[uuid.UUID]db.Incident
+	fingerprintOpen   map[string]db.Incident
+	onCallByTeam      map[uuid.UUID][]db.OnCallUser
+	enqueuedJobs      []string
+	manualCreateErr   error
+	manualCreateResult *db.ManualCreateFromAlertResult
 }
 
 func newPhase2HandlerRepo() *phase2HandlerRepo {
@@ -115,6 +122,69 @@ func (m *phase2HandlerRepo) ListAlertsForIncident(_ context.Context, incidentID 
 	return m.alerts[incidentID], nil
 }
 func (m *phase2HandlerRepo) CancelEscalationJobs(context.Context, uuid.UUID) error { return nil }
+
+func (m *phase2HandlerRepo) GetAlertByID(_ context.Context, id uuid.UUID) (db.Alert, error) {
+	if m.firingAlerts != nil {
+		if alert, ok := m.firingAlerts[id]; ok {
+			return alert, nil
+		}
+	}
+	return db.Alert{}, pgx.ErrNoRows
+}
+
+func (m *phase2HandlerRepo) TeamMemberUserIDs(_ context.Context, teamID uuid.UUID) (map[uuid.UUID]struct{}, error) {
+	members := m.memberships[teamID]
+	out := make(map[uuid.UUID]struct{}, len(members))
+	for userID := range members {
+		out[userID] = struct{}{}
+	}
+	return out, nil
+}
+
+func (m *phase2HandlerRepo) ManualCreateFromAlert(_ context.Context, input db.ManualCreateFromAlertInput) (db.ManualCreateFromAlertResult, error) {
+	if m.manualCreateErr != nil {
+		return db.ManualCreateFromAlertResult{}, m.manualCreateErr
+	}
+	if m.manualCreateResult != nil {
+		if input.PostCreate != nil && m.manualCreateResult.Created {
+			m.enqueuedJobs = append(m.enqueuedJobs,
+				"escalate:"+m.manualCreateResult.Incident.ID.String(),
+				"notify:"+m.manualCreateResult.Incident.ID.String(),
+			)
+		}
+		return *m.manualCreateResult, nil
+	}
+	if alert, ok := m.firingAlerts[input.AlertID]; ok && alert.Status != "firing" {
+		return db.ManualCreateFromAlertResult{}, db.ErrAlertNotFiring
+	}
+	if m.alertOpenLinks != nil {
+		if _, ok := m.alertOpenLinks[input.AlertID]; ok {
+			return db.ManualCreateFromAlertResult{}, db.ErrAlertAlreadyLinked
+		}
+	}
+	if m.fingerprintOpen != nil {
+		alert := m.firingAlerts[input.AlertID]
+		if existing, ok := m.fingerprintOpen[alert.Fingerprint]; ok {
+			if existing.TeamID != input.TeamID {
+				return db.ManualCreateFromAlertResult{}, &db.FingerprintTeamMismatchError{IncidentID: existing.ID}
+			}
+			return db.ManualCreateFromAlertResult{Incident: existing, Created: false}, nil
+		}
+	}
+	incident := db.Incident{
+		ID: uuid.New(), TeamID: input.TeamID, AssigneeID: input.AssigneeID,
+		Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp",
+		CreatedAt: time.Now(),
+	}
+	m.incidents[incident.ID] = incident
+	if input.PostCreate != nil {
+		m.enqueuedJobs = append(m.enqueuedJobs,
+			"escalate:"+incident.ID.String(),
+			"notify:"+incident.ID.String(),
+		)
+	}
+	return db.ManualCreateFromAlertResult{Incident: incident, Created: true}, nil
+}
 func (m *phase2HandlerRepo) GetUserBySlackID(_ context.Context, slackUserID string) (db.User, error) {
 	for _, user := range m.users {
 		if user.SlackUserID != nil && *user.SlackUserID == slackUserID {
@@ -290,6 +360,11 @@ func (m *phase2HandlerRepo) GetTeam(_ context.Context, id uuid.UUID) (db.Team, e
 }
 
 func (m *phase2HandlerRepo) CurrentOnCallUsers(_ context.Context, teamID uuid.UUID, _ time.Time) ([]db.OnCallUser, error) {
+	if m.onCallByTeam != nil {
+		if users, ok := m.onCallByTeam[teamID]; ok {
+			return users, nil
+		}
+	}
 	for userID := range m.memberships[teamID] {
 		user, ok := m.users[userID]
 		if !ok {
@@ -392,7 +467,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	repo := newPhase2HandlerRepo()
 	cfg := &config.Config{SessionTTL: time.Hour, PublicURL: "http://localhost:8080"}
 	auth := service.NewAuthService(cfg, repo, repo, &authMockOIDC{})
-	incidents := service.NewIncidentService(repo)
+	incidents := service.NewIncidentService(repo, time.Hour, time.Minute)
 	handoffs := service.NewHandoffService(repo)
 	analytics := service.NewAnalyticsService(repo)
 	routingRules := service.NewRoutingService(repo)

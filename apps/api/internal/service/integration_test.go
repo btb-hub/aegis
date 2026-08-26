@@ -1,6 +1,7 @@
 package service
 
 import (
+	"time"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -100,7 +101,7 @@ func TestIntegrationServiceDelete(t *testing.T) {
 }
 
 func TestIncidentServiceList(t *testing.T) {
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: uuid.New(), Status: "open"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: uuid.New(), Status: "open"}}, time.Hour, time.Minute)
 	items, err := svc.List(context.Background(), "")
 	require.NoError(t, err)
 	require.Len(t, items, 1)
@@ -108,7 +109,7 @@ func TestIncidentServiceList(t *testing.T) {
 
 func TestIncidentServiceGet(t *testing.T) {
 	id := uuid.New()
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: id, Status: "open"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: id, Status: "open"}}, time.Hour, time.Minute)
 	incident, err := svc.Get(context.Background(), id)
 	require.NoError(t, err)
 	require.Equal(t, id, incident.ID)
@@ -621,14 +622,14 @@ func TestIntegrationJSON(t *testing.T) {
 
 func TestIncidentServiceResolve(t *testing.T) {
 	incidentID := uuid.New()
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "open"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "open"}}, time.Hour, time.Minute)
 	incident, err := svc.Resolve(context.Background(), incidentID, uuid.New())
 	require.NoError(t, err)
 	require.Equal(t, "resolved", incident.Status)
 }
 
 func TestIncidentServiceTimelineNotFound(t *testing.T) {
-	svc := NewIncidentService(&incidentMockRepo{})
+	svc := NewIncidentService(&incidentMockRepo{}, time.Hour, time.Minute)
 	_, err := svc.Timeline(context.Background(), uuid.New())
 	require.Error(t, err)
 }
