@@ -64,6 +64,7 @@ const listResponse = {
       title: 'CPU high',
       labels: { team: 'platform' },
       received_at: '2026-06-26T10:00:00Z',
+      incident_id: null,
     },
   ],
   total: 1,

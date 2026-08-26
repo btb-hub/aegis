@@ -44,6 +44,9 @@ func TestListAlertsWithSearch(t *testing.T) {
 	require.EqualValues(t, 1, body["total"])
 	require.EqualValues(t, 1, body["page"])
 	require.EqualValues(t, 100, body["page_size"])
+	item := items[0].(map[string]any)
+	require.Contains(t, item, "incident_id")
+	require.Nil(t, item["incident_id"])
 }
 
 func TestListAlertsWithPagination(t *testing.T) {
@@ -262,8 +265,41 @@ func TestListAlertsGroupBySeverity(t *testing.T) {
 	group := groups[0].(map[string]any)
 	require.Equal(t, "critical", group["key"])
 	require.EqualValues(t, 1, group["count"])
-	_, hasSample := group["sample"]
-	require.True(t, hasSample)
+	sample := group["sample"].(map[string]any)
+	require.Contains(t, sample, "incident_id")
+	require.Nil(t, sample["incident_id"])
+}
+
+func TestListAlertsWithLinkedIncidentID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	incidentID := uuid.New()
+	alertID := uuid.New()
+	cfg := &config.Config{SessionTTL: time.Hour}
+	users := newAuthMockUsers()
+	sessions := &authMockSessions{byHash: map[string]db.Session{}}
+	auth := service.NewAuthService(cfg, users, sessions, &authMockOIDC{})
+	teams := service.NewTeamService(&emptyTeamRepo{}, nil)
+	alerts := service.NewAlertService("secret", []string{"alertname", "team"}, &authMockAlertRepo{
+		id:         alertID,
+		incidentID: &incidentID,
+	})
+
+	r := gin.New()
+	NewAlertHandler(alerts, teams, auth).Register(r)
+
+	token, _, err := auth.CompleteLogin(context.Background(), "google", "code")
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/alerts", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	item := body["items"].([]any)[0].(map[string]any)
+	require.Equal(t, incidentID.String(), item["incident_id"])
 }
 
 func TestListAlertsGroupByLabel(t *testing.T) {
@@ -283,6 +319,9 @@ func TestListAlertsGroupByLabel(t *testing.T) {
 	groups := body["groups"].([]any)
 	group := groups[0].(map[string]any)
 	require.Equal(t, "platform", group["key"])
+	sample := group["sample"].(map[string]any)
+	require.Contains(t, sample, "incident_id")
+	require.Nil(t, sample["incident_id"])
 }
 
 func TestListAlertsInvalidGroupBy(t *testing.T) {

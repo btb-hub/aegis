@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
@@ -204,4 +205,136 @@ VALUES
 	}
 	require.Equal(t, 1, counts["platform"])
 	require.Equal(t, 1, counts["data"])
+}
+
+func TestListAlertsIncidentIDPrecedence(t *testing.T) {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("DATABASE_URL not set")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	require.NoError(t, err)
+	t.Cleanup(pool.Close)
+
+	require.NoError(t, pool.Ping(ctx))
+
+	_, err = pool.Exec(ctx, `DELETE FROM incident_alerts`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM incidents`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM alerts`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `DELETE FROM teams WHERE name LIKE 'incident-id-test-%'`)
+	require.NoError(t, err)
+
+	var teamID uuid.UUID
+	require.NoError(t, pool.QueryRow(ctx, `
+INSERT INTO teams (name, workspace_id) VALUES ('incident-id-test-platform', '00000000-0000-0000-0000-000000000001') RETURNING id`).Scan(&teamID))
+
+	type alertSeed struct {
+		fingerprint string
+		title       string
+	}
+
+	seeds := []alertSeed{
+		{"fp-no-links", "No links"},
+		{"fp-open", "Open link"},
+		{"fp-acked", "Acknowledged link"},
+		{"fp-resolved-only", "Resolved only"},
+		{"fp-two-open", "Two open links"},
+		{"fp-resolved-then-open", "Resolved then open"},
+	}
+
+	alertIDs := map[string]uuid.UUID{}
+	for _, seed := range seeds {
+		var alertID uuid.UUID
+		err = pool.QueryRow(ctx, `
+INSERT INTO alerts (fingerprint, status, severity, title, body, labels, raw_payload, search_tsv, received_at)
+VALUES ($1, 'firing', 'critical', $2, 'body', '{}', '{}', to_tsvector('english', $2), now())
+RETURNING id`, seed.fingerprint, seed.title).Scan(&alertID)
+		require.NoError(t, err)
+		alertIDs[seed.fingerprint] = alertID
+	}
+
+	openIncidentID := uuid.New()
+	ackedIncidentID := uuid.New()
+	resolvedIncidentID := uuid.New()
+	olderOpenIncidentID := uuid.New()
+	newerOpenIncidentID := uuid.New()
+	staleOpenIncidentID := uuid.New()
+	newerResolvedIncidentID := uuid.New()
+
+	incidents := []struct {
+		id     uuid.UUID
+		status string
+		title  string
+	}{
+		{openIncidentID, "open", "Open incident"},
+		{ackedIncidentID, "acknowledged", "Acknowledged incident"},
+		{resolvedIncidentID, "resolved", "Resolved incident"},
+		{olderOpenIncidentID, "open", "Older open incident"},
+		{newerOpenIncidentID, "open", "Newer open incident"},
+		{staleOpenIncidentID, "open", "Stale open incident"},
+		{newerResolvedIncidentID, "resolved", "Newer resolved incident"},
+	}
+	for _, incident := range incidents {
+		_, err = pool.Exec(ctx, `
+INSERT INTO incidents (id, team_id, status, severity, title, fingerprint)
+VALUES ($1, $2, $3, 'critical', $4, $5)`,
+			incident.id, teamID, incident.status, incident.title, "inc-"+incident.id.String())
+		require.NoError(t, err)
+	}
+
+	linkAlert := func(alertID, incidentID uuid.UUID, linkedAt time.Time) {
+		_, err = pool.Exec(ctx, `
+INSERT INTO incident_alerts (incident_id, alert_id, created_at)
+VALUES ($1, $2, $3)`, incidentID, alertID, linkedAt)
+		require.NoError(t, err)
+	}
+
+	linkAlert(alertIDs["fp-open"], openIncidentID, time.Now().Add(-2*time.Hour))
+	linkAlert(alertIDs["fp-acked"], ackedIncidentID, time.Now().Add(-90*time.Minute))
+	linkAlert(alertIDs["fp-resolved-only"], resolvedIncidentID, time.Now().Add(-1*time.Hour))
+	linkAlert(alertIDs["fp-two-open"], olderOpenIncidentID, time.Now().Add(-3*time.Hour))
+	linkAlert(alertIDs["fp-two-open"], newerOpenIncidentID, time.Now().Add(-30*time.Minute))
+	linkAlert(alertIDs["fp-resolved-then-open"], staleOpenIncidentID, time.Now().Add(-3*time.Hour))
+	linkAlert(alertIDs["fp-resolved-then-open"], newerResolvedIncidentID, time.Now().Add(-30*time.Minute))
+
+	store := NewStore(pool)
+
+	alerts, err := store.ListAlerts(ctx, ListAlertsParams{Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, alerts, len(seeds))
+
+	byFingerprint := map[string]Alert{}
+	for _, alert := range alerts {
+		byFingerprint[alert.Fingerprint] = alert
+	}
+
+	require.Nil(t, byFingerprint["fp-no-links"].IncidentID)
+	require.NotNil(t, byFingerprint["fp-open"].IncidentID)
+	require.Equal(t, openIncidentID, *byFingerprint["fp-open"].IncidentID)
+	require.NotNil(t, byFingerprint["fp-acked"].IncidentID)
+	require.Equal(t, ackedIncidentID, *byFingerprint["fp-acked"].IncidentID)
+	require.Nil(t, byFingerprint["fp-resolved-only"].IncidentID)
+	require.NotNil(t, byFingerprint["fp-two-open"].IncidentID)
+	require.Equal(t, newerOpenIncidentID, *byFingerprint["fp-two-open"].IncidentID)
+	require.NotNil(t, byFingerprint["fp-resolved-then-open"].IncidentID)
+	require.Equal(t, staleOpenIncidentID, *byFingerprint["fp-resolved-then-open"].IncidentID)
+
+	groups, err := store.GroupAlerts(ctx, ListAlertsParams{}, AlertGroupBy{Severity: true})
+	require.NoError(t, err)
+	require.NotEmpty(t, groups)
+	for _, group := range groups {
+		require.NotNil(t, group.Sample)
+		listed := byFingerprint[group.Sample.Fingerprint]
+		if listed.IncidentID == nil {
+			require.Nil(t, group.Sample.IncidentID)
+		} else {
+			require.NotNil(t, group.Sample.IncidentID)
+			require.Equal(t, *listed.IncidentID, *group.Sample.IncidentID)
+		}
+	}
 }

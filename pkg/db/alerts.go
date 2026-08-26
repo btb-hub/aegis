@@ -12,6 +12,18 @@ import (
 
 const DefaultAlertListLimit = 100
 
+const alertListBaseSelect = `id, fingerprint, status, severity, title, body, labels, raw_payload, received_at`
+
+const alertOpenIncidentIDSelect = `(
+  SELECT ia.incident_id
+  FROM incident_alerts ia
+  JOIN incidents i ON i.id = ia.incident_id
+  WHERE ia.alert_id = alerts.id
+    AND i.status IN ('open', 'acknowledged')
+  ORDER BY ia.created_at DESC
+  LIMIT 1
+) AS incident_id`
+
 type ListAlertsParams struct {
 	Query        string
 	Severity     string
@@ -170,9 +182,10 @@ func (s *Store) GroupAlerts(ctx context.Context, filters ListAlertsParams, group
 
 	sampleSQL := fmt.Sprintf(`
 SELECT DISTINCT ON (%[1]s) %[1]s AS bucket_key,
-       id, fingerprint, status, severity, title, body, labels, raw_payload, received_at
+       id, fingerprint, status, severity, title, body, labels, raw_payload, received_at,
+       %[3]s
 %[2]s
-ORDER BY %[1]s, received_at DESC`, groupExpr, from.sql)
+ORDER BY %[1]s, received_at DESC`, groupExpr, from.sql, alertOpenIncidentIDSelect)
 	sampleRows, err := s.pool.Query(ctx, sampleSQL, args...)
 	if err != nil {
 		return nil, err
@@ -186,7 +199,7 @@ ORDER BY %[1]s, received_at DESC`, groupExpr, from.sql)
 		var body *string
 		if err := sampleRows.Scan(
 			&key, &alert.ID, &alert.Fingerprint, &alert.Status, &alert.Severity, &alert.Title,
-			&body, &alert.Labels, &alert.RawPayload, &alert.ReceivedAt,
+			&body, &alert.Labels, &alert.RawPayload, &alert.ReceivedAt, &alert.IncidentID,
 		); err != nil {
 			return nil, err
 		}
@@ -218,9 +231,16 @@ func (s *Store) CountAlerts(ctx context.Context, params ListAlertsParams) (int, 
 }
 
 func (s *Store) ListAlerts(ctx context.Context, params ListAlertsParams) ([]Alert, error) {
+	return s.queryAlerts(ctx, params, true)
+}
+
+func (s *Store) queryAlerts(ctx context.Context, params ListAlertsParams, includeIncidentID bool) ([]Alert, error) {
 	params = normalizeListAlertsParams(params)
-	q := buildAlertListQuery(params, `
-SELECT id, fingerprint, status, severity, title, body, labels, raw_payload, received_at`)
+	selectClause := "SELECT " + alertListBaseSelect
+	if includeIncidentID {
+		selectClause += ", " + alertOpenIncidentIDSelect
+	}
+	q := buildAlertListQuery(params, selectClause)
 	q.sql += fmt.Sprintf(" ORDER BY received_at DESC LIMIT $%d OFFSET $%d", len(q.args)+1, len(q.args)+2)
 	q.args = append(q.args, params.Limit, params.Offset)
 
@@ -234,11 +254,20 @@ SELECT id, fingerprint, status, severity, title, body, labels, raw_payload, rece
 	for rows.Next() {
 		var alert Alert
 		var body *string
-		if err := rows.Scan(
-			&alert.ID, &alert.Fingerprint, &alert.Status, &alert.Severity, &alert.Title,
-			&body, &alert.Labels, &alert.RawPayload, &alert.ReceivedAt,
-		); err != nil {
-			return nil, err
+		if includeIncidentID {
+			if err := rows.Scan(
+				&alert.ID, &alert.Fingerprint, &alert.Status, &alert.Severity, &alert.Title,
+				&body, &alert.Labels, &alert.RawPayload, &alert.ReceivedAt, &alert.IncidentID,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := rows.Scan(
+				&alert.ID, &alert.Fingerprint, &alert.Status, &alert.Severity, &alert.Title,
+				&body, &alert.Labels, &alert.RawPayload, &alert.ReceivedAt,
+			); err != nil {
+				return nil, err
+			}
 		}
 		alert.Body = body
 		alerts = append(alerts, alert)
@@ -356,7 +385,7 @@ func (s *Store) StreamAlertsCSV(ctx context.Context, params ListAlertsParams, w 
 	params.Offset = 0
 
 	for {
-		alerts, err := s.ListAlerts(ctx, params)
+		alerts, err := s.queryAlerts(ctx, params, false)
 		if err != nil {
 			return err
 		}

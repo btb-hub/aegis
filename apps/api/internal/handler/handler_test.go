@@ -159,8 +159,17 @@ func (m *authMockOIDC) Exchange(ctx context.Context, provider, code string) (*se
 }
 
 type authMockAlertRepo struct {
-	id        uuid.UUID
-	ingestErr error
+	id         uuid.UUID
+	incidentID *uuid.UUID
+	ingestErr  error
+}
+
+func (m *authMockAlertRepo) sampleAlert() db.Alert {
+	alert := db.Alert{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}
+	if m.incidentID != nil {
+		alert.IncidentID = m.incidentID
+	}
+	return alert
 }
 
 func (m *authMockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error) {
@@ -171,7 +180,7 @@ func (m *authMockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.Crea
 }
 
 func (m *authMockAlertRepo) ListAlerts(ctx context.Context, params db.ListAlertsParams) ([]db.Alert, error) {
-	return []db.Alert{{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}}, nil
+	return []db.Alert{m.sampleAlert()}, nil
 }
 
 func (m *authMockAlertRepo) CountAlerts(ctx context.Context, params db.ListAlertsParams) (int, error) {
@@ -183,7 +192,7 @@ func (m *authMockAlertRepo) GroupAlerts(ctx context.Context, filters db.ListAler
 	if groupBy.LabelKey != "" {
 		key = "platform"
 	}
-	sample := db.Alert{ID: m.id, Status: "firing", Severity: "critical", Title: "CPU", Labels: []byte(`{}`)}
+	sample := m.sampleAlert()
 	return []db.AlertGroupBucket{{Key: key, Count: 1, Sample: &sample}}, nil
 }
 
