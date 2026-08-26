@@ -76,12 +76,24 @@ func (s *Store) CreateIncidentWithAlert(ctx context.Context, input CreateInciden
 	}
 	defer tx.Rollback(ctx)
 
+	incident, err := createIncidentWithAlertTx(ctx, tx, input)
+	if err != nil {
+		return Incident{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return Incident{}, err
+	}
+	return incident, nil
+}
+
+func createIncidentWithAlertTx(ctx context.Context, tx pgx.Tx, input CreateIncidentInput) (Incident, error) {
 	const incidentQ = `
 INSERT INTO incidents (team_id, assignee_id, severity, title, fingerprint)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at`
 	var incident Incident
-	err = tx.QueryRow(ctx, incidentQ, input.TeamID, input.AssigneeID, input.Severity, input.Title, input.Fingerprint).Scan(
+	err := tx.QueryRow(ctx, incidentQ, input.TeamID, input.AssigneeID, input.Severity, input.Title, input.Fingerprint).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
 		&incident.ResolvedAt, &incident.CreatedAt,
@@ -96,10 +108,6 @@ RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_i
 
 	payload, _ := json.Marshal(map[string]any{"alert_id": input.AlertID.String()})
 	if err := insertTimelineEventTx(ctx, tx, incident.ID, "created", input.ActorID, payload); err != nil {
-		return Incident{}, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
 		return Incident{}, err
 	}
 	return incident, nil

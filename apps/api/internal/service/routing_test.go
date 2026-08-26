@@ -1,6 +1,7 @@
 package service
 
 import (
+	"time"
 	"context"
 	"encoding/json"
 	"errors"
@@ -238,7 +239,7 @@ func TestIntegrationServiceLoadRegistrySlack(t *testing.T) {
 }
 
 func TestIncidentServiceAcknowledgeBySlackUserNotFound(t *testing.T) {
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: uuid.New(), Status: "open"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: uuid.New(), Status: "open"}}, time.Hour, time.Minute)
 	_, err := svc.AcknowledgeBySlackUser(context.Background(), uuid.New(), "U404")
 	require.Error(t, err)
 }

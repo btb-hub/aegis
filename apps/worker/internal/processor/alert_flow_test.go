@@ -27,6 +27,11 @@ type flowAlertStore struct {
 	linkErr                 error
 	createErr               error
 	enqueueErr              error
+	enqueueNotifyErr        error
+	notifyEnqueued          bool
+	hasSentNotification     bool
+	openLinkedIncident      *db.Incident
+	incidentForNotify       db.Incident
 	workspaceIntegrationErr error
 	jiraIntegration         db.Integration
 	slackIntegration        db.Integration
@@ -92,35 +97,66 @@ func newFlowAlertStore(t *testing.T) *flowAlertStore {
 	return store
 }
 
-func (s *flowAlertStore) GetIncidentForAlert(context.Context, uuid.UUID) (db.Incident, error) {
+func (s *flowAlertStore) GetIncidentByID(_ context.Context, id uuid.UUID) (db.Incident, error) {
+	if s.incidentForNotify.ID != uuid.Nil && s.incidentForNotify.ID == id {
+		return s.incidentForNotify, nil
+	}
+	if s.created {
+		return db.Incident{
+			ID: id, TeamID: s.teamID, AssigneeID: &s.assigneeID,
+			Status: "open", Severity: s.alert.Severity, Title: s.alert.Title, Fingerprint: s.alert.Fingerprint,
+			CreatedAt: time.Now(),
+		}, nil
+	}
+	return db.Incident{}, pgx.ErrNoRows
+}
+func (s *flowAlertStore) GetOpenIncidentForAlert(_ context.Context, alertID uuid.UUID) (db.Incident, error) {
+	if s.openLinkedIncident != nil && alertID == s.alert.ID {
+		return *s.openLinkedIncident, nil
+	}
 	return db.Incident{}, pgx.ErrNoRows
 }
 func (s *flowAlertStore) GetAlertByID(context.Context, uuid.UUID) (db.Alert, error) {
 	return s.alert, nil
 }
-func (s *flowAlertStore) FindOpenIncidentByFingerprint(context.Context, string, time.Time) (db.Incident, error) {
-	if s.existing != nil {
-		return *s.existing, nil
+func (s *flowAlertStore) ManualCreateFromAlert(_ context.Context, input db.ManualCreateFromAlertInput) (db.ManualCreateFromAlertResult, error) {
+	if s.openLinkedIncident != nil && input.AlertID == s.alert.ID {
+		return db.ManualCreateFromAlertResult{}, db.ErrAlertAlreadyLinked
 	}
-	return db.Incident{}, pgx.ErrNoRows
-}
-func (s *flowAlertStore) CreateIncidentWithAlert(_ context.Context, input db.CreateIncidentInput) (db.Incident, error) {
+	if s.existing != nil {
+		if s.existing.TeamID != input.TeamID && !input.AllowCrossTeamFingerprintLink {
+			return db.ManualCreateFromAlertResult{}, &db.FingerprintTeamMismatchError{IncidentID: s.existing.ID}
+		}
+		if s.linkErr != nil {
+			return db.ManualCreateFromAlertResult{}, s.linkErr
+		}
+		s.linked = true
+		return db.ManualCreateFromAlertResult{Incident: *s.existing, Created: false}, nil
+	}
 	if s.createErr != nil {
-		return db.Incident{}, s.createErr
+		return db.ManualCreateFromAlertResult{}, s.createErr
+	}
+	if input.PostCreate != nil {
+		if s.enqueueErr != nil {
+			return db.ManualCreateFromAlertResult{}, s.enqueueErr
+		}
+		if s.enqueueNotifyErr != nil {
+			return db.ManualCreateFromAlertResult{}, s.enqueueNotifyErr
+		}
+		s.notifyEnqueued = true
 	}
 	s.created = true
-	return db.Incident{
-		ID: uuid.New(), TeamID: input.TeamID, AssigneeID: input.AssigneeID,
-		Status: "open", Severity: input.Severity, Title: input.Title, Fingerprint: input.Fingerprint,
-		CreatedAt: time.Now(),
+	return db.ManualCreateFromAlertResult{
+		Incident: db.Incident{
+			ID: uuid.New(), TeamID: input.TeamID, AssigneeID: input.AssigneeID,
+			Status: "open", Severity: s.alert.Severity, Title: s.alert.Title, Fingerprint: s.alert.Fingerprint,
+			CreatedAt: time.Now(),
+		},
+		Created: true,
 	}, nil
 }
-func (s *flowAlertStore) LinkAlertToIncident(context.Context, uuid.UUID, uuid.UUID) error {
-	if s.linkErr != nil {
-		return s.linkErr
-	}
-	s.linked = true
-	return nil
+func (s *flowAlertStore) EnsureIncidentPostCreateJobs(context.Context, uuid.UUID, time.Time) error {
+	return s.enqueueErr
 }
 func (s *flowAlertStore) ListRoutingRules(context.Context) ([]db.RoutingRule, error) {
 	matchLabels, _ := json.Marshal(map[string]string{"team": "platform"})
@@ -160,8 +196,8 @@ func (s *flowAlertStore) GetUserByID(context.Context, uuid.UUID) (db.User, error
 	slackID := "U123"
 	return db.User{ID: s.assigneeID, Email: "oncall@example.com", DisplayName: "On Call", Locale: "en", SlackUserID: &slackID}, nil
 }
-func (s *flowAlertStore) EnqueueEscalation(context.Context, uuid.UUID, time.Time) error {
-	return s.enqueueErr
+func (s *flowAlertStore) HasNotification(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return s.hasSentNotification, nil
 }
 func (s *flowAlertStore) ListEnabledIntegrationsForWorkspace(context.Context, uuid.UUID) ([]integrations.IntegrationRow, error) {
 	return []integrations.IntegrationRow{
@@ -186,19 +222,35 @@ func (s *flowAlertStore) GetWorkspaceIntegration(_ context.Context, _ uuid.UUID,
 func TestAlertProcessorEnqueueEscalationError(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.enqueueErr = errors.New("enqueue failed")
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
 	})
 	require.Error(t, err)
 }
 
-func TestAlertProcessorLoadRegistryError(t *testing.T) {
+func TestAlertProcessorEnqueueNotifyError(t *testing.T) {
 	store := newFlowAlertStore(t)
-	store.workspaceIntegrationErr = errors.New("db down")
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+	store.enqueueNotifyErr = errors.New("enqueue notify failed")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
+	})
+	require.Error(t, err)
+}
+
+func TestNotifyIncidentProcessorLoadRegistryError(t *testing.T) {
+	store := newFlowAlertStore(t)
+	store.workspaceIntegrationErr = errors.New("db down")
+	incidentID := uuid.New()
+	store.incidentForNotify = db.Incident{
+		ID: incidentID, TeamID: store.teamID, AssigneeID: &store.assigneeID,
+		Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp-1", CreatedAt: time.Now(),
+	}
+	p := NewNotifyIncidentProcessor(nil, store, "http://localhost:8080")
+	err := p.Handle(context.Background(), Job{
+		ID: "j1", Kind: "notify_incident",
+		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 	})
 	require.Error(t, err)
 }
@@ -207,7 +259,7 @@ func TestAlertProcessorLinkError(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.existing = &db.Incident{ID: uuid.New()}
 	store.linkErr = errors.New("link failed")
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
 	})
@@ -217,7 +269,7 @@ func TestAlertProcessorLinkError(t *testing.T) {
 func TestAlertProcessorCreateIncidentError(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.createErr = errors.New("create failed")
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
 	})
@@ -227,7 +279,7 @@ func TestAlertProcessorCreateIncidentError(t *testing.T) {
 func TestAlertProcessorCreatesIncidentWithoutOnCall(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.assigneeID = uuid.Nil
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "process_alert",
 		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
@@ -236,21 +288,25 @@ func TestAlertProcessorCreatesIncidentWithoutOnCall(t *testing.T) {
 	require.True(t, store.created)
 }
 
-func TestAlertProcessorJiraFailureStillCompletes(t *testing.T) {
+func TestNotifyIncidentProcessorJiraFailureStillCompletes(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.jiraServer.Close()
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+	incidentID := uuid.New()
+	store.incidentForNotify = db.Incident{
+		ID: incidentID, TeamID: store.teamID, AssigneeID: &store.assigneeID,
+		Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp-1", CreatedAt: time.Now(),
+	}
+	p := NewNotifyIncidentProcessor(nil, store, "http://localhost:8080")
 	err := p.Handle(context.Background(), Job{
-		ID: "j1", Kind: "process_alert",
-		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
+		ID: "j1", Kind: "notify_incident",
+		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 	})
 	require.NoError(t, err)
-	require.True(t, store.created)
 }
 
 func TestAlertProcessorCreatesIncident(t *testing.T) {
 	store := newFlowAlertStore(t)
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "process_alert",
 		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
@@ -259,18 +315,34 @@ func TestAlertProcessorCreatesIncident(t *testing.T) {
 	require.True(t, store.created)
 }
 
-func TestAlertProcessorCreatesIncidentAndRecordsUnavailableConnector(t *testing.T) {
+func TestAlertProcessorCreatesIncidentAndEnqueuesNotify(t *testing.T) {
 	store := newFlowAlertStore(t)
-	store.jiraIntegration = db.Integration{}
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "http://localhost:8080")
-
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "process_alert",
 		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
 	})
-
 	require.NoError(t, err)
 	require.True(t, store.created)
+	require.True(t, store.notifyEnqueued)
+}
+
+func TestNotifyIncidentProcessorRecordsUnavailableConnector(t *testing.T) {
+	store := newFlowAlertStore(t)
+	store.jiraIntegration = db.Integration{}
+	incidentID := uuid.New()
+	store.incidentForNotify = db.Incident{
+		ID: incidentID, TeamID: store.teamID, AssigneeID: &store.assigneeID,
+		Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp-1", CreatedAt: time.Now(),
+	}
+	p := NewNotifyIncidentProcessor(nil, store, "http://localhost:8080")
+
+	err := p.Handle(context.Background(), Job{
+		ID: "j1", Kind: "notify_incident",
+		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
+	})
+
+	require.NoError(t, err)
 	var payload map[string]string
 	for _, event := range store.timelineEvents {
 		if event.kind != "integration_skipped" {
@@ -291,7 +363,7 @@ func TestAlertProcessorCreatesIncidentAndRecordsUnavailableConnector(t *testing.
 func TestAlertProcessorLinksExistingIncident(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.existing = &db.Incident{ID: uuid.New()}
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "process_alert",
 		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
@@ -301,10 +373,35 @@ func TestAlertProcessorLinksExistingIncident(t *testing.T) {
 	require.False(t, store.created)
 }
 
+func TestAlertProcessorNoopsWhenOpenIncidentLinked(t *testing.T) {
+	store := newFlowAlertStore(t)
+	openID := uuid.New()
+	store.openLinkedIncident = &db.Incident{ID: openID, Status: "open"}
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
+	err := p.Handle(context.Background(), Job{
+		ID: "j1", Kind: "process_alert",
+		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
+	})
+	require.NoError(t, err)
+	require.False(t, store.created)
+	require.False(t, store.linked)
+}
+
+func TestAlertProcessorCreatesWhenOnlyResolvedLinkExists(t *testing.T) {
+	store := newFlowAlertStore(t)
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
+	err := p.Handle(context.Background(), Job{
+		ID: "j1", Kind: "process_alert",
+		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
+	})
+	require.NoError(t, err)
+	require.True(t, store.created)
+}
+
 func TestAlertProcessorSkipsResolvedAlert(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.alert.Status = "resolved"
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "process_alert",
 		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),
@@ -316,7 +413,7 @@ func TestAlertProcessorSkipsResolvedAlert(t *testing.T) {
 func TestAlertProcessorNoRoutingMatch(t *testing.T) {
 	store := newFlowAlertStore(t)
 	store.alert.Labels = []byte(`{"team":"unknown"}`)
-	p := NewAlertProcessor(nil, store, time.Hour, time.Minute, "")
+	p := NewAlertProcessor(nil, store, time.Hour, time.Minute)
 	err := p.Handle(context.Background(), Job{
 		ID: "j1", Kind: "process_alert",
 		Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`),

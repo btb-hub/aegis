@@ -45,7 +45,7 @@ func TestRoutingServiceDeleteRuleNotFound(t *testing.T) {
 }
 
 func TestIncidentServiceGetNotFound(t *testing.T) {
-	svc := NewIncidentService(&incidentMockRepo{})
+	svc := NewIncidentService(&incidentMockRepo{}, time.Hour, time.Minute)
 	_, err := svc.Get(context.Background(), uuid.New())
 	require.Error(t, err)
 }
@@ -55,21 +55,21 @@ func TestIncidentServiceTimelineSuccess(t *testing.T) {
 	svc := NewIncidentService(&incidentMockRepo{
 		incident: db.Incident{ID: incidentID, Status: "open"},
 		events:   []db.TimelineEvent{{ID: uuid.New(), Kind: "created", Payload: []byte(`{}`), CreatedAt: time.Now()}},
-	})
+	}, time.Hour, time.Minute)
 	events, err := svc.Timeline(context.Background(), incidentID)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 }
 
 func TestIncidentServiceAlertsNotFound(t *testing.T) {
-	svc := NewIncidentService(&incidentMockRepo{})
+	svc := NewIncidentService(&incidentMockRepo{}, time.Hour, time.Minute)
 	_, err := svc.Alerts(context.Background(), uuid.New())
 	require.Error(t, err)
 }
 
 func TestIncidentServiceResolveConflict(t *testing.T) {
 	incidentID := uuid.New()
-	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "resolved"}})
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: incidentID, Status: "resolved"}}, time.Hour, time.Minute)
 	_, err := svc.Resolve(context.Background(), incidentID, uuid.New())
 	require.Error(t, err)
 }

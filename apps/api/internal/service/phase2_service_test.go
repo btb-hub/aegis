@@ -1,6 +1,7 @@
 package service
 
 import (
+	"time"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -58,7 +59,7 @@ func TestIncidentServiceAlerts(t *testing.T) {
 	svc := NewIncidentService(&incidentMockRepo{
 		incident: db.Incident{ID: id, Status: "open"},
 		alerts:   []db.Alert{{ID: uuid.New(), Title: "CPU"}},
-	})
+	}, time.Hour, time.Minute)
 	alerts, err := svc.Alerts(context.Background(), id)
 	require.NoError(t, err)
 	require.Len(t, alerts, 1)

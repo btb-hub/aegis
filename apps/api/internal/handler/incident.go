@@ -25,6 +25,10 @@ func (h *IncidentHandler) Register(r gin.IRouter) {
 	api := r.Group("/api/v1")
 	api.Use(middleware.RequireSession(h.auth))
 
+	mutate := api.Group("")
+	mutate.Use(middleware.RequireMutate())
+	mutate.POST("/incidents", h.createIncident)
+
 	api.GET("/incidents", h.listIncidents)
 	api.GET("/incidents/:id", h.getIncident)
 	api.GET("/incidents/:id/timeline", h.listTimeline)
@@ -32,6 +36,53 @@ func (h *IncidentHandler) Register(r gin.IRouter) {
 	api.POST("/incidents/:id/resolve", h.resolve)
 	api.POST("/incidents/:id/handoff", h.handoff)
 	api.POST("/incidents/:id/bounce", h.bounce)
+}
+
+func (h *IncidentHandler) createIncident(c *gin.Context) {
+	user, ok := middleware.UserFromContext(c)
+	if !ok {
+		WriteError(c, apperrors.Unauthorized("missing session"))
+		return
+	}
+	var body struct {
+		AlertID    string  `json:"alert_id"`
+		TeamID     string  `json:"team_id"`
+		AssigneeID *string `json:"assignee_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	alertID, err := uuid.Parse(strings.TrimSpace(body.AlertID))
+	if err != nil {
+		WriteError(c, apperrors.Validation("alert_id must be a valid UUID", nil))
+		return
+	}
+	teamID, err := uuid.Parse(strings.TrimSpace(body.TeamID))
+	if err != nil {
+		WriteError(c, apperrors.Validation("team_id must be a valid UUID", nil))
+		return
+	}
+	var assigneeID *uuid.UUID
+	if body.AssigneeID != nil && strings.TrimSpace(*body.AssigneeID) != "" {
+		id, err := uuid.Parse(strings.TrimSpace(*body.AssigneeID))
+		if err != nil {
+			WriteError(c, apperrors.Validation("assignee_id must be a valid UUID", nil))
+			return
+		}
+		assigneeID = &id
+	}
+	incident, err := h.incidents.CreateFromAlert(c.Request.Context(), service.CreateFromAlertInput{
+		AlertID:    alertID,
+		TeamID:     teamID,
+		AssigneeID: assigneeID,
+		ActorID:    user.ID,
+	})
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusOK, service.IncidentJSON(incident))
 }
 
 func (h *IncidentHandler) listIncidents(c *gin.Context) {
