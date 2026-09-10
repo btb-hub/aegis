@@ -60,7 +60,9 @@ Enforced in service layer + handler checks.
 
 - Alert webhook: shared secret header `X-Aegis-Webhook-Secret` or HMAC body signature.
 - Slack: verify `X-Slack-Signature` timestamp + signing secret.
-- eXpress: HMAC per BotX documentation.
+- eXpress: BotX JWT (HS256, `secret_key`) on `GET /api/v1/callbacks/express/status`,
+  `POST /api/v1/callbacks/express/command`, and the deprecated `POST …/bot` alias.
+  These paths are machine ingress (REQ-INT-07) and must not sit behind interactive IAP.
 
 ## Audit (REQ-AUDIT-01)
 

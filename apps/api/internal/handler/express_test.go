@@ -39,7 +39,8 @@ func TestExpressCallbackAcknowledge(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"result":"accepted"}`, w.Body.String())
 }
 
 func TestExpressCallbackInvalidSignature(t *testing.T) {
@@ -116,7 +117,8 @@ func TestExpressCallbackLinkCommand(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"result":"accepted"}`, w.Body.String())
 }
 
 func TestExpressCallbackInvalidEvent(t *testing.T) {
@@ -169,6 +171,97 @@ func TestExpressCallbackAckUserNotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestExpressStatusOK(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	seedExpressIntegration(t, repo)
+	token := signExpressJWT(t, "secret", map[string]any{"exp": float64(time.Now().Add(time.Hour).Unix())})
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/callbacks/express/status", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, "ok", resp["status"])
+	result, ok := resp["result"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, true, result["enabled"])
+	commands, ok := result["commands"].([]any)
+	require.True(t, ok)
+	require.NotEmpty(t, commands)
+	first, ok := commands[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "/link", first["body"])
+}
+
+func TestExpressStatusDisabled(t *testing.T) {
+	r, _ := setupPhase2Router(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/callbacks/express/status", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, "bot_disabled", resp["reason"])
+}
+
+func TestExpressStatusInvalidSignature(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	seedExpressIntegration(t, repo)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/callbacks/express/status", nil)
+	req.Header.Set("Authorization", "Bearer bad-token")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func TestExpressCommandLinkPath(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	userID := uuid.New()
+	repo.users[userID] = db.User{ID: userID, Role: "member"}
+	seedExpressIntegration(t, repo)
+
+	body := readExpressFixture(t, "command_link.json")
+	token := signExpressJWT(t, "secret", map[string]any{"exp": float64(time.Now().Add(time.Hour).Unix())})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/callbacks/express/command", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"result":"accepted"}`, w.Body.String())
+}
+
+func TestExpressCommandSystemEventAccepted(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	seedExpressIntegration(t, repo)
+	body := []byte(`{"command":{"body":"system:chat_created","command_type":"system","data":{}},"from":{"user_huid":""}}`)
+	token := signExpressJWT(t, "secret", map[string]any{"exp": float64(time.Now().Add(time.Hour).Unix())})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/callbacks/express/command", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.JSONEq(t, `{"result":"accepted"}`, w.Body.String())
+}
+
+func TestExpressCommandUnknownAccepted(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	seedExpressIntegration(t, repo)
+	huid := uuid.MustParse("6fafda2c-6505-57a5-a088-25ea5d1d0364")
+	body := []byte(`{"command":{"body":"/help","data":{}},"from":{"user_huid":"` + huid.String() + `"}}`)
+	token := signExpressJWT(t, "secret", map[string]any{"exp": float64(time.Now().Add(time.Hour).Unix())})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/callbacks/express/command", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusAccepted, w.Code)
 }
 
 func seedExpressIntegration(t *testing.T, repo *phase2HandlerRepo) {

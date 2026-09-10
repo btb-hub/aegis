@@ -96,8 +96,10 @@ Data from expanded `GET /auth/me`:
 }
 ```
 
-Copy explains: connecting another provider adds paging/sign-in options; profile fields you set here are
-kept (OIDC only fills empty fields).
+Copy explains: connecting another **SSO** provider adds a sign-in identity. Paging bind (eXpress
+`/link`) is a separate section. Only providers returned by `GET /auth/providers` are listed;
+Connect is a full-page `<a href="/auth/{provider}/login">` so unconfigured OIDC cannot silently
+route to `/shifts`.
 
 ### Section 4 — Paging identity
 

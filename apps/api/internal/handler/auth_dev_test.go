@@ -180,3 +180,30 @@ func TestDevAuthAdminCanPostTestAlert(t *testing.T) {
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusAccepted, w.Code)
 }
+
+func TestAuthProvidersListsConfiguredOnly(t *testing.T) {
+	r, _ := setupDevAuthRouter(t, false)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/providers", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.JSONEq(t, `{"providers":["google"]}`, w.Body.String())
+}
+
+func TestAuthProvidersEmptyWhenNoneConfigured(t *testing.T) {
+	cfg := &config.Config{
+		SessionTTL: time.Hour,
+		PublicURL:  "http://localhost:3000",
+		OIDC:       map[string]config.OIDCProvider{"google": {}, "slack": {}, "express": {}},
+	}
+	r, _ := setupRouterWithConfig(t, cfg)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/providers", nil)
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.JSONEq(t, `{"providers":[]}`, w.Body.String())
+}

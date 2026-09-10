@@ -16,14 +16,24 @@ Integration `config` JSON:
 - `host` — BotX CTS base URL (e.g. `https://cts.example.com`)
 - `secret_key` — bot secret for HMAC token signing and JWT verification
 
-Webhook URL registered with BotX: `POST {PUBLIC_URL}/api/v1/callbacks/express/bot`
+BotX webhook **base** (paste this in the BotX admin; CTS appends paths):
+
+`{PUBLIC_URL}/api/v1/callbacks/express`
+
+| Method | Path | Auth | Response |
+|--------|------|------|----------|
+| GET | `{base}/status` | BotX JWT (`Authorization`) | **200** `{status:"ok", result:{enabled, status_message, commands}}`. Missing integration: **503** `{reason:"bot_disabled", …}` |
+| POST | `{base}/command` | BotX JWT | **202** `{"result":"accepted"}` (≤5s). `/link` and ack are processed synchronously, then accepted. `system:*` and unknown commands also 202 |
+| POST | `{base}/bot` | BotX JWT | Deprecated alias of `/command` |
+
+Must not sit behind interactive Google/IAP login.
 
 ## Identity bootstrap (`/link`)
 
 1. User signs in to Aegis and calls `POST /api/v1/users/me/express-link-code`.
 2. Response includes a short-lived code and the command to send in eXpress: `/link <code>`.
 3. User sends that command to the Aegis bot in eXpress.
-4. BotX delivers the command to `/callbacks/express/bot`; Aegis binds `express_user_huid` to the user.
+4. BotX delivers the command to `/callbacks/express/command`; Aegis binds `express_user_huid` to the user.
 
 **Direct bind stub (admin/testing):** `POST /api/v1/users/me/express-link` with body
 `{"express_user_huid":"<uuid>"}` binds the huid without the bot flow.
@@ -44,10 +54,12 @@ Codes are stored in `express_link_codes` and expire after 15 minutes.
 
 ## Inbound ack and link
 
-- `POST /api/v1/callbacks/express/bot`
+- `GET /api/v1/callbacks/express/status` — bot alive + command list (`/link`)
+- `POST /api/v1/callbacks/express/command` — commands (`/link`, ack, system events)
+- `POST /api/v1/callbacks/express/bot` — deprecated alias of `/command`
 - Verify BotX JWT in `Authorization` header (HS256, `secret_key`)
-- `/link <code>` → bind huid
-- `/ack_incident` (or bubble `data.incident_id`) → acknowledge incident
+- `/link <code>` → bind huid, then 202
+- `/ack_incident` (or bubble `data.incident_id`) → acknowledge incident, then 202
 
 ## Test connection
 
