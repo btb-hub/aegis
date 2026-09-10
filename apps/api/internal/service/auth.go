@@ -86,6 +86,10 @@ func (s *AuthService) DevAuthEnabled() bool {
 	return s.cfg.DevAuthEnabled
 }
 
+func (s *AuthService) ConfiguredProviders() []string {
+	return s.cfg.ConfiguredProviders()
+}
+
 func (s *AuthService) DevLogin(ctx context.Context, role string) (token string, user db.User, err error) {
 	if !s.cfg.DevAuthEnabled {
 		return "", db.User{}, apperrors.NotFound("dev auth")

@@ -23,6 +23,7 @@ func NewAuthHandler(auth *service.AuthService, publicURL string) *AuthHandler {
 func (h *AuthHandler) Register(r gin.IRouter) {
 	r.GET("/auth/dev/status", h.devStatus)
 	r.GET("/auth/dev/login", h.devLogin)
+	r.GET("/auth/providers", h.providers)
 	r.GET("/auth/:provider/login", h.login)
 	r.GET("/auth/:provider/callback", h.callback)
 	r.POST("/auth/logout", h.logout)
@@ -66,6 +67,10 @@ func (h *AuthHandler) devRedirectURL(c *gin.Context) string {
 		return "/"
 	}
 	return redirectURL
+}
+
+func (h *AuthHandler) providers(c *gin.Context) {
+	WriteJSON(c, http.StatusOK, gin.H{"providers": h.auth.ConfiguredProviders()})
 }
 
 func (h *AuthHandler) login(c *gin.Context) {

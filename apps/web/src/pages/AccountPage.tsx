@@ -7,7 +7,7 @@ import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
-import { AUTH_PROVIDERS, createExpressLinkCode, patchAuthMe, type AuthProviderId } from '../lib/authTypes';
+import { createExpressLinkCode, fetchAuthProviders, patchAuthMe, type AuthProviderId } from '../lib/authTypes';
 import i18n, { persistLocale } from '../i18n';
 
 function initials(name: string): string {
@@ -34,6 +34,11 @@ export function AccountPage() {
   const [expressError, setExpressError] = useState<string | null>(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
+  const [ssoProviders, setSsoProviders] = useState<AuthProviderId[]>([]);
+
+  useEffect(() => {
+    void fetchAuthProviders().then(setSsoProviders);
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -176,18 +181,15 @@ export function AccountPage() {
         <h2 className="text-lg font-semibold">{t('account.connected_title')}</h2>
         <p className="text-sm text-zinc-600">{t('account.connected_body')}</p>
         <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
-          {AUTH_PROVIDERS.map((provider) => (
+          {ssoProviders.map((provider) => (
             <li key={provider} className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="font-medium capitalize">{provider}</span>
               {linkedProviders.has(provider) ? (
                 <span className="text-zinc-600">{t('account.connected')}</span>
               ) : (
-                <Link
-                  to={`/auth/${provider}/login?redirect=/account`}
-                  className="text-accent hover:underline"
-                >
-                  {t('account.connect_provider', { provider: t(`account.provider.${provider as AuthProviderId}`) })}
-                </Link>
+                <a href={`/auth/${provider}/login`} className="text-accent hover:underline">
+                  {t('account.connect_provider', { provider: t(`account.provider.${provider}`) })}
+                </a>
               )}
             </li>
           ))}
@@ -196,6 +198,7 @@ export function AccountPage() {
 
       <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="text-lg font-semibold">{t('account.paging_title')}</h2>
+        <p className="text-sm text-zinc-600">{t('account.paging_body')}</p>
         <div className="space-y-2 text-sm">
           <p>
             <span className="font-medium">{t('account.slack_id_label')}:</span>{' '}

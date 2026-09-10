@@ -50,6 +50,9 @@ describe('AccountPage', () => {
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
       }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google', 'slack'] }) } as Response;
+      }
       return { ok: false, status: 401, json: async () => ({}) } as Response;
     });
 
@@ -78,6 +81,9 @@ describe('AccountPage', () => {
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
       }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
+      }
       return { ok: false, status: 401, json: async () => ({}) } as Response;
     });
 
@@ -98,6 +104,9 @@ describe('AccountPage', () => {
       const url = String(input);
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
       }
       if (url.includes('/express-link-code') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ code: 'abc', command: '/link abc' }) } as Response;
@@ -125,5 +134,25 @@ describe('AccountPage', () => {
 
     renderPage();
     expect(await screen.findByText(/Sign in to manage your account/i)).toBeInTheDocument();
+  });
+
+  it('hides unconfigured SSO connect and uses a real href', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google', 'slack'] }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderPage();
+    const connect = await screen.findByRole('link', { name: 'Connect Slack' });
+    expect(connect).toHaveAttribute('href', '/auth/slack/login');
+    expect(screen.queryByRole('link', { name: 'Connect eXpress' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'SSO' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bind eXpress for paging' })).toBeInTheDocument();
   });
 });
