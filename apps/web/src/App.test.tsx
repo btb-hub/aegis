@@ -218,11 +218,16 @@ describe('App', () => {
   });
 
   it('redirects unsigned users from integrations to login', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({}),
-    } as Response);
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
+      }
+      if (url.includes('/auth/dev/status')) {
+        return { ok: true, json: async () => ({ enabled: false }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
 
     renderApp('/integrations');
 

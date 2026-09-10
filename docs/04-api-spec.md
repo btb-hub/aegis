@@ -8,6 +8,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
+| GET | `/auth/providers` | — | `{ "providers": ["google", …] }` — OIDC providers configured in this deployment |
 | GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`) |
 | GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`). Pass `?format=json` for JSON user body instead. |
 | POST | `/auth/logout` | session | Invalidate session |

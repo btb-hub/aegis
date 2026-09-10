@@ -148,6 +148,17 @@ func (c *Config) Provider(name string) (OIDCProvider, error) {
 	return provider, nil
 }
 
+func (c *Config) ConfiguredProviders() []string {
+	order := []string{"google", "slack", "express"}
+	out := make([]string, 0, len(order))
+	for _, name := range order {
+		if _, err := c.Provider(name); err == nil {
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v

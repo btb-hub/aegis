@@ -38,7 +38,7 @@ when disabled.
 
 ## Login page
 
-- Three provider buttons only (no local password).
+- Provider buttons from `GET /auth/providers` (only OIDC that is configured). No local password.
 - Same-origin links so the session cookie works on `localhost:3000` (nginx proxy in Docker) and Vite dev.
 - Unsigned visitors: locale from browser / language switcher ([REQ-I18N-03](../../docs/01-prd.md)).
 

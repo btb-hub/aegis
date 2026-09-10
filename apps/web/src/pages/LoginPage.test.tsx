@@ -18,7 +18,7 @@ function renderLoginPage() {
   );
 }
 
-function mockAuthFetches(devEnabled: boolean) {
+function mockAuthFetches(devEnabled: boolean, providers: string[] = ['google', 'slack', 'express']) {
   vi.mocked(fetch).mockImplementation(async (input) => {
     const url = String(input);
     if (url.includes('/auth/dev/status')) {
@@ -26,6 +26,13 @@ function mockAuthFetches(devEnabled: boolean) {
         ok: true,
         status: 200,
         json: async () => ({ enabled: devEnabled }),
+      } as Response;
+    }
+    if (url.includes('/auth/providers')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ providers }),
       } as Response;
     }
     return {
@@ -65,6 +72,18 @@ describe('LoginPage', () => {
       '/auth/express/login',
     );
     expect(screen.queryByRole('link', { name: 'Dev sign in' })).not.toBeInTheDocument();
+  });
+
+  it('hides unconfigured OIDC providers', async () => {
+    mockAuthFetches(false, ['google']);
+
+    renderLoginPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('link', { name: 'Sign in with Slack' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sign in with eXpress' })).not.toBeInTheDocument();
   });
 
   it('shows dev sign-in when dev auth is enabled', async () => {

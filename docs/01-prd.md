@@ -18,7 +18,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 
 | ID | Requirement |
 |----|-------------|
-| REQ-AUTH-01 | Users sign in via OIDC only: Google, Slack, or eXpress. |
+| REQ-AUTH-01 | Users sign in via OIDC only: Google, Slack, or eXpress. The UI lists only providers that are configured in this deployment. |
 | REQ-AUTH-02 | No local passwords or self-hosted IdP in MVP. |
 | REQ-AUTH-03 | Server-side session after OIDC callback; logout invalidates session. |
 | REQ-AUTH-04 | RBAC roles: `admin`, `member`, `viewer` (minimum). |
