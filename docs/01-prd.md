@@ -63,6 +63,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-SHIFT-05 | On-call slots are materialised ahead for fast reads. |
 | REQ-SHIFT-06 | Calendar UI shows rotations and overrides; "now" indicator visible. |
 | REQ-SHIFT-07 | API exposes current on-call per team. |
+| REQ-SHIFT-08 | Admins store optional team eXpress chat and Slack channel IDs. The worker publishes current on-call to those channels daily, on rotation change, and when an admin clicks Publish now. |
 
 ---
 

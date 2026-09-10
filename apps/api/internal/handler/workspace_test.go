@@ -192,6 +192,17 @@ func (m *workspaceEscalationRepoMock) UpdateTeam(_ context.Context, id uuid.UUID
 	return team, nil
 }
 
+func (m *workspaceEscalationRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+	team, ok := m.teams[id]
+	if !ok {
+		return db.Team{}, pgx.ErrNoRows
+	}
+	team.ExpressChatID = expressChatID
+	team.SlackChannelID = slackChannelID
+	m.teams[id] = team
+	return team, nil
+}
+
 func (m *workspaceEscalationRepoMock) DeleteTeam(_ context.Context, id uuid.UUID) error {
 	if _, ok := m.teams[id]; !ok {
 		return pgx.ErrNoRows

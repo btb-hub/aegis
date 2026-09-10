@@ -18,13 +18,13 @@ func (s *Store) ListTeamsFiltered(ctx context.Context, workspaceID uuid.UUID) ([
 	)
 	if workspaceID == uuid.Nil {
 		const q = `
-SELECT id, workspace_id, name, description, support_tier, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 ORDER BY name`
 		rows, err = s.pool.Query(ctx, q)
 	} else {
 		const q = `
-SELECT id, workspace_id, name, description, support_tier, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 WHERE workspace_id = $1
 ORDER BY name`
@@ -39,26 +39,18 @@ ORDER BY name`
 
 func (s *Store) GetTeam(ctx context.Context, id uuid.UUID) (Team, error) {
 	const q = `
-SELECT id, workspace_id, name, description, support_tier, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 WHERE id = $1`
-	var team Team
-	err := s.pool.QueryRow(ctx, q, id).Scan(
-		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier, &team.CreatedAt, &team.UpdatedAt,
-	)
-	return team, err
+	return scanTeam(s.pool.QueryRow(ctx, q, id))
 }
 
 func (s *Store) CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (Team, error) {
 	const q = `
 INSERT INTO teams (workspace_id, name, description, support_tier)
 VALUES ($1, $2, $3, $4)
-RETURNING id, workspace_id, name, description, support_tier, created_at, updated_at`
-	var team Team
-	err := s.pool.QueryRow(ctx, q, workspaceID, name, description, supportTier).Scan(
-		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier, &team.CreatedAt, &team.UpdatedAt,
-	)
-	return team, err
+RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at`
+	return scanTeam(s.pool.QueryRow(ctx, q, workspaceID, name, description, supportTier))
 }
 
 func (s *Store) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (Team, error) {
@@ -66,12 +58,43 @@ func (s *Store) UpdateTeam(ctx context.Context, id uuid.UUID, name, description 
 UPDATE teams
 SET name = $2, description = $3, support_tier = $4, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, support_tier, created_at, updated_at`
-	var team Team
-	err := s.pool.QueryRow(ctx, q, id, name, description, supportTier).Scan(
-		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier, &team.CreatedAt, &team.UpdatedAt,
-	)
-	return team, err
+RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at`
+	return scanTeam(s.pool.QueryRow(ctx, q, id, name, description, supportTier))
+}
+
+func (s *Store) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (Team, error) {
+	const q = `
+UPDATE teams
+SET express_chat_id = $2, slack_channel_id = $3, updated_at = now()
+WHERE id = $1
+RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at`
+	return scanTeam(s.pool.QueryRow(ctx, q, id, expressChatID, slackChannelID))
+}
+
+func (s *Store) SetTeamOnCallAnnounced(ctx context.Context, id uuid.UUID, fingerprint string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE teams SET oncall_announced_user_ids = $2, updated_at = now() WHERE id = $1`, id, fingerprint)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+func (s *Store) ListTeamsWithChatChannels(ctx context.Context) ([]Team, error) {
+	const q = `
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
+FROM teams
+WHERE (express_chat_id IS NOT NULL AND btrim(express_chat_id) <> '')
+   OR (slack_channel_id IS NOT NULL AND btrim(slack_channel_id) <> '')
+ORDER BY name`
+	rows, err := s.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanTeams(rows)
 }
 
 func (s *Store) UpdateTeamWorkspace(ctx context.Context, id, workspaceID uuid.UUID) error {

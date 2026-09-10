@@ -146,3 +146,27 @@ func (s *Store) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) 
 	_, err := s.EnqueueJob(ctx, "materialise_oncall", payload, time.Now())
 	return err
 }
+
+func (s *Store) EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error {
+	payload := []byte(`{"team_id":"` + teamID.String() + `"}`)
+	_, err := s.EnqueueJob(ctx, "publish_oncall", payload, time.Now())
+	return err
+}
+
+func (s *Store) HasPendingPublishOnCall(ctx context.Context, teamID uuid.UUID) (bool, error) {
+	const q = `
+SELECT 1 FROM jobs
+WHERE kind = 'publish_oncall'
+  AND status IN ('pending', 'running')
+  AND payload->>'team_id' = $1
+LIMIT 1`
+	var n int
+	err := s.pool.QueryRow(ctx, q, teamID.String()).Scan(&n)
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}

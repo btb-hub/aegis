@@ -124,6 +124,75 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 	return parsed.TS, nil
 }
 
+func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, teamName string, people []integrations.OnCallPerson, locale string) error {
+	if strings.TrimSpace(channelID) == "" {
+		return fmt.Errorf("slack channel id is required")
+	}
+	if locale == "" {
+		locale = "en"
+	}
+
+	names := make([]string, 0, len(people))
+	for _, person := range people {
+		if person.SlackUserID != nil && strings.TrimSpace(*person.SlackUserID) != "" {
+			names = append(names, "<@"+strings.TrimSpace(*person.SlackUserID)+">")
+			continue
+		}
+		if person.DisplayName != "" {
+			names = append(names, person.DisplayName)
+		}
+	}
+
+	var text string
+	if len(names) == 0 {
+		text = i18n.T(locale, "oncall.announce_empty", map[string]string{"team": teamName})
+	} else {
+		text = i18n.T(locale, "oncall.announce", map[string]string{
+			"team":   teamName,
+			"people": strings.Join(names, ", "),
+		})
+	}
+
+	payload := map[string]any{
+		"channel": channelID,
+		"text":    text,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.apiURL("/api/chat.postMessage"), bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+p.cfg.BotToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	var parsed struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return err
+	}
+	if !parsed.OK {
+		return fmt.Errorf("slack chat.postMessage: %s", parsed.Error)
+	}
+	return nil
+}
+
 func (p *Provider) TestConnection(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.apiURL("/api/auth.test"), nil)
 	if err != nil {

@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/aegis/aegis/pkg/i18n"
 	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -92,4 +94,62 @@ func TestTestConnectionUsesFixture(t *testing.T) {
 		return http.DefaultTransport.RoundTrip(req)
 	})
 	require.NoError(t, provider.TestConnection(t.Context()))
+}
+
+func TestAnnounceOnCallPostsToChannel(t *testing.T) {
+	i18n.ResetForTests()
+	require.NoError(t, i18n.LoadMessages(filepath.Join("..", "..", "..", "pkg", "i18n", "messages")))
+
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/chat.postMessage", r.URL.Path)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "ts": "1.2"})
+	}))
+	defer server.Close()
+
+	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
+	provider.client = server.Client()
+	slackID := "U123"
+	err := provider.AnnounceOnCall(t.Context(), "C999", "Platform", []integrations.OnCallPerson{
+		{DisplayName: "Alice", SlackUserID: &slackID},
+		{DisplayName: "Bob"},
+	}, "en")
+	require.NoError(t, err)
+	require.Equal(t, "C999", got["channel"])
+	require.Contains(t, got["text"], "<@U123>")
+	require.Contains(t, got["text"], "Bob")
+}
+
+func TestAnnounceOnCallRequiresChannel(t *testing.T) {
+	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret"})
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "", "Platform", nil, "en"))
+}
+
+func TestAnnounceOnCallEmptyPeople(t *testing.T) {
+	i18n.ResetForTests()
+	require.NoError(t, i18n.LoadMessages(filepath.Join("..", "..", "..", "pkg", "i18n", "messages")))
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer server.Close()
+	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
+	provider.client = server.Client()
+	require.NoError(t, provider.AnnounceOnCall(t.Context(), "C1", "Platform", nil, ""))
+	require.Contains(t, got["text"], "No one is on call")
+}
+
+func TestAnnounceOnCallSlackError(t *testing.T) {
+	i18n.ResetForTests()
+	require.NoError(t, i18n.LoadMessages(filepath.Join("..", "..", "..", "pkg", "i18n", "messages")))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": "channel_not_found"})
+	}))
+	defer server.Close()
+	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
+	provider.client = server.Client()
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "C1", "Platform", nil, "en"))
 }

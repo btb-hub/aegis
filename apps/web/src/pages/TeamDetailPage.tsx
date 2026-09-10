@@ -6,6 +6,7 @@ import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
 import { Checkbox } from '../components/ui/Checkbox';
 import { DataTable } from '../components/ui/DataTable';
+import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Select } from '../components/ui/Select';
@@ -54,7 +55,10 @@ export function TeamDetailPage() {
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
   const [pendingTier, setPendingTier] = useState('');
+  const [expressChatId, setExpressChatId] = useState('');
+  const [slackChannelId, setSlackChannelId] = useState('');
   const [savingTier, setSavingTier] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [targetTeamId, setTargetTeamId] = useState('');
   const [crossWorkspace, setCrossWorkspace] = useState(false);
   const [addingPath, setAddingPath] = useState(false);
@@ -153,6 +157,8 @@ export function TeamDetailPage() {
       setOutgoingPaths(outgoing);
       setIncomingPaths(incoming);
       setPendingTier(teamData.support_tier ?? '');
+      setExpressChatId(teamData.express_chat_id ?? '');
+      setSlackChannelId(teamData.slack_channel_id ?? '');
       setTargetTeamId('');
       setCrossWorkspace(false);
     } catch {
@@ -274,7 +280,11 @@ export function TeamDetailPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ support_tier: pendingTier }),
+        body: JSON.stringify({
+          support_tier: pendingTier,
+          express_chat_id: expressChatId,
+          slack_channel_id: slackChannelId,
+        }),
       });
       if (response.status === 401) {
         setToast({ message: t('teams.sign_in_required'), variant: 'default' });
@@ -291,6 +301,31 @@ export function TeamDetailPage() {
       setToast({ message, variant: 'default' });
     } finally {
       setSavingTier(false);
+    }
+  };
+
+  const publishOnCall = async () => {
+    setPublishing(true);
+    setToast(null);
+    try {
+      const response = await fetch(`/api/v1/teams/${teamId}/on-call/publish`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (response.status === 401) {
+        setToast({ message: t('teams.sign_in_required'), variant: 'default' });
+        return;
+      }
+      if (!response.ok) {
+        const body = (await response.json()) as { message?: string };
+        throw new Error(resolveApiErrorMessage(t, body, t('shifts.publish_failed')));
+      }
+      setToast({ message: t('shifts.published'), variant: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('shifts.publish_failed');
+      setToast({ message, variant: 'default' });
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -398,6 +433,7 @@ export function TeamDetailPage() {
               ) : null}
             </div>
             {isAdmin ? (
+              <>
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-[12rem]">
                   <Select
@@ -413,6 +449,27 @@ export function TeamDetailPage() {
                   {t('teams.detail.save_tier')}
                 </Button>
               </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[16rem]">
+                  <Input
+                    label={t('teams.express_chat_label')}
+                    value={expressChatId}
+                    onChange={setExpressChatId}
+                  />
+                </div>
+                <div className="min-w-[16rem]">
+                  <Input
+                    label={t('teams.slack_channel_label')}
+                    value={slackChannelId}
+                    onChange={setSlackChannelId}
+                  />
+                </div>
+                <Button variant="secondary" disabled={publishing} onClick={() => void publishOnCall()}>
+                  {t('shifts.publish_now')}
+                </Button>
+              </div>
+              <p className="text-sm text-zinc-600">{t('teams.channels_help')}</p>
+              </>
             ) : team?.support_tier ? (
               <p className="text-sm text-zinc-700">{t(`teams.tier.${team.support_tier}`)}</p>
             ) : (

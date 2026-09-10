@@ -112,7 +112,7 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 | GET | `/teams` | session | List teams |
 | POST | `/teams` | session + admin | Create team |
 | GET | `/teams/{id}` | session | Team detail |
-| PATCH | `/teams/{id}` | session + admin | Update team (optional `workspace_id` to move team) |
+| PATCH | `/teams/{id}` | session + admin | Update team (optional `workspace_id` to move team; optional `express_chat_id`, `slack_channel_id`) |
 | DELETE | `/teams/{id}` | session + admin | Delete team |
 | GET | `/teams/{id}/members` | session | List memberships |
 | POST | `/teams/{id}/members` | session + admin | Add member |
@@ -125,8 +125,8 @@ Add member body: `{"user_id": "uuid", "team_role": "member" | "lead"}` (defaults
 
 Member response includes `user_id`, `team_role`, `email`, `display_name`.
 
-Update team body: `{"name": "Platform", "description": "optional", "support_tier": "l2" | "l3", "workspace_id": "uuid"}`.
-Moving a team to another workspace is blocked with `409` when escalation paths would cross workspaces without `cross_workspace: true`. Response `details.blocked_teams` lists conflicting paths per team.
+Update team body: `{"name": "Platform", "description": "optional", "support_tier": "l2" | "l3", "workspace_id": "uuid", "express_chat_id": "optional", "slack_channel_id": "optional"}`.
+Empty channel IDs clear the stored value. Moving a team to another workspace is blocked with `409` when escalation paths would cross workspaces without `cross_workspace: true`. Response `details.blocked_teams` lists conflicting paths per team.
 
 ## Workspaces (Phase 11)
 
@@ -201,10 +201,13 @@ Create/update schedule body:
 | DELETE | `/teams/{id}/overrides/{oid}` | Delete override (admin) |
 | GET | `/teams/{id}/on-call/current` | Current on-call user(s) |
 | GET | `/teams/{id}/on-call/calendar` | Materialised slots in range (`from`, `to` RFC3339) |
+| POST | `/teams/{id}/on-call/publish` | Enqueue `publish_oncall` for this team (admin; **202** `{ "result": "accepted" }`). Requires `express_chat_id` or `slack_channel_id`. |
 
 Create override body: `{"user_id": "uuid", "start_at": "RFC3339", "end_at": "RFC3339"}`. `user_id` must be a team member; `end_at` must be after `start_at`.
 
 Schedule and override changes materialise on-call slots synchronously for the team. The worker also runs a nightly `materialise_oncall` job for all teams with schedules.
+
+The worker publishes current on-call to team channels via `publish_oncall` (daily at 03:00 UTC, on rotation change, and from **Publish now**). eXpress uses a group notification with `@mention` by huid; Slack posts to `slack_channel_id` with `<@U…>` when `slack_user_id` is set. Teams with neither channel ID are skipped.
 
 | GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
 
