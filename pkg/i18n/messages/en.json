@@ -1,4 +1,6 @@
 {
   "page.acknowledge_button": "Acknowledge",
-  "page.incident_title": "Incident {{id}}"
+  "page.incident_title": "Incident {{id}}",
+  "oncall.announce": "On call now for {{team}}: {{people}}",
+  "oncall.announce_empty": "No one is on call for {{team}}."
 }

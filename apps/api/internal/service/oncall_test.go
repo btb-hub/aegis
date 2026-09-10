@@ -13,9 +13,13 @@ import (
 )
 
 type onCallRepoMock struct {
-	teams map[uuid.UUID]db.Team
-	users []db.OnCallUser
-	slots []db.OnCallSlot
+	teams      map[uuid.UUID]db.Team
+	users      []db.OnCallUser
+	slots      []db.OnCallSlot
+	published  []uuid.UUID
+	usersErr   error
+	slotsErr   error
+	enqueueErr error
 }
 
 func newOnCallRepoMock() *onCallRepoMock {
@@ -31,11 +35,25 @@ func (m *onCallRepoMock) GetTeam(ctx context.Context, id uuid.UUID) (db.Team, er
 }
 
 func (m *onCallRepoMock) CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error) {
+	if m.usersErr != nil {
+		return nil, m.usersErr
+	}
 	return m.users, nil
 }
 
 func (m *onCallRepoMock) ListOnCallSlotsInRange(ctx context.Context, teamID uuid.UUID, from, to time.Time) ([]db.OnCallSlot, error) {
+	if m.slotsErr != nil {
+		return nil, m.slotsErr
+	}
 	return m.slots, nil
+}
+
+func (m *onCallRepoMock) EnqueuePublishOnCall(_ context.Context, teamID uuid.UUID) error {
+	if m.enqueueErr != nil {
+		return m.enqueueErr
+	}
+	m.published = append(m.published, teamID)
+	return nil
 }
 
 func TestOnCallServiceCurrent(t *testing.T) {
@@ -142,4 +160,64 @@ func TestOnCallServiceCalendarNilSlots(t *testing.T) {
 	slots, err := svc.Calendar(context.Background(), teamID, from, to)
 	require.NoError(t, err)
 	require.Empty(t, slots)
+}
+
+func TestOnCallServiceEnqueuePublish(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	chat := "chat-1"
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	svc := NewOnCallService(repo)
+	require.NoError(t, svc.EnqueuePublish(context.Background(), teamID))
+	require.Equal(t, []uuid.UUID{teamID}, repo.published)
+}
+
+func TestOnCallServiceEnqueuePublishTeamNotFound(t *testing.T) {
+	svc := NewOnCallService(newOnCallRepoMock())
+	err := svc.EnqueuePublish(context.Background(), uuid.New())
+	require.Error(t, err)
+}
+
+func TestOnCallServiceEnqueuePublishRequiresChannel(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	svc := NewOnCallService(repo)
+	err := svc.EnqueuePublish(context.Background(), teamID)
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+}
+
+func TestOnCallServiceCurrentUsersError(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	repo.usersErr = context.Canceled
+	svc := NewOnCallService(repo)
+	_, err := svc.CurrentOnCall(context.Background(), teamID)
+	require.Error(t, err)
+}
+
+func TestOnCallServiceCalendarSlotsError(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	repo.slotsErr = context.Canceled
+	svc := NewOnCallService(repo)
+	from := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	_, err := svc.Calendar(context.Background(), teamID, from, to)
+	require.Error(t, err)
+}
+
+func TestOnCallServiceEnqueuePublishRepoError(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	chat := "chat-1"
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	repo.enqueueErr = context.Canceled
+	svc := NewOnCallService(repo)
+	require.Error(t, svc.EnqueuePublish(context.Background(), teamID))
 }

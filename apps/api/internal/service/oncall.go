@@ -15,6 +15,7 @@ type OnCallRepository interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
 	CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error)
 	ListOnCallSlotsInRange(ctx context.Context, teamID uuid.UUID, from, to time.Time) ([]db.OnCallSlot, error)
+	EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error
 }
 
 type OnCallService struct {
@@ -54,6 +55,17 @@ func (s *OnCallService) Calendar(ctx context.Context, teamID uuid.UUID, from, to
 		slots = []db.OnCallSlot{}
 	}
 	return slots, nil
+}
+
+func (s *OnCallService) EnqueuePublish(ctx context.Context, teamID uuid.UUID) error {
+	team, err := s.repo.GetTeam(ctx, teamID)
+	if err != nil {
+		return mapOnCallError(err)
+	}
+	if !team.HasChatChannel() {
+		return apperrors.Validation("set a Slack channel or eXpress chat before publishing", nil)
+	}
+	return s.repo.EnqueuePublishOnCall(ctx, teamID)
 }
 
 func mapOnCallError(err error) error {

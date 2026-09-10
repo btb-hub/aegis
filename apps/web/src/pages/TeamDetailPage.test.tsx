@@ -610,4 +610,37 @@ describe('TeamDetailPage', () => {
       cross_workspace: true,
     });
   });
+
+  it('publishes current on-call from team settings', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url.includes('/on-call/publish') && init?.method === 'POST') {
+        return jsonResponse({ result: 'accepted' }, 202);
+      }
+      const mocked = mockTeamDetailFetch(url, init);
+      if (mocked) {
+        return mocked;
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Publish now' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Publish now' }));
+    await waitFor(() => {
+      expect(screen.getByText('Published')).toBeInTheDocument();
+    });
+  });
 });

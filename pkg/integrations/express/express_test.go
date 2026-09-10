@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aegis/aegis/pkg/i18n"
 	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -136,4 +137,86 @@ func TestSignBotIDMatchesPythonExample(t *testing.T) {
 	mac := hmac.New(sha256.New, []byte("secret"))
 	mac.Write([]byte("bot_id"))
 	require.Equal(t, strings.ToUpper(hex.EncodeToString(mac.Sum(nil))), signBotID("bot_id", "secret"))
+}
+
+func TestAnnounceOnCallUsesGroupNotification(t *testing.T) {
+	require.NoError(t, loadAnnounceMessages())
+	responseRaw := readFixture(t, "group_notification_response.json")
+	var gotPath string
+	var gotBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/token"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
+		case r.URL.Path == "/api/v4/botx/notifications":
+			gotPath = r.URL.Path
+			require.Equal(t, "Bearer bot-token", r.Header.Get("Authorization"))
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(responseRaw)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
+	provider.client = server.Client()
+	huid := "6fafda2c-6505-57a5-a088-25ea5d1d0364"
+	err := provider.AnnounceOnCall(t.Context(), "group-chat-1", "Platform", []integrations.OnCallPerson{
+		{DisplayName: "Alice", ExpressUserHuid: &huid},
+		{DisplayName: "Bob"},
+	}, "en")
+	require.NoError(t, err)
+	require.Equal(t, "/api/v4/botx/notifications", gotPath)
+	require.Equal(t, "group-chat-1", gotBody["group_chat_id"])
+	notification := gotBody["notification"].(map[string]any)
+	require.Contains(t, notification["body"], "On call now for Platform")
+	require.Contains(t, notification["body"], "Bob")
+	mentions := notification["mentions"].([]any)
+	require.Len(t, mentions, 1)
+}
+
+func TestAnnounceOnCallRequiresChatID(t *testing.T) {
+	provider := New(Config{BotID: "bot", Host: "http://example.com", SecretKey: "secret"})
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "", "Platform", nil, "en"))
+}
+
+func TestAnnounceOnCallEmptyPeople(t *testing.T) {
+	require.NoError(t, loadAnnounceMessages())
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/token") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
+			return
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	}))
+	defer server.Close()
+	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
+	provider.client = server.Client()
+	require.NoError(t, provider.AnnounceOnCall(t.Context(), "group-1", "Platform", nil, ""))
+	notification := body["notification"].(map[string]any)
+	require.Contains(t, notification["body"], "No one is on call")
+}
+
+func TestAnnounceOnCallRejectsNonOK(t *testing.T) {
+	require.NoError(t, loadAnnounceMessages())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/token") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "error"})
+	}))
+	defer server.Close()
+	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
+	provider.client = server.Client()
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "group-1", "Platform", nil, "en"))
+}
+
+func loadAnnounceMessages() error {
+	i18n.ResetForTests()
+	return i18n.LoadMessages(filepath.Join("..", "..", "..", "pkg", "i18n", "messages"))
 }

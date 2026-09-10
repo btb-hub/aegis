@@ -24,6 +24,10 @@ func (h *OnCallHandler) Register(r gin.IRouter) {
 	api.Use(middleware.RequireSession(h.auth))
 	api.GET("/teams/:id/on-call/current", h.currentOnCall)
 	api.GET("/teams/:id/on-call/calendar", h.calendar)
+
+	admin := api.Group("")
+	admin.Use(middleware.RequireAdmin())
+	admin.POST("/teams/:id/on-call/publish", h.publishOnCall)
 }
 
 func (h *OnCallHandler) currentOnCall(c *gin.Context) {
@@ -76,4 +80,17 @@ func (h *OnCallHandler) calendar(c *gin.Context) {
 		items = append(items, service.OnCallSlotJSON(slot))
 	}
 	WriteJSON(c, http.StatusOK, gin.H{"items": items})
+}
+
+func (h *OnCallHandler) publishOnCall(c *gin.Context) {
+	teamID, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	if err := h.oncall.EnqueuePublish(c.Request.Context(), teamID); err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusAccepted, gin.H{"result": "accepted"})
 }

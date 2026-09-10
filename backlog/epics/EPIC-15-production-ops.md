@@ -87,24 +87,24 @@ AEG-103 (base, not `/bot`).
 
 ### AEG-105 — Publish current on-call to team channels
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-014, AEG-019 (Done)
 - **PRD:** proposed REQ-SHIFT-08
 - **Acceptance:**
-  - [ ] Given a team, when an admin PATCHes `express_chat_id` and/or `slack_channel_id`, then the
+  - [x] Given a team, when an admin PATCHes `express_chat_id` and/or `slack_channel_id`, then the
         values persist (nullable). Teams UI can edit them
-  - [ ] Given job `publish_oncall` with `{ "team_id" }` or `{}`, when run, then current on-call is
+  - [x] Given job `publish_oncall` with `{ "team_id" }` or `{}`, when run, then current on-call is
         posted to each configured channel. eXpress: group notification + `@mention` by huid
         (skip users with no huid). Slack: channel `chat.postMessage` with `<@U…>` when `slack_user_id`
         is set. Skip teams with neither channel
-  - [ ] Given a **daily** worker tick (same style as `materialise_oncall`), when it fires, then
+  - [x] Given a **daily** worker tick (same style as `materialise_oncall`), when it fires, then
         `publish_oncall` is enqueued for all configured teams
-  - [ ] Given the current on-call user-id set differs from last published (stored on the team), when
+  - [x] Given the current on-call user-id set differs from last published (stored on the team), when
         a minute ticker notices, then enqueue `publish_oncall` (rotation handoff)
-  - [ ] Given an admin clicks **Publish now** (or `POST /teams/{id}/on-call/publish`), when accepted,
+  - [x] Given an admin clicks **Publish now** (or `POST /teams/{id}/on-call/publish`), when accepted,
         then the job is enqueued and the toast is **Published**
-  - [ ] Soft-fail per provider (do not fail the other). Do not reuse `notify_handoff` (L2→L3)
-  - [ ] Recorded fixtures; no live BotX/Slack. en + ru for UI and chat templates. API spec + data
+  - [x] Soft-fail per provider (do not fail the other). Do not reuse `notify_handoff` (L2→L3)
+  - [x] Recorded fixtures; no live BotX/Slack. en + ru for UI and chat templates. API spec + data
         model updated. Migration up **and** down named after this story
 
 **Plan:** Migration on `teams`; `AnnounceOnCall` beside DM `SendPage`; worker job + ticker + button.
@@ -140,6 +140,6 @@ AEG-014 + AEG-019 (Done)
 ## Definition of done (epic)
 
 - [ ] CTS `GET /status` and `POST /command` work; `/link` binds huid
-- [ ] On-call announce is an in-Aegis job (daily + handoff + publish now)
+- [x] On-call announce is an in-Aegis job (daily + handoff + publish now)
 - [ ] Unconfigured OIDC is not offered; no silent `/shifts` redirect
 - [ ] `make lint type test` green on implementing PRs

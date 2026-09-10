@@ -249,7 +249,7 @@ on `/shifts`.
 
 → Epic: [EPIC-15 Production ops](./epics/EPIC-15-production-ops.md)
 
-**Next story (interrupt):** [AEG-104](./epics/EPIC-15-production-ops.md) — BotX `/status` and `/command`.
+**Next story (interrupt):** [AEG-105](./epics/EPIC-15-production-ops.md) — Publish current on-call to team channels.
 
 ## Later (post-MVP, not now)
 

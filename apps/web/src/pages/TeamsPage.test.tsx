@@ -328,4 +328,57 @@ describe('TeamsPage', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Could not load teams');
     });
   });
+
+  it('saves channel ids when editing a team', async () => {
+    const existingTeam = {
+      id: 'team-1',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+      name: 'Platform',
+      description: 'Core',
+      created_at: '2026-07-01T00:00:00Z',
+      updated_at: '2026-07-01T00:00:00Z',
+    };
+    let patched: Record<string, string> | null = null;
+
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1',
+          email: 'admin@example.com',
+          display_name: 'Admin',
+          role: 'admin',
+          locale: 'en',
+          provider: 'google',
+        });
+      }
+      if (url === '/api/v1/workspaces') {
+        return jsonResponse({
+          items: [{ id: '00000000-0000-0000-0000-000000000001', name: 'Default', slug: 'default', description: '', created_at: '', updated_at: '' }],
+        });
+      }
+      if (url === '/api/v1/teams/team-1' && init?.method === 'PATCH') {
+        patched = JSON.parse(String(init.body)) as Record<string, string>;
+        return jsonResponse({ ...existingTeam, ...patched });
+      }
+      if (url === '/api/v1/teams') {
+        return jsonResponse({ items: [existingTeam] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Platform' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit team' }));
+    fireEvent.change(screen.getByLabelText('eXpress chat ID'), { target: { value: 'group-1' } });
+    fireEvent.change(screen.getByLabelText('Slack channel ID'), { target: { value: 'C123' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Team updated')).toBeInTheDocument();
+    });
+    expect(patched).toMatchObject({ express_chat_id: 'group-1', slack_channel_id: 'C123' });
+  });
 });

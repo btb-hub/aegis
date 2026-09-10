@@ -46,6 +46,12 @@ Codes are stored in `express_link_codes` and expire after 15 minutes.
 - Bubble text and button label from `pkg/i18n` using recipient `users.locale`.
 - Bot token obtained via `GET /api/v2/botx/bots/{bot_id}/token?signature=<HMAC-SHA256(bot_id)>`.
 
+## Outbound on-call announce
+
+- `POST /api/v4/botx/notifications` with `group_chat_id` = `teams.express_chat_id`.
+- Body mentions on-call users with `@{mention:<mention_id>}` and `mentions[]` (`mention_type: "user"`, `mention_data.user_huid`). Users without a huid are listed by name only.
+- Worker job `publish_oncall` (daily, rotation change, or `POST /api/v1/teams/{id}/on-call/publish`). Do not reuse incident DM `SendPage`.
+
 ## Inbound ack and link
 
 - `GET /api/v1/callbacks/express/status` — bot alive + command list (`/link`)

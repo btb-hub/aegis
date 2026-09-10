@@ -129,6 +129,75 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 	return uuid.New().String(), nil
 }
 
+func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, teamName string, people []integrations.OnCallPerson, locale string) error {
+	if strings.TrimSpace(channelID) == "" {
+		return fmt.Errorf("express chat id is required")
+	}
+	if locale == "" {
+		locale = "en"
+	}
+
+	mentions := make([]map[string]any, 0, len(people))
+	names := make([]string, 0, len(people))
+	for _, person := range people {
+		if person.ExpressUserHuid == nil || strings.TrimSpace(*person.ExpressUserHuid) == "" {
+			if person.DisplayName != "" {
+				names = append(names, person.DisplayName)
+			}
+			continue
+		}
+		mentionID := uuid.New()
+		names = append(names, fmt.Sprintf("@{mention:%s}", mentionID.String()))
+		mentions = append(mentions, map[string]any{
+			"mention_type": "user",
+			"mention_id":   mentionID.String(),
+			"mention_data": map[string]any{
+				"user_huid": *person.ExpressUserHuid,
+			},
+		})
+	}
+
+	var body string
+	if len(names) == 0 {
+		body = i18n.T(locale, "oncall.announce_empty", map[string]string{"team": teamName})
+	} else {
+		body = i18n.T(locale, "oncall.announce", map[string]string{
+			"team":   teamName,
+			"people": strings.Join(names, ", "),
+		})
+	}
+
+	payload := map[string]any{
+		"group_chat_id": channelID,
+		"notification": map[string]any{
+			"status":   "ok",
+			"body":     body,
+			"mentions": mentions,
+		},
+	}
+
+	return p.withRetry(ctx, func() error {
+		token, err := p.ensureToken(ctx)
+		if err != nil {
+			return err
+		}
+		respBody, err := p.postJSON(ctx, "/api/v4/botx/notifications", payload, token)
+		if err != nil {
+			return err
+		}
+		var parsed struct {
+			Status string `json:"status"`
+		}
+		if err := json.Unmarshal(respBody, &parsed); err != nil {
+			return err
+		}
+		if parsed.Status != "ok" {
+			return fmt.Errorf("express notification failed: %s", string(respBody))
+		}
+		return nil
+	})
+}
+
 func (p *Provider) TestConnection(ctx context.Context) error {
 	return p.withRetry(ctx, func() error {
 		_, err := p.ensureToken(ctx)

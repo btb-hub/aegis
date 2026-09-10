@@ -222,6 +222,9 @@ func (e *emptyTeamRepo) CreateTeam(ctx context.Context, workspaceID uuid.UUID, n
 func (e *emptyTeamRepo) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	return db.Team{}, nil
 }
+func (e *emptyTeamRepo) UpdateTeamChannels(context.Context, uuid.UUID, *string, *string) (db.Team, error) {
+	return db.Team{}, nil
+}
 func (e *emptyTeamRepo) MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
 	return nil
 }
