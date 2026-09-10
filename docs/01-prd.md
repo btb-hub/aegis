@@ -118,7 +118,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INT-01 | Connector interface: ticket vs chat providers; registry pattern. |
 | REQ-INT-02 | Jira: create issue, link to incident, optional status sync inbound. |
 | REQ-INT-03 | Slack: Block Kit page, signed interactive ack callback. |
-| REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. |
+| REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. BotX CTS calls `GET {base}/status` and `POST {base}/command` on the public callback base (`{PUBLIC_URL}/api/v1/callbacks/express`). |
 | REQ-INT-05 | Per-connector "Test connection" on the Integrations admin page (`/integrations`). Standalone configure (create/edit credentials) without the setup wizard. |
 | REQ-INT-06 | Connector failure does not block other connectors; retry with backoff in worker. |
 | REQ-INT-07 | Machine HTTP (eXpress BotX, Slack interactive callback, alert webhook) and health checks must be reachable without interactive Google/IAP login. Document a path-based proxy skip or a separate public host. Do not place IAP in front of those paths on the UI origin. Callback verification (BotX JWT, Slack signature, webhook secret) stays required. |

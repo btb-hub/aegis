@@ -24,14 +24,14 @@ func ParseCommandEvent(body []byte) (CommandEvent, error) {
 	if err := json.Unmarshal(body, &event); err != nil {
 		return CommandEvent{}, err
 	}
-	if strings.TrimSpace(event.From.UserHuid) == "" {
-		return CommandEvent{}, fmt.Errorf("missing user_huid")
-	}
 	return event, nil
 }
 
 func ParseAckCommand(event CommandEvent) (incidentID, userHuid string, err error) {
-	userHuid = event.From.UserHuid
+	userHuid = strings.TrimSpace(event.From.UserHuid)
+	if userHuid == "" {
+		return "", "", fmt.Errorf("missing user_huid")
+	}
 	if id, ok := event.Command.Data["incident_id"].(string); ok && strings.TrimSpace(id) != "" {
 		return id, userHuid, nil
 	}
@@ -46,7 +46,10 @@ func ParseAckCommand(event CommandEvent) (incidentID, userHuid string, err error
 }
 
 func ParseLinkCommand(event CommandEvent) (code, userHuid string, err error) {
-	userHuid = event.From.UserHuid
+	userHuid = strings.TrimSpace(event.From.UserHuid)
+	if userHuid == "" {
+		return "", "", fmt.Errorf("missing user_huid")
+	}
 	body := strings.TrimSpace(event.Command.Body)
 	if !strings.HasPrefix(body, "/link") {
 		return "", "", fmt.Errorf("not a link command")
