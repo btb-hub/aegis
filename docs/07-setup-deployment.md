@@ -420,6 +420,7 @@ make migrate-down
 | Secret rotation | Update `.env` (or secret store), recreate `api`/`worker` containers |
 | Connector secrets | Prefer admin UI `/integrations` + workspace slots after go-live; env vars remain optional bootstrap |
 | Alert intake | External systems POST to `{PUBLIC_URL}/api/v1/alerts/webhook` with configured secret |
+| Machine ingress | Do not put interactive IAP in front of `/api/v1/callbacks/` (including eXpress `/status` and `/command`), `/api/v1/alerts/webhook`, `/healthz`, `/readyz`, or `/metrics`. BotX admin URL is the **base** `{PUBLIC_URL}/api/v1/callbacks/express` |
 | Hardening | TLS at proxy; do not expose Postgres publicly; disable dev auth and the `dev` Compose profile |
 
 ### Rollback

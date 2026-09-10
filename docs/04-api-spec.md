@@ -301,8 +301,12 @@ continues the Aegis incident lifecycle and other provider deliveries.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
+| GET | `/callbacks/express/status` | BotX JWT | Bot alive + command list |
+| POST | `/callbacks/express/command` | BotX JWT | Commands (`/link`, ack); **202** `{"result":"accepted"}` |
+| POST | `/callbacks/express/bot` | BotX JWT | Deprecated alias of `/command` |
 | POST | `/callbacks/slack/interactive` | Slack signature | Ack button |
-| POST | `/callbacks/express/bot` | HMAC | eXpress bot events |
+
+BotX admin URL is the **base** `{PUBLIC_URL}/api/v1/callbacks/express`. CTS appends `/status` and `/command`.
 
 ## Handoffs (Phase 5)
 
