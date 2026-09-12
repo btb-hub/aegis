@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — connect Jira, Slack, eXpress</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">workflow</a>
+      <a href="setup.html">set-up</a>
+      <a href="routing.html">rules</a>
+      <a href="paths.html">paths</a>
+      <a href="incidents.html">incidents</a>
+      <a class="on" href="connect.html">connect</a>
+      <a href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="connect.html">EN</a><a href="ru/connect.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Admin · connectors</p>
+    <h1>Connect Jira, Slack, and eXpress from the UI.</h1>
+    <p class="lede">Tickets and pages are not required for an incident to exist, but they are how
+      the rest of the company sees the work. Configure connectors on <b>Integrations</b> and on
+      each workspace. You do not need the setup wizard to change one credential.</p>
+    <div class="toc">
+      <a href="#global">Global connectors</a>
+      <a href="#slots">Workspace slots</a>
+      <a href="#paging">Paging identity</a>
+      <a href="#skip">When a connector is skipped</a>
+    </div>
+  </div>
+</div>
+
+<section id="global">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Save global connectors</h2></div>
+    <p class="sec-sub">Sidebar → <b>Integrations</b>. These credentials are the default every
+      workspace can inherit.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Jira</h3>
+          <p>Click <b>Add integration</b> or <b>Configure</b> on the Jira row. Fill
+            <b>Jira base URL</b>, <b>Jira email</b>, <b>Jira API token</b>, and a default
+            <b>Jira project key</b>. <b>Save integration</b>, then <b>Test connection</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Slack</h3>
+          <p>Bot token and signing secret. Test connection. On-call DMs use the user’s Slack user ID
+            (from Sign in with Slack). Team announcements use the channel ID on the team.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>eXpress</h3>
+          <p>Bot ID, host, and secret key. Test connection. Users who signed in with Google or Slack
+            still bind eXpress on <b>Account</b> before they can be paged there.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout ok">
+      <b>Checkpoint</b>
+      <p>Each row you care about shows as enabled and Test connection succeeds. Incomplete rows
+        show <b>Add credentials to finish setup</b> — open <b>Configure</b>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="slots">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Per workspace: inherit or custom</h2></div>
+    <p class="sec-sub">Every workspace has a Jira, Slack, and eXpress slot. Open the workspace →
+      <b>Integrations</b>.</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Mode</th><th>When to use it</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Inherit</b></td>
+          <td>Use the global connector. Jira can still override <b>project key</b> for this
+            workspace (Platform → <code>OPS</code>, Data → <code>DATA</code>). Slack can override
+            channel. Switching back to Inherit deletes workspace-only secrets for that slot.</td>
+        </tr>
+        <tr>
+          <td><b>Custom</b></td>
+          <td>This workspace has its own complete credentials and does not mix in global ones.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">Status on the slot:
+      <b>Ready</b>, <b>Using global</b>, <b>Needs setup</b>, <b>Missing — no global</b>, or
+      <b>Disabled</b>. A disabled slot skips that provider at runtime without failing the incident.</p>
+  </div>
+</section>
+
+<section id="paging">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Paging identity on Account</h2></div>
+    <p class="sec-sub">SSO sign-in and paging are separate. A Google login does not, by itself,
+      give Aegis a Slack DM target.</p>
+    <ol class="plain">
+      <li>Each on-call user opens <b>Account</b>.</li>
+      <li>Slack: <b>Connect Slack</b> / sign in with Slack so <b>Slack user ID</b> is set.</li>
+      <li>eXpress: <b>Generate link code</b> and complete the <code>/link</code> flow in eXpress
+        so <b>eXpress user ID</b> is set.</li>
+      <li>Language (<b>English</b> / <b>Русский</b>) is also on Account — pages follow the
+        recipient’s language.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="skip">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>A missing connector does not block ingest</h2></div>
+    <p class="sec-sub">If Jira or chat is not ready, Aegis still stores the alert and can still
+      open an incident. The timeline gets an <code>integration_skipped</code> event with a reason
+      (slot disabled, no global, incomplete custom config). Fix the slot; do not re-send the
+      webhook unless you also want a duplicate alert.</p>
+    <div class="callout info">
+      <b>Setup wizard</b>
+      <p><b>Setup</b> can save the same Jira / Slack / eXpress forms. Day-two changes belong on
+        <b>Integrations</b> and the workspace panel.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Connector contracts: <a href="../integrations/README.md">docs/integrations</a>.
+    Back to <a href="setup.html">set up the workflow</a>.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — set up the on-call workflow</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">workflow</a>
+      <a class="on" href="setup.html">set-up</a>
+      <a href="routing.html">rules</a>
+      <a href="paths.html">paths</a>
+      <a href="incidents.html">incidents</a>
+      <a href="connect.html">connect</a>
+      <a href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="setup.html">EN</a><a href="ru/setup.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Admin · first project</p>
+    <h1>Set up the workflow so an alert has an owner.</h1>
+    <p class="lede">Follow these screens in order. The running example is a <b>Platform</b> project
+      with an L2 team that takes the page and an L3 team that receives handoffs. You must be signed
+      in as <b>Admin</b> (check <b>Account</b> in the header). Members cannot create teams, schedules,
+      or routing rules.</p>
+    <div class="toc">
+      <a href="#signin">Sign in</a>
+      <a href="#workspace">Workspace</a>
+      <a href="#teams">Teams &amp; tiers</a>
+      <a href="#members">Members</a>
+      <a href="#path">Escalation</a>
+      <a href="#shifts">Shifts</a>
+      <a href="#routing">Routing</a>
+      <a href="routing.html">Rules (examples)</a>
+      <a href="paths.html">Paths (examples)</a>
+      <a href="#prove">Test alert</a>
+    </div>
+  </div>
+</div>
+
+<section id="signin">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Sign in as admin</h2></div>
+    <p class="sec-sub">Everyone uses the same login page. What you can change depends on the role on
+      your account, not on which button you used to sign in.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Open the app and choose a provider</h3>
+          <p>Go to <b>Login</b>. Choose <b>Google</b>, <b>Slack</b>, or <b>eXpress</b>. After the
+            identity provider redirects back, you land in the app.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Confirm you are Admin</h3>
+          <p>Open <b>Account</b> from the header. The role badge must say <b>Admin</b>. If it says
+            Member or Viewer, you can use the product but you cannot finish this manual — ask an
+            existing admin to promote you on <b>Users</b>.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout info">
+      <b>People must exist before you can add them to a team</b>
+      <p>Aegis does not invite by email. Each on-call engineer signs in once so their user row exists,
+        then you add them on the team. Slack paging needs <b>Sign in with Slack</b> (or a linked Slack
+        identity). eXpress paging needs a bind on <b>Account</b> — see
+        <a href="connect.html#paging">Connect</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="workspace">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Create a workspace</h2></div>
+    <p class="sec-sub">A workspace is a project. It groups teams, routing rules, and which Jira
+      project tickets land in. One Aegis can have many workspaces (Platform and Data side by side).</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Sidebar → Workspaces</h3>
+          <p>Click <b>Create workspace</b>. Fill <b>Workspace name</b> (for example Platform). Slug
+            is optional. Click <b>Save workspace</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Open the workspace</h3>
+          <p>You will configure teams, integrations, and routing on this detail page. Leave it
+            open in a tab; you will come back for routing after teams exist.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout info">
+      <b>Shortcut: Setup → Quick setup</b>
+      <p>On <b>Setup</b>, <b>Quick setup (new project)</b> creates the workspace, an L2 team, an L3
+        team, and the L2→L3 path together. Then skip to <a href="#members">members</a> and
+        <a href="#shifts">shifts</a>. Use dedicated pages if the project already exists.</p>
+    </div>
+  </div>
+</section>
+
+<section id="teams">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Create teams and set support tiers</h2></div>
+    <p class="sec-sub">Support tier lives on the <b>team</b>, not on the person. It controls which
+      escalation buttons appear on an incident.</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Tier</th><th>Typical name</th><th>Job in the chain</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>NOC</td><td>Platform NOC</td><td>First triage from monitoring; escalate to L1 or L2</td></tr>
+        <tr><td>L1</td><td>Helpdesk</td><td>User-facing issues; escalate to L2</td></tr>
+        <tr><td>L2</td><td>Platform L2</td><td>Owns most production incidents; hands off to L3</td></tr>
+        <tr><td>L3</td><td>Platform L3</td><td>Specialists; can bounce back to L2 with a note</td></tr>
+      </tbody>
+    </table>
+    <div class="steps" style="margin-top:18px">
+      <div class="step">
+        <div>
+          <h3>Sidebar → Teams → Create team</h3>
+          <p>Name <b>Platform L2</b>. Set <b>Workspace</b> to Platform. Set <b>Support tier</b> to
+            <b>L2</b>. Save. Repeat for <b>Platform L3</b> with tier <b>L3</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Optional chat channels</h3>
+          <p>On the team, <b>Slack channel ID</b> and <b>eXpress chat ID</b> are where Aegis can
+            announce who is on call. They are not required for the first routed incident.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">Minimum for this manual: one L2
+      team and one L3 team in the same workspace. Add NOC or L1 later if that is how you triage.</p>
+  </div>
+</section>
+
+<section id="members">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Add members</h2></div>
+    <p class="sec-sub">Team membership decides who appears in the rotation picker and who can be
+      assigned when that team owns an incident.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Open the L2 team</h3>
+          <p>Under <b>Members</b>, click <b>Add member</b>. Search by name or email. Choose
+            <b>Member</b> or <b>Lead</b> (lead is organisational; it does not replace admin).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Add the same people to L3 if they also take L3 pages</h3>
+          <p>A person can be on more than one team. Keep L2 and L3 memberships honest so the wrong
+            specialist is not in the L3 rotation.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout warn">
+      <b>Empty member picker</b>
+      <p>If search finds nobody, those people have not signed in yet. Ask them to open Login once,
+        then retry <b>Add member</b>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="path">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Allow L2 to hand off to L3</h2></div>
+    <p class="sec-sub">A tier badge is not enough. You must add a <b>path</b> on the team that will
+      click the button. Full worked examples (NOC chain, shared L3):
+      <a href="paths.html">escalation paths</a>.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Teams → Platform L2 → Escalation paths</h3>
+          <p>Open the <b>source</b> team (L2), not L3. Under <b>Outgoing paths</b> click
+            <b>Add path</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Fill the Add path form</h3>
+          <div class="ex">
+            <div class="hd">Add path · team <b>Platform L2</b></div>
+            <dl>
+              <dt>Allow team from another workspace</dt><dd>Off</dd>
+              <dt>To team</dt><dd>Platform L3</dd>
+            </dl>
+            <p class="why">Save. L2 outgoing lists Platform L3. Open Platform L3 — incoming lists
+              Platform L2. On an L2 incident you will see <b>Hand off to L3</b>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:14px;color:var(--ink-soft);font-size:14.5px">Legal pairs only: NOC→L1 or L2,
+      L1→L2, L2→L3. If the select is empty, the L3 team is missing or has no tier — see
+      <a href="paths.html#empty">paths: empty picker</a>.</p>
+  </div>
+</section>
+
+<section id="shifts">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Put someone on call</h2></div>
+    <p class="sec-sub">Routing assigns the incident to the team. The current on-call on that team
+      is who Aegis pages. Without a schedule, you can still get an incident, but paging has nobody
+      to target.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Open the L2 shifts page</h3>
+          <p>From the team, open shifts, or use sidebar <b>Shifts</b> and select Platform L2. If
+            you see <b>This team has no on-call schedule yet</b>, continue.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Create schedule</h3>
+          <p>Click <b>Create schedule</b>. Set a name, <b>Timezone (IANA)</b> (for example
+            <code>Europe/Moscow</code>), <b>Handoff weekday</b> and <b>Handoff time</b>, then
+            <b>Participants (in rotation order)</b>. Save schedule.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Confirm On call now</h3>
+          <p>The banner at the top of the calendar must name a person. If it says
+            <b>No one is on call right now</b>, the rotation does not cover this moment — add an
+            <b>Add override</b> for today or fix handoff weekday/time.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">Add a schedule on L3 as well
+      if L3 should be paged on handoff. Overrides cover one-off swaps without editing the rotation.</p>
+  </div>
+</section>
+
+<section id="routing">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Route alerts to the L2 team</h2></div>
+    <p class="sec-sub">Create the rule on the <b>workspace</b> (Workspaces → Platform →
+      <b>Routing rules</b> → <b>Add routing rule</b>). One form = one label matcher. Full examples
+      (two projects, NOC vs L2, shared DevOps): <a href="routing.html">routing rules</a>.</p>
+    <div class="ex">
+      <div class="hd">Add routing rule · workspace <b>Platform</b></div>
+      <dl>
+        <dt>Allow team from another workspace</dt><dd>Off</dd>
+        <dt>Target team</dt><dd>Platform L2</dd>
+        <dt>Label key</dt><dd><code>team</code></dd>
+        <dt>Label value</dt><dd><code>platform</code></dd>
+        <dt>Priority</dt><dd><code>100</code> (higher number is tried first if two rules match)</dd>
+      </dl>
+      <p class="why">Grafana/Alertmanager must send that exact pair (case-sensitive). Extra labels
+        on the alert are fine. If you see rows in <b>Alerts</b> but nothing in <b>Incidents</b>,
+        copy a key/value from the alert detail into this form.</p>
+    </div>
+    <p style="margin-top:14px;color:var(--ink-soft);font-size:14.5px">Webhook URL:
+      <code>{your Aegis origin}/api/v1/alerts/webhook</code>. Do not route new alerts at L3 — L3
+      gets work from a path, not from this rule.</p>
+  </div>
+</section>
+
+<section id="prove">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Prove the chain</h2></div>
+    <p class="sec-sub">Connectors are optional for this check. Jira tickets and chat pages need
+      <a href="connect.html">Connect Jira, Slack, eXpress</a> first.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Send test alert</h3>
+          <p>Open sidebar <b>Setup</b>, go to <b>Test alert</b>, click <b>Send test alert</b>. You
+            should see a toast with an alert id.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Open Incidents</h3>
+          <p>A new incident should list for Platform L2, assigned to whoever the banner named.
+            Open it: timeline, linked alert, and (if connected) a Jira link.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout ok">
+      <b>You are done with first-project setup when</b>
+      <p>Every paging team has a schedule that covers now. Every workspace has at least one routing
+        rule. L2 teams have an L3 path. If you use Jira or chat, <b>Test connection</b> has passed
+        on <b>Integrations</b>.</p>
+    </div>
+    <h3 style="margin-top:28px;font-size:18px">Add another project later</h3>
+    <p class="sec-sub">Same screens, new names. Example: Data beside Platform.</p>
+    <ol class="plain">
+      <li><b>Workspaces</b> → Create workspace <b>Data</b>.</li>
+      <li>Create <b>Data L2</b> and <b>Data L3</b> with the right tiers.</li>
+      <li>On Data L2, add path to Data L3.</li>
+      <li>Routing: <code>project=data</code> → Data L2.</li>
+      <li>On the Data workspace, set Jira to inherit global credentials with project key
+        <code>DATA</code> (see <a href="connect.html">Connect</a>).</li>
+      <li>Create the Data L2 schedule.</li>
+    </ol>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Next: <a href="incidents.html">work an incident</a> as on-call, or
+    <a href="connect.html">connect Jira and chat</a> so tickets and pages fire.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

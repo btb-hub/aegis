@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — routing rules</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">workflow</a>
+      <a href="setup.html">set-up</a>
+      <a class="on" href="routing.html">rules</a>
+      <a href="paths.html">paths</a>
+      <a href="incidents.html">incidents</a>
+      <a href="connect.html">connect</a>
+      <a href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="routing.html">EN</a><a href="ru/routing.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Admin · routing rules</p>
+    <h1>How a label on an alert chooses a team.</h1>
+    <p class="lede">A routing rule is one matcher: <b>this label key equals this value → send the
+      incident to that team</b>. You create the rule on the <b>workspace</b> that owns the project,
+      not on the team. If no rule matches, the alert stays on <b>Alerts</b> and never becomes an
+      incident.</p>
+    <div class="toc">
+      <a href="#where">Where to click</a>
+      <a href="#form">What each field means</a>
+      <a href="#ex1">Example: Platform</a>
+      <a href="#ex2">Example: two projects</a>
+      <a href="#ex3">Example: NOC first</a>
+      <a href="#ex4">Example: shared team</a>
+      <a href="#read">Read labels from an alert</a>
+    </div>
+  </div>
+</div>
+
+<section id="where">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Where to create a rule</h2></div>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Open the workspace, not Teams</h3>
+          <p>Sidebar <b>Workspaces</b> → click <b>Platform</b> (or your project). Scroll to
+            <b>Routing rules</b>. Click <b>Add routing rule</b>. The modal is
+            <b>Add routing rule</b> / <b>Save rule</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>One rule = one matcher</h3>
+          <p>The form has a single <b>Label key</b> and <b>Label value</b>. Need two conditions
+            (<code>team=platform</code> and <code>env=prod</code>)? Create two rules only if you
+            want either to match. The UI does not AND two keys on one rule. Extra labels on the
+            alert are ignored — they do not have to appear on the rule.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="form">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>What each field means</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th>Field on the form</th><th>What to type</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Allow team from another workspace</b></td>
+          <td>Leave off unless the target team lives in a different workspace (shared DevOps). When
+            off, <b>Target team</b> lists only teams in this workspace.</td>
+        </tr>
+        <tr>
+          <td><b>Target team</b></td>
+          <td>Who owns the incident. Almost always the L2 team (or NOC if they take first look).
+            Not L3 — L3 receives work via an escalation path, not from routing.</td>
+        </tr>
+        <tr>
+          <td><b>Label key</b></td>
+          <td>Exact label name from the monitoring payload. Common: <code>team</code>,
+            <code>project</code>, <code>service</code>. Must match spelling and case.</td>
+        </tr>
+        <tr>
+          <td><b>Label value</b></td>
+          <td>Exact value. <code>platform</code> does not match <code>Platform</code> or
+            <code>platform-prod</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Priority</b></td>
+          <td>Integer. Default <code>100</code>. <b>Higher number is tried first</b> when two rules
+            both match the same alert. Equal priority: the team with the lower id wins (do not rely
+            on that — give them different numbers).</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <b>Matching is global</b>
+      <p>Aegis evaluates rules from every workspace together. A high-priority rule on Data can
+        steal a Platform alert if both match the same labels. Keep matchers specific
+        (<code>team=…</code> or <code>project=…</code>), not a bare <code>severity=critical</code>
+        unless you really want all criticals in one team.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex1">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Example 1 — one Platform rule</h2></div>
+    <p class="sec-sub">Grafana sends labels <code>alertname=HighCPU</code>,
+      <code>team=platform</code>, <code>severity=warning</code>. You want Platform L2 to own it.</p>
+    <p>On workspace <b>Platform</b>, <b>Add routing rule</b>, fill exactly:</p>
+    <div class="ex">
+      <div class="hd">Add routing rule · workspace <b>Platform</b></div>
+      <dl>
+        <dt>Allow team from another workspace</dt><dd>Off</dd>
+        <dt>Target team</dt><dd>Platform L2</dd>
+        <dt>Label key</dt><dd><code>team</code></dd>
+        <dt>Label value</dt><dd><code>platform</code></dd>
+        <dt>Priority</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">The rule matches because the alert has <code>team=platform</code>.
+        <code>alertname</code> and <code>severity</code> are extra and do not need their own rules.
+        Click <b>Save rule</b>. The table shows matchers <code>team=platform</code>, team Platform L2,
+        priority 100.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex2">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Example 2 — Platform and Data side by side</h2></div>
+    <p class="sec-sub">Same Grafana, two projects. Alerts use <code>project=platform</code> or
+      <code>project=data</code>.</p>
+    <div class="ex">
+      <div class="hd">Rule A · workspace <b>Platform</b></div>
+      <dl>
+        <dt>Target team</dt><dd>Platform L2</dd>
+        <dt>Label key</dt><dd><code>project</code></dd>
+        <dt>Label value</dt><dd><code>platform</code></dd>
+        <dt>Priority</dt><dd><code>100</code></dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Rule B · workspace <b>Data</b> (create this rule on the Data workspace)</div>
+      <dl>
+        <dt>Target team</dt><dd>Data L2</dd>
+        <dt>Label key</dt><dd><code>project</code></dd>
+        <dt>Label value</dt><dd><code>data</code></dd>
+        <dt>Priority</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">Same priority is fine: an alert cannot match both values at once. Do not put both
+        rules on the Platform workspace unless Data L2 is a cross-workspace target.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex3">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Example 3 — NOC takes critical, L2 takes the rest</h2></div>
+    <p class="sec-sub">You have Platform NOC (tier NOC) and Platform L2. Critical alerts should go
+      to NOC first; everything else with <code>team=platform</code> goes to L2.</p>
+    <div class="ex">
+      <div class="hd">Rule A · higher priority · workspace <b>Platform</b></div>
+      <dl>
+        <dt>Target team</dt><dd>Platform NOC</dd>
+        <dt>Label key</dt><dd><code>severity</code></dd>
+        <dt>Label value</dt><dd><code>critical</code></dd>
+        <dt>Priority</dt><dd><code>200</code></dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Rule B · catch-all for the team · workspace <b>Platform</b></div>
+      <dl>
+        <dt>Target team</dt><dd>Platform L2</dd>
+        <dt>Label key</dt><dd><code>team</code></dd>
+        <dt>Label value</dt><dd><code>platform</code></dd>
+        <dt>Priority</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">Alert <code>team=platform</code> + <code>severity=critical</code> matches both
+        rules. <code>200</code> is tried first → NOC. A warning with only <code>team=platform</code>
+        matches only rule B → L2. Warning: rule A also matches <em>Data</em> criticals if they use
+        the same <code>severity=critical</code> label. Prefer
+        <code>team=platform-noc</code> in Grafana if you need a hard split.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex4">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Example 4 — route to a team in another workspace</h2></div>
+    <p class="sec-sub">DevOps lives in workspace <b>Ops</b>. Platform still receives the Grafana
+      alerts and should hand ownership to DevOps.</p>
+    <div class="ex">
+      <div class="hd">Add routing rule · workspace <b>Platform</b></div>
+      <dl>
+        <dt>Allow team from another workspace</dt><dd>On</dd>
+        <dt>Target team</dt><dd>DevOps (Ops)</dd>
+        <dt>Label key</dt><dd><code>team</code></dd>
+        <dt>Label value</dt><dd><code>devops</code></dd>
+        <dt>Priority</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">The select shows <code>DevOps (Ops)</code> only after the checkbox is on. The
+        incident is owned by DevOps; Jira/Slack follow the Ops workspace slots. The rule still
+        appears on the Platform routing table because that is where you created it.</p>
+    </div>
+  </div>
+</section>
+
+<section id="read">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>If you do not know the label names</h2></div>
+    <ol class="plain">
+      <li>Send one real alert (or <b>Setup</b> → <b>Send test alert</b>).</li>
+      <li>Open <b>Alerts</b>. Open the row. Read the labels on the detail.</li>
+      <li>Copy one key/value pair into <b>Add routing rule</b>. Save.</li>
+      <li>Send again (or wait for the next fire). You should now see an incident.</li>
+    </ol>
+    <div class="callout ok">
+      <b>Checkpoint</b>
+      <p>The routing table on the workspace lists at least one rule. A new matching alert appears
+        under <b>Incidents</b>, assigned to the target team. Next: that team needs
+        <a href="paths.html">escalation paths</a> and someone on call.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Continue with <a href="paths.html">escalation paths</a> so L2 can click
+    <b>Hand off to L3</b>. Full first-project order: <a href="setup.html">set up the workflow</a>.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

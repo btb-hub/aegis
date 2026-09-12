@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — работа с инцидентом</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">процесс</a>
+      <a href="setup.html">настройка</a>
+      <a href="routing.html">правила</a>
+      <a href="paths.html">пути</a>
+      <a class="on" href="incidents.html">инциденты</a>
+      <a href="connect.html">связь</a>
+      <a href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../incidents.html">EN</a><a class="on" href="incidents.html">RU</a></div>
+  </div>
+</header>
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Дежурный · участник</p>
+    <h1>От пэйджа до закрытия инцидента.</h1>
+    <p class="lede">Рабочие области здесь не настраивают. Вы принимаете, разбираете, передаёте на
+      следующий уровень и закрываете. Настройка админа: <a href="setup.html">настройка процесса</a>.</p>
+  </div>
+</div>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Как приходит пэйдж</h2></div>
+    <table class="ref">
+      <thead><tr><th>Канал</th><th>Что видно</th><th>Как принять</th></tr></thead>
+      <tbody>
+        <tr><td>Slack</td><td>ЛС (и канал команды, если задан)</td><td><b>Acknowledge</b> на сообщении</td></tr>
+        <tr><td>eXpress</td><td>Сообщение бота</td><td>Действие в пузыре</td></tr>
+        <tr><td>Веб</td><td>Список <b>Инциденты</b></td><td><b>Принять</b> на карточке</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">Нет ЛС — нет Slack user ID
+      или eXpress huid. Откройте <b>Аккаунт</b>. Это не SSO, см. <a href="connect.html#paging">привязку</a>.</p>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Принять и разобрать</h2></div>
+    <div class="steps">
+      <div class="step"><div><h3>Принять</h3><p>Кнопка <b>Принять</b> в чате или на инциденте. В ленте
+        пишутся кто и когда. Из чата удобнее с телефона.</p></div></div>
+      <div class="step">
+        <div><h3>Одни и те же факты у всех</h3><p>Связанные алерты, тикет Jira, <b>лента</b>. Скрытых
+          строк «только для L3» нет. Затем <b>Закрыть</b>, чтобы MTTA/MTTR на <b>Аналитика</b> были честными.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Передать на следующий уровень</h2></div>
+    <p class="sec-sub">Текст кнопки зависит от уровня команды-владельца. В списке только цели из
+      <b>Путей эскалации</b>.</p>
+    <table class="ref">
+      <thead><tr><th>Уровень владельца</th><th>Кнопка</th><th>Типичная цель</th></tr></thead>
+      <tbody>
+        <tr><td>NOC</td><td>Эскалировать в L1 / L2</td><td>Хелпдеск или Platform L2</td></tr>
+        <tr><td>L1</td><td>Эскалировать в L2</td><td>Platform L2</td></tr>
+        <tr><td>L2</td><td>Передать в L3</td><td>Platform L3</td></tr>
+        <tr><td>L3</td><td>Вернуть в L2</td><td>Предыдущий владелец L2</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn" style="margin-top:16px">
+      <b>Нет кнопки передачи</b>
+      <p>У команды нет исходящего пути. Админ: <b>Команды</b> → эта команда →
+        <b>Пути эскалации</b> → <b>Добавить путь</b>. С инцидента цель выдумать нельзя. Примеры:
+        <a href="paths.html">пути</a>.</p>
+    </div>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">L3 жмёт <b>Вернуть в L2</b>
+      с обязательным комментарием. Это не настраиваемый путь.</p>
+  </div>
+</section>
+<footer>
+  <div class="wrap">Алерты — сырой сигнал, инциденты — работа. Если алерты есть, а инцидентов нет —
+    <a href="troubleshooting.html">сбой</a> или <a href="routing.html">правило</a>.</div>
+</footer>
+<script src="../guide.js"></script>
+</body>
+</html>

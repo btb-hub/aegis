@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — если процесс неполный</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">процесс</a>
+      <a href="setup.html">настройка</a>
+      <a href="routing.html">правила</a>
+      <a href="paths.html">пути</a>
+      <a href="incidents.html">инциденты</a>
+      <a href="connect.html">связь</a>
+      <a class="on" href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../troubleshooting.html">EN</a><a class="on" href="troubleshooting.html">RU</a></div>
+  </div>
+</header>
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Пользователь · тупики</p>
+    <h1>Когда процесс собран не до конца.</h1>
+    <p class="lede">Сверьте с тем, что видно в продукте. Чаще всего нет правила маршрутизации,
+      пустая ротация или человек ни разу не входил. Docker и <code>.env</code> — в
+      <a href="../../07-setup-deployment.md">07-setup-deployment.md</a>.</p>
+  </div>
+</div>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Симптом → куда нажать</h2></div>
+    <div class="table-wrap">
+    <table class="ref">
+      <thead><tr><th>Вы видите</th><th>Что это</th><th>Куда</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Строки в <b>Алертах</b>, пусто в <b>Инцидентах</b></td>
+          <td>Вебхук дошёл. Ни одно правило не совпало с метками.</td>
+          <td><b>Рабочие области</b> → проект → <b>Добавить правило</b>. Сверьте ключ и значение с алертом. Примеры: <a href="routing.html">правила</a>.</td>
+        </tr>
+        <tr>
+          <td>Инцидент есть, <b>Сейчас на смене</b> пусто</td>
+          <td>Нет графика на это время.</td>
+          <td><b>Смены</b> этой команды → <b>Создать график</b> или <b>Добавить подмену</b>.</td>
+        </tr>
+        <tr>
+          <td>Нет кнопки <b>Передать в L3</b></td>
+          <td>У команды-владельца нет исходящего пути.</td>
+          <td><b>Команды</b> → эта команда → <b>Пути эскалации</b> → <b>Добавить путь</b>. Примеры: <a href="paths.html">пути</a>.</td>
+        </tr>
+        <tr>
+          <td>Пикер передачи пустой</td>
+          <td>Путь есть, но цель исчезла, без уровня, или в другой области без галочки.</td>
+          <td>Поправьте путь. <b>Разрешить команду из другой области</b> — только для общего L3.</td>
+        </tr>
+        <tr>
+          <td>Поиск участников никого не находит</td>
+          <td>Эти люди ещё не входили.</td>
+          <td>Пусть зайдут на страницу входа один раз, затем снова <b>Добавить участника</b>.</td>
+        </tr>
+        <tr>
+          <td>Нельзя создать команды</td>
+          <td>Роль Участник или Наблюдатель.</td>
+          <td><b>Аккаунт</b> показывает роль. Админ повышает в <b>Пользователи</b>.</td>
+        </tr>
+        <tr>
+          <td>Инцидент без тикета Jira / без пэйджа</td>
+          <td>Слот не готов или нет идентификатора в Аккаунте.</td>
+          <td><b>Проверить подключение</b>. Пользователь открывает <b>Аккаунт</b> и привязывает Slack/eXpress.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Чеклист админа перед боем</h2></div>
+    <ol class="plain">
+      <li>У каждого проекта есть <b>рабочая область</b>.</li>
+      <li>L2 и L3 с правильным <b>уровнем поддержки</b>.</li>
+      <li>Дежурные <b>входили</b> и добавлены в команду.</li>
+      <li>У L2 есть <b>путь эскалации</b> на L3.</li>
+      <li><b>Сейчас на смене</b> называет человека.</li>
+      <li>У области есть <b>правило маршрутизации</b> под реальные метки.</li>
+      <li><b>Проверить подключение</b> прошло для нужных коннекторов.</li>
+    </ol>
+  </div>
+</section>
+<footer>
+  <div class="wrap">Снова по шагам: <a href="setup.html">настройка процесса</a>.</div>
+</footer>
+<script src="../guide.js"></script>
+</body>
+</html>
