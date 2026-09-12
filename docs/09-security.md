@@ -29,6 +29,14 @@ MVP supports exactly three identity providers:
 - TTL configurable (default 7 days sliding).
 - Middleware rejects expired or missing session on protected routes.
 
+### Outer proxy vs Aegis session
+
+If an identity-aware proxy sits in front of the UI, it is not the Aegis session (`aegis_session`)
+or the Aegis OIDC callback (`/auth/{provider}/callback`). oauth2-proxy uses `_oauth2_proxy*` cookies
+and `/oauth2/callback`. Google IAP uses GCP cookies and path exemptions, not that callback. A 403
+HTML page that says "Secured with OAuth2 Proxy" is the oauth2-proxy gate. Diagnose it in
+[`07-setup-deployment.md`](./07-setup-deployment.md#outer-identity-proxy).
+
 ### Slack dual credentials
 
 - **OIDC client** — human login to Aegis UI.
