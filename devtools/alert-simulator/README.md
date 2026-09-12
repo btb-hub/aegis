@@ -7,7 +7,7 @@ This code is **not** part of the production API or worker binaries. It lives und
 and is excluded from production Docker images.
 
 Walkthrough of the product workflow (routing + test alert):
-[`docs/how-to/setup.html`](../../docs/how-to/setup.html).
+[`docs/how-to/setup.md`](../../docs/how-to/setup.md).
 
 ## Prerequisites
 
