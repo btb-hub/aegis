@@ -3,6 +3,12 @@
 Local source builds run on **Docker Compose** — Postgres, API, worker, web. Production deploys use
 the all-in-one GHCR image with external Postgres. No Redis.
 
+**User how-tos** (open in a browser): [`how-to/index.html`](./how-to/index.html) — how to set up
+the on-call workflow in the product ([setup](./how-to/setup.html),
+[incidents](./how-to/incidents.html), [connectors](./how-to/connect.html),
+[stuck states](./how-to/troubleshooting.html)).
+This page remains the authoritative env, migration, and production checklist.
+
 ## Production image (GHCR)
 
 Third parties and Kubernetes deploy from a **single public image** — API, worker, and web in one

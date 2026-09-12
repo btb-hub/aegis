@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — escalation paths</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">workflow</a>
+      <a href="setup.html">set-up</a>
+      <a href="routing.html">rules</a>
+      <a class="on" href="paths.html">paths</a>
+      <a href="incidents.html">incidents</a>
+      <a href="connect.html">connect</a>
+      <a href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="paths.html">EN</a><a href="ru/paths.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Admin · escalation paths</p>
+    <h1>How L2 is allowed to hand work to L3.</h1>
+    <p class="lede">A support tier on a team is only a badge until you add a <b>path</b>. The path
+      is the allow-list: “from this team, the incident screen may offer that team.” You add it on
+      the <b>source</b> team (the one that will click the button), under <b>Escalation paths</b> →
+      <b>Outgoing paths</b> → <b>Add path</b>.</p>
+    <div class="toc">
+      <a href="#why">Why this is separate from routing</a>
+      <a href="#allowed">Which tiers can point where</a>
+      <a href="#where">Where to click</a>
+      <a href="#ex1">Example: L2 → L3</a>
+      <a href="#ex2">Example: NOC chain</a>
+      <a href="#ex3">Example: shared L3</a>
+      <a href="#empty">Empty picker / missing button</a>
+    </div>
+  </div>
+</div>
+
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Routing vs a path</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th></th><th>Routing rule</th><th>Escalation path</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Question it answers</td><td>Which team owns a <b>new</b> alert?</td><td>Where may that team <b>send</b> an open incident?</td></tr>
+        <tr><td>Where you configure it</td><td><b>Workspaces</b> → project → <b>Routing rules</b></td><td><b>Teams</b> → source team → <b>Escalation paths</b></td></tr>
+        <tr><td>Typical target</td><td>L2 or NOC</td><td>The next tier (L3, or L2 from NOC/L1)</td></tr>
+        <tr><td>If missing</td><td>Alert never becomes an incident</td><td>No <b>Hand off to L3</b> / escalate button, or the picker is empty</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px"><b>Bounce</b> is not a path you
+      configure. L3 clicks <b>Bounce to L2</b> and Aegis returns the incident to the previous owner.</p>
+  </div>
+</section>
+
+<section id="allowed">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Allowed from → to</h2></div>
+    <p class="sec-sub">The <b>To team</b> select only lists teams whose tier is legal for the source.
+      Both teams need a support tier set (<b>Save tier</b> on team settings).</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Source team tier</th><th>You may add a path to</th><th>Button on the incident</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>NOC</td><td>L1 or L2</td><td>Escalate to L1 / Escalate to L2</td></tr>
+        <tr><td>L1</td><td>L2</td><td>Escalate to L2</td></tr>
+        <tr><td>L2</td><td>L3</td><td>Hand off to L3</td></tr>
+        <tr><td>L3</td><td>Nothing outgoing</td><td>Bounce to L2 (not a path)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <b>No valid target teams for this tier</b>
+      <p>That empty-state on <b>Add path</b> means there is no L3 (or L2/L1) team yet, the only
+        candidate already has a path, or you need <b>Allow team from another workspace</b> because
+        the target lives elsewhere. Create the target team and set its tier first.</p>
+    </div>
+  </div>
+</section>
+
+<section id="where">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Where to click</h2></div>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Open the team that will click Hand off</h3>
+          <p>Sidebar <b>Teams</b> → <b>Platform L2</b> (not L3). Scroll to
+            <b>Escalation paths</b>. You will see <b>Outgoing paths</b> (empty at first) and
+            <b>Incoming paths</b> (paths other teams already point at this team).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Add path</h3>
+          <p>Click <b>Add path</b>. Optionally check <b>Allow team from another workspace</b>.
+            Choose <b>To team</b>. Confirm. Toast: <b>Escalation path added</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Confirm on both sides</h3>
+          <p>L2 <b>Outgoing paths</b> shows To team = Platform L3. Open Platform L3 —
+            <b>Incoming paths</b> shows From team = Platform L2.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ex1">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Example 1 — Platform L2 → Platform L3</h2></div>
+    <p class="sec-sub">Minimum for most projects. Teams already exist with tiers L2 and L3 in
+      workspace Platform.</p>
+    <div class="ex">
+      <div class="hd">Add path · on team <b>Platform L2</b></div>
+      <dl>
+        <dt>Allow team from another workspace</dt><dd>Off</dd>
+        <dt>To team</dt><dd>Platform L3</dd>
+      </dl>
+      <p class="why">On an incident owned by Platform L2, the engineer sees <b>Hand off to L3</b>
+        and can pick Platform L3. Aegis pages whoever <b>On call now</b> is on Platform L3. If L3
+        has no schedule, handoff fails with a message to open <b>Shifts</b>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex2">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Example 2 — NOC → L1 → L2 → L3</h2></div>
+    <p class="sec-sub">Four teams in workspace Platform: Platform NOC, Platform L1, Platform L2,
+      Platform L3. Add <b>three</b> paths (NOC may also skip L1).</p>
+    <div class="ex">
+      <div class="hd">Path 1 · on <b>Platform NOC</b></div>
+      <dl>
+        <dt>To team</dt><dd>Platform L1</dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Path 2 · on <b>Platform NOC</b> (optional bypass)</div>
+      <dl>
+        <dt>To team</dt><dd>Platform L2</dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Path 3 · on <b>Platform L1</b></div>
+      <dl>
+        <dt>To team</dt><dd>Platform L2</dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Path 4 · on <b>Platform L2</b></div>
+      <dl>
+        <dt>To team</dt><dd>Platform L3</dd>
+      </dl>
+      <p class="why">NOC incidents show Escalate to L1 and Escalate to L2. L1 sees Escalate to L2.
+        L2 sees Hand off to L3. You cannot add NOC → L3; that pair is not allowed. Route monitoring
+        to NOC with a <a href="routing.html#ex3">routing rule</a>, then let people walk the chain.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex3">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Example 3 — Data L2 may use Platform L3</h2></div>
+    <p class="sec-sub">Data has no L3 of its own. Shared specialists live on Platform L3.</p>
+    <div class="ex">
+      <div class="hd">Add path · on team <b>Data L2</b></div>
+      <dl>
+        <dt>Allow team from another workspace</dt><dd>On</dd>
+        <dt>To team</dt><dd>Platform L3 (Platform)</dd>
+      </dl>
+      <p class="why">Without the checkbox, Platform L3 does not appear in the select. You can still
+        also add Data L3 later; both targets then show in the handoff picker. Incoming paths on
+        Platform L3 will list Data L2.</p>
+    </div>
+  </div>
+</section>
+
+<section id="empty">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>What on-call sees when this is wrong</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th>On the incident</th><th>Fix on Teams</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>No Hand off / Escalate button</td>
+          <td>Owning team has no outgoing path. Open that team, <b>Add path</b>.</td>
+        </tr>
+        <tr>
+          <td>Helper: no escalation targets configured</td>
+          <td>Same — path missing or target team lost its tier.</td>
+        </tr>
+        <tr>
+          <td>Handoff fails: nobody on call on the target</td>
+          <td>Path is fine. Open <b>Shifts</b> for the <em>target</b> team and create a schedule.</td>
+        </tr>
+        <tr>
+          <td>Wrong L3 in the picker (Platform L3 on a Data incident)</td>
+          <td>You added a cross-workspace path. Remove it if that was not intended.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout ok">
+      <b>Checkpoint</b>
+      <p>Source team outgoing list has the target. Target team incoming list has the source. Open a
+        test incident on L2 and confirm <b>Hand off to L3</b> lists that L3 team.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Routing (who owns a new alert): <a href="routing.html">routing rules</a>.
+    Day-to-day buttons: <a href="incidents.html">work an incident</a>.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

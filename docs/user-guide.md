@@ -4,7 +4,8 @@ How to use Aegis day to day. This guide covers **access roles** (who can change 
 **support tiers** (how on-call engineers work incidents). Everyone shares the same sign-in flow and
 navigation; what you can do depends on your role and team membership.
 
-For installation and first-time setup, see [`07-setup-deployment.md`](./07-setup-deployment.md).
+For installation of the software, see [`07-setup-deployment.md`](./07-setup-deployment.md).
+For first-time **workflow** setup in the product, open [`how-to/index.html`](./how-to/index.html).
 For security details, see [`09-security.md`](./09-security.md).
 
 ---
@@ -301,6 +302,7 @@ Link eXpress for paging on **Account** if you sign in with Google or Slack but p
 
 ## Related docs
 
+- HTML how-tos (workflow, routing rules, escalation paths; EN + RU): [`how-to/index.html`](./how-to/index.html)
 - Setup and deployment: [`07-setup-deployment.md`](./07-setup-deployment.md)
 - Workspaces and tiers (design): [`features/support-levels-and-workspaces.md`](./features/support-levels-and-workspaces.md)
 - Incident lifecycle: [`features/incident-management.md`](./features/incident-management.md)

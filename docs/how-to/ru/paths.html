@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — пути эскалации</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">процесс</a>
+      <a href="setup.html">настройка</a>
+      <a href="routing.html">правила</a>
+      <a class="on" href="paths.html">пути</a>
+      <a href="incidents.html">инциденты</a>
+      <a href="connect.html">связь</a>
+      <a href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../paths.html">EN</a><a class="on" href="paths.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Админ · пути эскалации</p>
+    <h1>Как L2 разрешают передать работу в L3.</h1>
+    <p class="lede">Уровень поддержки на команде — только бейдж, пока нет <b>пути</b>. Путь — это
+      список разрешений: «с этой команды экран инцидента может предложить ту команду». Путь
+      добавляют на <b>исходной</b> команде (той, кто нажмёт кнопку): <b>Пути эскалации</b> →
+      <b>Исходящие пути</b> → <b>Добавить путь</b>.</p>
+    <div class="toc">
+      <a href="#why">Чем путь отличается от правила</a>
+      <a href="#allowed">Какие уровни куда можно</a>
+      <a href="#where">Куда нажимать</a>
+      <a href="#ex1">Пример: L2 → L3</a>
+      <a href="#ex2">Пример: цепочка NOC</a>
+      <a href="#ex3">Пример: общий L3</a>
+      <a href="#empty">Пустой список / нет кнопки</a>
+    </div>
+  </div>
+</div>
+
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Правило маршрутизации и путь</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th></th><th>Правило маршрутизации</th><th>Путь эскалации</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Вопрос</td><td>Какая команда владеет <b>новым</b> алертом?</td><td>Куда эта команда может <b>передать</b> открытый инцидент?</td></tr>
+        <tr><td>Где настраивают</td><td><b>Рабочие области</b> → проект → <b>Правила маршрутизации</b></td><td><b>Команды</b> → исходная команда → <b>Пути эскалации</b></td></tr>
+        <tr><td>Типичная цель</td><td>L2 или NOC</td><td>Следующий уровень (L3, или L2 с NOC/L1)</td></tr>
+        <tr><td>Если нет</td><td>Алерт не становится инцидентом</td><td>Нет кнопки <b>Передать в L3</b> / эскалации, или пустой список целей</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px"><b>Вернуть в L2</b> — не путь.
+      L3 нажимает <b>Вернуть в L2</b>, инцидент уходит предыдущему владельцу.</p>
+  </div>
+</section>
+
+<section id="allowed">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Откуда → куда можно</h2></div>
+    <p class="sec-sub">В <b>В команду</b> попадают только команды с допустимым уровнем. У обеих команд
+      уровень должен быть сохранён (<b>Сохранить уровень</b> в настройках команды).</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Уровень исходной команды</th><th>Можно добавить путь в</th><th>Кнопка на инциденте</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>NOC</td><td>L1 или L2</td><td>Эскалировать в L1 / Эскалировать в L2</td></tr>
+        <tr><td>L1</td><td>L2</td><td>Эскалировать в L2</td></tr>
+        <tr><td>L2</td><td>L3</td><td>Передать в L3</td></tr>
+        <tr><td>L3</td><td>Исходящих путей нет</td><td>Вернуть в L2 (это не путь)</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <b>Нет подходящих команд для этого уровня</b>
+      <p>Так пишет пустое состояние <b>Добавить путь</b>: ещё нет команды L3 (или L2/L1), единственный
+        кандидат уже в списке, либо цель в другой области — включите
+        <b>Разрешить команду из другой области</b>. Сначала создайте целевую команду и задайте ей уровень.</p>
+    </div>
+  </div>
+</section>
+
+<section id="where">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Куда нажимать</h2></div>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Откройте команду, которая нажмёт «Передать»</h3>
+          <p>Сайдбар <b>Команды</b> → <b>Platform L2</b> (не L3). Блок <b>Пути эскалации</b>:
+            <b>Исходящие пути</b> (пока пусто) и <b>Входящие пути</b> (кто уже указывает на эту команду).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Добавить путь</h3>
+          <p><b>Добавить путь</b>. При необходимости <b>Разрешить команду из другой области</b>.
+            Выберите <b>В команду</b>. Тост: <b>Путь эскалации добавлен</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Проверьте обе стороны</h3>
+          <p>У L2 в исходящих: В команду = Platform L3. У Platform L3 во входящих: Из команды = Platform L2.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="ex1">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Пример 1 — Platform L2 → Platform L3</h2></div>
+    <p class="sec-sub">Минимум для большинства проектов. Команды с уровнями L2 и L3 уже есть в области Platform.</p>
+    <div class="ex">
+      <div class="hd">Добавить путь · команда <b>Platform L2</b></div>
+      <dl>
+        <dt>Разрешить команду из другой области</dt><dd>Выкл.</dd>
+        <dt>В команду</dt><dd>Platform L3</dd>
+      </dl>
+      <p class="why">На инциденте Platform L2 инженер видит <b>Передать в L3</b> и выбирает Platform L3.
+        Aegis пэйджит того, кто в <b>Сейчас на смене</b> у Platform L3. Если у L3 нет графика, передача
+        упадёт с подсказкой открыть <b>Смены</b>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex2">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Пример 2 — NOC → L1 → L2 → L3</h2></div>
+    <p class="sec-sub">Четыре команды в Platform: Platform NOC, Platform L1, Platform L2, Platform L3.
+      Нужны три (или четыре) пути.</p>
+    <div class="ex">
+      <div class="hd">Путь 1 · на <b>Platform NOC</b></div>
+      <dl>
+        <dt>В команду</dt><dd>Platform L1</dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Путь 2 · на <b>Platform NOC</b> (обход L1)</div>
+      <dl>
+        <dt>В команду</dt><dd>Platform L2</dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Путь 3 · на <b>Platform L1</b></div>
+      <dl>
+        <dt>В команду</dt><dd>Platform L2</dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Путь 4 · на <b>Platform L2</b></div>
+      <dl>
+        <dt>В команду</dt><dd>Platform L3</dd>
+      </dl>
+      <p class="why">У NOC будут «Эскалировать в L1» и «Эскалировать в L2». У L1 — «Эскалировать в L2».
+        У L2 — «Передать в L3». NOC → L3 добавить нельзя. Алерты на NOC ведите
+        <a href="routing.html#ex3">правилом маршрутизации</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex3">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Пример 3 — Data L2 пользуется Platform L3</h2></div>
+    <p class="sec-sub">У Data нет своего L3. Специалисты живут в Platform L3.</p>
+    <div class="ex">
+      <div class="hd">Добавить путь · команда <b>Data L2</b></div>
+      <dl>
+        <dt>Разрешить команду из другой области</dt><dd>Вкл.</dd>
+        <dt>В команду</dt><dd>Platform L3 (Platform)</dd>
+      </dl>
+      <p class="why">Без галочки Platform L3 в списке не появится. Позже можно добавить и Data L3 —
+        в пикере будут обе цели. Во входящих у Platform L3 появится Data L2.</p>
+    </div>
+  </div>
+</section>
+
+<section id="empty">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Что видит дежурный, если путь кривой</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th>На инциденте</th><th>Что сделать в Командах</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Нет кнопки Передать / Эскалировать</td>
+          <td>У команды-владельца нет исходящего пути. Откройте её, <b>Добавить путь</b>.</td>
+        </tr>
+        <tr>
+          <td>Подсказка: цели эскалации не настроены</td>
+          <td>То же — нет пути или у цели сняли уровень.</td>
+        </tr>
+        <tr>
+          <td>Ошибка: в целевой команде никто не дежурит</td>
+          <td>Путь верный. Откройте <b>Смены</b> у <em>целевой</em> команды и создайте график.</td>
+        </tr>
+        <tr>
+          <td>В пикере чужой L3 (Platform L3 на инциденте Data)</td>
+          <td>Добавлен межобластный путь. Удалите его, если так не задумано.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout ok">
+      <b>Проверка</b>
+      <p>Исходящие исходной команды содержат цель. Входящие цели содержат источник. На тестовом
+        инциденте L2 кнопка <b>Передать в L3</b> показывает эту L3.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Кто забирает новый алерт: <a href="routing.html">правила маршрутизации</a>.
+    Кнопки дежурного: <a href="incidents.html">работа с инцидентом</a>.
+  </div>
+</footer>
+
+<script src="../guide.js"></script>
+</body>
+</html>

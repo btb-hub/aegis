@@ -6,6 +6,9 @@ through the **public alert webhook** and configures demo routing through the **H
 This code is **not** part of the production API or worker binaries. It lives under `devtools/`
 and is excluded from production Docker images.
 
+Walkthrough of the product workflow (routing + test alert):
+[`docs/how-to/setup.html`](../../docs/how-to/setup.html).
+
 ## Prerequisites
 
 - Aegis API and worker running

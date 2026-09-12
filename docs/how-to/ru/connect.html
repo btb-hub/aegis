@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — Jira, Slack, eXpress</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">процесс</a>
+      <a href="setup.html">настройка</a>
+      <a href="routing.html">правила</a>
+      <a href="paths.html">пути</a>
+      <a href="incidents.html">инциденты</a>
+      <a class="on" href="connect.html">связь</a>
+      <a href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../connect.html">EN</a><a class="on" href="connect.html">RU</a></div>
+  </div>
+</header>
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Админ · коннекторы</p>
+    <h1>Подключите Jira, Slack и eXpress в интерфейсе.</h1>
+    <p class="lede">Тикет и пэйдж не обязательны, чтобы инцидент существовал, но так работу видит
+      остальная компания. Настраивайте на <b>Интеграции</b> и на каждой рабочей области. Мастер не
+      нужен, чтобы сменить один секрет.</p>
+  </div>
+</div>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Глобальные коннекторы</h2></div>
+    <p class="sec-sub">Сайдбар → <b>Интеграции</b>. Это значения по умолчанию, которые области могут
+      наследовать.</p>
+    <div class="steps">
+      <div class="step"><div><h3>Jira</h3><p><b>Добавить интеграцию</b> или <b>Настроить</b>. Базовый URL,
+        email, API-токен, ключ проекта. <b>Сохранить</b>, затем <b>Проверить подключение</b>.</p></div></div>
+      <div class="step"><div><h3>Slack</h3><p>Токен бота и signing secret. ЛС идут на Slack user ID
+        пользователя. Объявления — на ID канала команды.</p></div></div>
+      <div class="step"><div><h3>eXpress</h3><p>ID бота, хост, секрет. Кто вошёл через Google или Slack,
+        всё равно привязывает eXpress в <b>Аккаунт</b>.</p></div></div>
+    </div>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Слоты рабочей области</h2></div>
+    <p class="sec-sub">У каждой области слоты Jira, Slack и eXpress. Откройте область → <b>Интеграции</b>.</p>
+    <table class="ref">
+      <thead><tr><th>Режим</th><th>Когда</th></tr></thead>
+      <tbody>
+        <tr><td><b>Наследовать</b></td><td>Глобальный коннектор. У Jira можно свой ключ проекта (Platform →
+          <code>OPS</code>, Data → <code>DATA</code>).</td></tr>
+        <tr><td><b>Собственные</b></td><td>Полные свои учётные данные, без смешивания с глобальными.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+<section id="paging">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Кого пэйджить — в Аккаунте</h2></div>
+    <ol class="plain">
+      <li>Каждый дежурный открывает <b>Аккаунт</b>.</li>
+      <li>Slack: подключить Slack, чтобы появился Slack user ID.</li>
+      <li>eXpress: <b>Сгенерировать код привязки</b> и <code>/link</code> в eXpress.</li>
+      <li>Язык <b>English</b> / <b>Русский</b> тоже здесь — тексты пэйджей идут на языке получателя.</li>
+    </ol>
+  </div>
+</section>
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Нет коннектора — инцидент всё равно будет</h2></div>
+    <p class="sec-sub">Если Jira или чат не готовы, алерт и инцидент всё равно создаются. В ленте
+      событие <code>integration_skipped</code>. Почините слот, не пересылайте вебхук без нужды —
+      получите дубль алерта.</p>
+  </div>
+</section>
+<footer>
+  <div class="wrap">Контракты коннекторов: <a href="../../integrations/README.md">docs/integrations</a>.
+    Назад к <a href="setup.html">настройке процесса</a>.</div>
+</footer>
+<script src="../guide.js"></script>
+</body>
+</html>

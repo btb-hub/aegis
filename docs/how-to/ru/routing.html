@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — правила маршрутизации</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">процесс</a>
+      <a href="setup.html">настройка</a>
+      <a class="on" href="routing.html">правила</a>
+      <a href="paths.html">пути</a>
+      <a href="incidents.html">инциденты</a>
+      <a href="connect.html">связь</a>
+      <a href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../routing.html">EN</a><a class="on" href="routing.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Админ · правила маршрутизации</p>
+    <h1>Как метка на алерте выбирает команду.</h1>
+    <p class="lede">Правило маршрутизации — это одно совпадение: <b>этот ключ метки равен этому
+      значению → инцидент уходит в эту команду</b>. Правило создают на <b>рабочей области</b>
+      проекта, не на команде. Если ни одно правило не совпало, алерт остаётся в <b>Алертах</b> и не
+      становится инцидентом.</p>
+    <div class="toc">
+      <a href="#where">Куда нажимать</a>
+      <a href="#form">Поля формы</a>
+      <a href="#ex1">Пример: Платформа</a>
+      <a href="#ex2">Пример: два проекта</a>
+      <a href="#ex3">Пример: сначала NOC</a>
+      <a href="#ex4">Пример: общая команда</a>
+      <a href="#read">Как прочитать метки</a>
+    </div>
+  </div>
+</div>
+
+<section id="where">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Где создать правило</h2></div>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Откройте рабочую область, не Команды</h3>
+          <p>В сайдбаре <b>Рабочие области</b> → <b>Platform</b> (или ваш проект). Блок
+            <b>Правила маршрутизации</b> → <b>Добавить правило</b>. Сохранение — <b>Сохранить правило</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Одно правило = одно совпадение</h3>
+          <p>В форме один <b>Ключ метки</b> и одно <b>Значение метки</b>. Два условия на одном
+            правиле (И) в интерфейсе нельзя. Лишние метки на алерте не мешают — правило не обязано
+            перечислять их все.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="form">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Что значит каждое поле</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th>Поле</th><th>Что указать</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Разрешить команду из другой области</b></td>
+          <td>Выключено, если целевая команда в этой же области. Включайте только для общей команды
+            (например DevOps в другой области). Тогда в <b>Целевая команда</b> появятся чужие команды.</td>
+        </tr>
+        <tr>
+          <td><b>Целевая команда</b></td>
+          <td>Кто станет владельцем инцидента. Обычно L2 или NOC. Не L3 — L3 получает работу по
+            <a href="paths.html">пути эскалации</a>, не из маршрутизации.</td>
+        </tr>
+        <tr>
+          <td><b>Ключ метки</b></td>
+          <td>Точное имя метки из мониторинга. Часто <code>team</code>, <code>project</code>,
+            <code>service</code>. Регистр важен.</td>
+        </tr>
+        <tr>
+          <td><b>Значение метки</b></td>
+          <td>Точное значение. <code>platform</code> не совпадёт с <code>Platform</code> или
+            <code>platform-prod</code>.</td>
+        </tr>
+        <tr>
+          <td><b>Приоритет</b></td>
+          <td>Целое число. По умолчанию <code>100</code>. <b>Большее число проверяется первым</b>,
+            если два правила подошли к одному алерту. При равном приоритете не полагайтесь на порядок —
+            задайте разные числа.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <b>Сопоставление глобальное</b>
+      <p>Aegis смотрит правила всех рабочих областей вместе. Правило с высоким приоритетом в Data
+        может перехватить алерт Platform, если метки те же. Делайте матчер узким
+        (<code>team=…</code> или <code>project=…</code>), а не голый <code>severity=critical</code>,
+        если не хотите все critical в одну команду.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex1">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Пример 1 — одно правило для Platform</h2></div>
+    <p class="sec-sub">Grafana шлёт <code>alertname=HighCPU</code>, <code>team=platform</code>,
+      <code>severity=warning</code>. Владелец — Platform L2.</p>
+    <p>Рабочая область <b>Platform</b> → <b>Добавить правило</b>:</p>
+    <div class="ex">
+      <div class="hd">Добавить правило · область <b>Platform</b></div>
+      <dl>
+        <dt>Разрешить команду из другой области</dt><dd>Выкл.</dd>
+        <dt>Целевая команда</dt><dd>Platform L2</dd>
+        <dt>Ключ метки</dt><dd><code>team</code></dd>
+        <dt>Значение метки</dt><dd><code>platform</code></dd>
+        <dt>Приоритет</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why"><code>team=platform</code> достаточно. <code>alertname</code> и
+        <code>severity</code> можно не дублировать. После <b>Сохранить правило</b> в таблице:
+        совпадение <code>team=platform</code>, команда Platform L2, приоритет 100.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex2">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Пример 2 — Platform и Data рядом</h2></div>
+    <p class="sec-sub">Один Grafana, два проекта. Метка <code>project=platform</code> или
+      <code>project=data</code>.</p>
+    <div class="ex">
+      <div class="hd">Правило A · область <b>Platform</b></div>
+      <dl>
+        <dt>Целевая команда</dt><dd>Platform L2</dd>
+        <dt>Ключ метки</dt><dd><code>project</code></dd>
+        <dt>Значение метки</dt><dd><code>platform</code></dd>
+        <dt>Приоритет</dt><dd><code>100</code></dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Правило B · область <b>Data</b> (создайте его на странице Data)</div>
+      <dl>
+        <dt>Целевая команда</dt><dd>Data L2</dd>
+        <dt>Ключ метки</dt><dd><code>project</code></dd>
+        <dt>Значение метки</dt><dd><code>data</code></dd>
+        <dt>Приоритет</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">Одинаковый приоритет нормален: одно значение <code>project</code> не совпадёт с
+        обоими правилами сразу. Не кладите оба правила на Platform, если Data L2 не цель из другой
+        области.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex3">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Пример 3 — critical в NOC, остальное в L2</h2></div>
+    <p class="sec-sub">Команды Platform NOC и Platform L2. Critical сначала на NOC, остальные с
+      <code>team=platform</code> — на L2.</p>
+    <div class="ex">
+      <div class="hd">Правило A · выше приоритет · область <b>Platform</b></div>
+      <dl>
+        <dt>Целевая команда</dt><dd>Platform NOC</dd>
+        <dt>Ключ метки</dt><dd><code>severity</code></dd>
+        <dt>Значение метки</dt><dd><code>critical</code></dd>
+        <dt>Приоритет</dt><dd><code>200</code></dd>
+      </dl>
+    </div>
+    <div class="ex">
+      <div class="hd">Правило B · остальное · область <b>Platform</b></div>
+      <dl>
+        <dt>Целевая команда</dt><dd>Platform L2</dd>
+        <dt>Ключ метки</dt><dd><code>team</code></dd>
+        <dt>Значение метки</dt><dd><code>platform</code></dd>
+        <dt>Приоритет</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">Алерт <code>team=platform</code> + <code>severity=critical</code> подходит обоим.
+        Сначала <code>200</code> → NOC. Warning только с <code>team=platform</code> → L2.
+        Правило A также поймает critical из Data, если там та же метка. Для жёсткого разделения
+        лучше своя метка в Grafana, например <code>team=platform-noc</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="ex4">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Пример 4 — команда в другой области</h2></div>
+    <p class="sec-sub">DevOps живёт в области <b>Ops</b>. Алерты приходят в Grafana как
+      <code>team=devops</code>, правило создаёте на Platform.</p>
+    <div class="ex">
+      <div class="hd">Добавить правило · область <b>Platform</b></div>
+      <dl>
+        <dt>Разрешить команду из другой области</dt><dd>Вкл.</dd>
+        <dt>Целевая команда</dt><dd>DevOps (Ops)</dd>
+        <dt>Ключ метки</dt><dd><code>team</code></dd>
+        <dt>Значение метки</dt><dd><code>devops</code></dd>
+        <dt>Приоритет</dt><dd><code>100</code></dd>
+      </dl>
+      <p class="why">В списке появится <code>DevOps (Ops)</code> только после галочки. Владелец
+        инцидента — DevOps; Jira/Slack берутся из слотов Ops. Строка правила остаётся в таблице
+        Platform — там вы её создали.</p>
+    </div>
+  </div>
+</section>
+
+<section id="read">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Если не знаете имена меток</h2></div>
+    <ol class="plain">
+      <li>Пришлите один реальный алерт (или <b>Мастер настройки</b> → <b>Отправить тестовый алерт</b>).</li>
+      <li>Откройте <b>Алерты</b> → строку → метки.</li>
+      <li>Скопируйте одну пару ключ/значение в <b>Добавить правило</b> и сохраните.</li>
+      <li>Повторите алерт. Должен появиться инцидент.</li>
+    </ol>
+    <div class="callout ok">
+      <b>Проверка</b>
+      <p>В таблице правил рабочей области есть хотя бы одна строка. Новый подходящий алерт виден в
+        <b>Инцидентах</b> на целевой команде. Дальше команде нужны
+        <a href="paths.html">пути эскалации</a> и дежурный.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Дальше: <a href="paths.html">пути эскалации</a>, чтобы L2 мог нажать
+    <b>Передать в L3</b>. Порядок первого проекта: <a href="setup.html">настройка процесса</a>.
+  </div>
+</footer>
+
+<script src="../guide.js"></script>
+</body>
+</html>

@@ -3,22 +3,192 @@
 > Working codename: **Aegis**. Internal platform for shift scheduling, alert routing, incident
 > management, and L2↔L3 coordination, with a web UI and integrations into Jira, Slack, and eXpress.
 
-This repository is **documentation-first**. It is written so AI coding agents (and humans) can pick
-up work in a tight, repeatable loop without re-deriving context every time. Start here, then go to
-the agent loop.
-
-## What we're building (one paragraph)
-
 A small ops team needs to know who is on call right now, get alerted when things break on the
 channels they actually use, turn noisy alerts into tracked incidents (with a Jira ticket created
 automatically), and hand work cleanly between L2 and L3 support. Aegis does that and gives the IT
 department dashboards to analyse what's happening. The product must be easy to **set up**, easy to
-**use**, and easy to **analyse** — those three are the north star for every decision.
+**use**, and easy to **analyse**.
+
+This repository is **documentation-first**. Specs live in `docs/` and `backlog/`. The HTML
+how-tos are the **user manual** for configuring the on-call workflow in the product.
+
+## How-to: set up the workflow (open in a browser)
+
+These pages are for admins and on-call engineers using Aegis, not for compiling the repo.
+
+```bash
+open docs/how-to/index.html          # macOS
+# xdg-open docs/how-to/index.html    # Linux
+```
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3><a href="docs/how-to/setup.html">Set up the workflow</a></h3>
+      <p>Admin screens in order: workspace, L2/L3 teams, members, escalation path, weekly rotation, routing rule, test alert.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3><a href="docs/how-to/routing.html">Routing rules</a> · <a href="docs/how-to/paths.html">Escalation paths</a></h3>
+      <p>Filled-in forms: <code>team=platform</code> → Platform L2; L2 → L3 path. Russian: <a href="docs/how-to/ru/index.html">docs/how-to/ru/</a>.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3><a href="docs/how-to/connect.html">Connect Jira, Slack, eXpress</a></h3>
+      <p>Global connectors, workspace inherit/custom slots, paging identity on Account.</p>
+    </td>
+    <td width="50%" valign="top">
+      <h3><a href="docs/how-to/troubleshooting.html">When it does not route</a></h3>
+      <p>Alerts without incidents, empty on-call banner, missing handoff button, nobody getting paged.</p>
+    </td>
+  </tr>
+</table>
+
+Hub: [`docs/how-to/index.html`](./docs/how-to/index.html). Installing the software (Docker, env, GHCR):
+[`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md). Day-to-day by role:
+[`docs/user-guide.md`](./docs/user-guide.md).
+
+## Set up locally
+
+**Prerequisites:** Docker 24+ with Compose v2. For native hot reload (option 2): Go 1.25+, Node 20+,
+and GNU Make (or `.\scripts\dev.ps1` on Windows).
+
+### Option 1 — Full stack in Docker (recommended)
+
+```bash
+make setup          # copy deploy/.env.example → .env, install deps
+```
+
+Edit `.env`:
+
+```bash
+SESSION_SECRET=a-long-random-string
+WEBHOOK_SECRET=another-long-random-string
+PUBLIC_URL=http://localhost:3000
+DEV_AUTH_ENABLED=true
+```
+
+```bash
+make up             # build, migrate, start postgres/api/worker/web
+# or: make up-detached && make logs
+```
+
+| Service | URL |
+|---------|-----|
+| Web | http://localhost:3000 |
+| API | http://localhost:8080 |
+| Health | http://localhost:8080/healthz |
+| Ready | http://localhost:8080/readyz |
+
+Stop: `make down`.
+
+Open http://localhost:3000/login and click **Dev sign in**. Never set `DEV_AUTH_ENABLED` in production.
+
+### Option 2 — Native apps + Postgres in Docker
+
+Hot reload for Go and Vite. Postgres stays in a container.
+
+```bash
+make setup-local    # copy deploy/.env.local.example → .env (DATABASE_URL host localhost)
+make dev-db         # Postgres + migrations (port 5432)
+
+# three terminals:
+make dev-api        # API on :8080
+make dev-worker     # background job worker
+make dev-web        # Vite on :3000 (proxies /api and /auth to :8080)
+```
+
+Stop Postgres: `make dev-db-down`. Same Dev sign in as option 1. Restart the API after any `.env` change.
+
+<details>
+<summary>Seed users, Windows, and extra commands</summary>
+
+<br>
+
+After migrations, populate a local user directory for team pickers:
+
+```bash
+make seed-dev
+```
+
+Guarded to localhost `PUBLIC_URL` (or `SEED_DEV=1`). Idempotent. Seeds Alice (Google), Bob Slack,
+Carol eXpress, and Local Admin (`dev@localhost`).
+
+**Typical local on-call flow:** `make seed-dev` → sign in → follow
+[`docs/how-to/setup.html`](./docs/how-to/setup.html) (workspace, teams, shifts, routing, test alert).
+
+On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up`.
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Alias for `make setup` |
+| `make ps` / `make logs` | Compose status / follow logs |
+| `make migrate-up` | Apply migrations (`migrate` CLI + `DATABASE_URL`) |
+| `make lint type test` | CI gate — lint, typecheck, tests + coverage |
+| `make up-dev` | Full stack + alert simulator (dev profile, not production) |
+
+Storybook: `cd apps/web && npm run storybook` → http://localhost:6006
+
+| File | Purpose |
+|-------|---------|
+| [`deploy/docker-compose.yml`](./deploy/docker-compose.yml) | Full stack (`make up`) |
+| [`deploy/docker-compose.dev.yml`](./deploy/docker-compose.dev.yml) | Postgres only (`make dev-db`) |
+| [`deploy/.env.example`](./deploy/.env.example) | Docker (`DATABASE_URL` host `postgres`) |
+| [`deploy/.env.local.example`](./deploy/.env.local.example) | Native (`DATABASE_URL` host `localhost`) |
+
+</details>
+
+## Deploy (DevOps)
+
+Use **Docker Compose** for local source builds. Production uses the GHCR all-in-one image and an
+**external** Postgres. Authoritative detail: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
+
+### Production-like rollout
+
+1. **Host:** Docker 24+ with Compose v2; outbound HTTPS for OIDC and connectors; inbound HTTPS for
+   users and alert webhooks (terminate TLS on nginx/Caddy — not bundled in Compose).
+2. **Secrets:** copy `deploy/.env.example` → `.env`. Set strong `SESSION_SECRET` and `WEBHOOK_SECRET`.
+   Set `PUBLIC_URL` to the public HTTPS origin. Configure at least one OIDC provider with redirects
+   under `{PUBLIC_URL}/auth/...`. Set `ADMIN_EMAILS` so those operators become **admin** on first
+   OIDC sign-in.
+3. **Never enable in production:** `DEV_AUTH_ENABLED`, `SEED_DEV`, or Compose `--profile dev`.
+4. **Start** (repo root, `.env` present):
+
+   ```bash
+   make up-detached
+   make ps
+   curl -fsS "$PUBLIC_URL/healthz"
+   curl -fsS http://localhost:8080/readyz
+   ```
+
+5. **Day-2 in the UI:** sign in as admin → `/integrations` → `/workspaces` → teams/schedules → test
+   alert. See [`docs/integrations/README.md`](./docs/integrations/README.md).
+6. **Backup / rollback:** snapshot the `pgdata` volume; prefer restore over `make migrate-down`
+   unless you have a plan for that specific down SQL.
+
+| Service | Port (host) | Role |
+|---------|-------------|------|
+| postgres | 5432 | State (back this volume up) |
+| api | 8080 | HTTP API, OIDC, webhooks, `/healthz` `/readyz` `/metrics` |
+| worker | — | Jobs: alert processing, escalation, on-call, handoff notify |
+| web | 3000 | SPA; proxies `/api` and `/auth` to the API |
+
+Production image: `ghcr.io/btb-hub/aegis` — see
+[Production image (GHCR)](./docs/07-setup-deployment.md#production-image-ghcr).
+
+## Quick facts
+
+- **Stack:** Go 1.25+ (API + worker), PostgreSQL 16, React + TypeScript (Vite), Storybook. No Redis.
+- **Auth:** OIDC via Google, Slack, and eXpress; optional **Dev sign in** on localhost (`DEV_AUTH_ENABLED`).
+- **Locales:** English and Russian (`en`, `ru`).
+- **Coverage:** `make test` enforces ≥90% unit-test coverage on business logic (NFR-5).
+- **Alert intake:** generic webhook, compatible with Alertmanager / Grafana / Zabbix payloads.
 
 ## Read in this order
 
 | # | Doc | What it answers |
 |---|-----|-----------------|
+| — | [`docs/how-to/`](./docs/how-to/) | User manual (EN + RU): workflow, routing rules, escalation paths |
 | — | [`CLAUDE.md`](./CLAUDE.md) | How an agent works in this repo (conventions, the loop, guardrails) |
 | 00 | [`docs/00-product-brief.md`](./docs/00-product-brief.md) | Vision, users, scope, success metrics |
 | 01 | [`docs/01-prd.md`](./docs/01-prd.md) | Detailed MVP requirements per feature |
@@ -33,87 +203,10 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 10 | [`docs/10-agent-loop.md`](./docs/10-agent-loop.md) | The development loop in detail |
 | 11 | [`docs/11-localization.md`](./docs/11-localization.md) | English + Russian i18n rules |
 | 12 | [`docs/12-design-system.md`](./docs/12-design-system.md) | UI tokens, components, patterns (see also [`design_system.html`](./docs/design_system.html)) |
+| — | [`docs/user-guide.md`](./docs/user-guide.md) | Day-to-day use by role |
 | — | [`backlog/roadmap.md`](./backlog/roadmap.md) | Phases and milestones |
 | — | [`backlog/epics/`](./backlog/epics/) | Epics → stories → acceptance criteria |
 | — | [`docs/overview.html`](./docs/overview.html) | Visual, scannable map of the whole plan |
-| — | [`docs/design_system.html`](./docs/design_system.html) | Visual design system canvas |
-
-## Quick facts
-
-- **Stack:** Go 1.25+ (API + worker), PostgreSQL 16, React + TypeScript (Vite), Storybook. No Redis.
-- **Auth:** OIDC via Google, Slack, and eXpress; optional **Dev sign in** on localhost (`DEV_AUTH_ENABLED`).
-- **Locales:** English and Russian (`en`, `ru`).
-- **Coverage:** `make test` enforces ≥90% unit-test coverage on business logic (NFR-5).
-- **Deploy:** Docker Compose (MVP). DevOps runbook below; full notes in
-  [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
-- **Alert intake:** generic webhook endpoint, compatible with Alertmanager / Grafana / Zabbix payloads.
-- **Out:** anything not needed to ship the four MVP features. See `docs/00-product-brief.md` for the
-  explicit non-goals.
-
-## Deploy (DevOps)
-
-Use **Docker Compose** for local source builds: Postgres 16, schema migrations, API, worker, and
-web. Production uses the GHCR all-in-one image and Kubernetes sketch; Helm remains later.
-
-**Authoritative detail:** [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md)
-(prerequisites, env reference, migrations, production checklist). Env templates:
-[`deploy/.env.example`](./deploy/.env.example).
-
-### Production-like rollout
-
-1. **Host requirements:** Docker 24+ with Compose v2; outbound HTTPS for OIDC IdPs and connectors;
-   inbound HTTPS for users and alert webhooks (terminate TLS on a reverse proxy — nginx/Caddy —
-   not bundled in Compose).
-2. **Secrets / config:** copy `deploy/.env.example` → `.env` on the host (or inject the same keys
-   from your secret store). Set strong `SESSION_SECRET` and `WEBHOOK_SECRET`. Set `PUBLIC_URL` to
-   the public HTTPS origin users hit (e.g. `https://aegis.example.com`). Configure at least one
-   OIDC provider (Google, Slack, and/or eXpress) with redirect URLs under `{PUBLIC_URL}/auth/...`.
-   Set `ADMIN_EMAILS` (comma-separated) to the operators who should become **admin** on first
-   OIDC sign-in — this bootstraps the first admin. See
-   [First admin](./docs/07-setup-deployment.md#first-admin-production).
-3. **Never enable in production:** `DEV_AUTH_ENABLED`, `SEED_DEV`, or the Compose `--profile dev`
-   alert simulator. Do not point production `DATABASE_URL` at a shared/dev database.
-4. **Start stack** (from repo root, `.env` present):
-
-   ```bash
-   make up-detached    # builds images, applies golang-migrate, starts postgres/api/worker/web
-   make ps             # confirm services
-   curl -fsS "$PUBLIC_URL/healthz"   # or http://localhost:8080/healthz behind the proxy
-   curl -fsS http://localhost:8080/readyz
-   ```
-
-   Equivalent without Make:
-
-   ```bash
-   cp deploy/.env.example .env   # first time only
-   docker compose -f deploy/docker-compose.yml up --build -d
-   ```
-
-5. **Health:** use `GET /healthz` (liveness) and `GET /readyz` (Postgres ready) on the API.
-   Prometheus scrape: `GET /metrics` on the API.
-6. **Day-2 config (in the UI, not only env):** sign in as admin (the first admin comes from
-   `ADMIN_EMAILS`, step 2) → `/integrations` (global Jira/Slack/eXpress) → `/workspaces` (projects
-   + connector slots) → teams/schedules → send a test alert. Connector credentials may live in env
-   initially; prefer DB-backed config via Integrations after go-live. See
-   [`docs/integrations/README.md`](./docs/integrations/README.md).
-7. **Upgrade / redeploy:** pull the release tag, rebuild/restart Compose (`make up-detached` or
-   `docker compose ... up --build -d`). Migrations run automatically via the `migrate` service
-   before API/worker start. Prefer rolling only after a Postgres backup.
-8. **Backup:** schedule dumps or snapshots of the `pgdata` volume (Compose volume named `pgdata`).
-   Restore by stopping the stack, restoring data, starting again; then confirm `/readyz`.
-9. **Rollback:** redeploy the previous image tags/commit; if a migration must reverse, use
-   `make migrate-down` (one step) only with a restore plan — downs are provided but not all are
-   zero-downtime.
-
-| Service | Port (host) | Role |
-|---------|-------------|------|
-| postgres | 5432 | State (back this volume up) |
-| api | 8080 | HTTP API, OIDC, webhooks, `/healthz` `/readyz` `/metrics` |
-| worker | — | Jobs: alert processing, escalation, on-call materialisation, handoff notify |
-| web | 3000 | SPA; proxies `/api` and `/auth` to the API (see `deploy/nginx.web.conf`) |
-
-Compose file: [`deploy/docker-compose.yml`](./deploy/docker-compose.yml). Images:
-`deploy/Dockerfile.{api,worker,web}`.
 
 ## Implementation status
 
@@ -187,121 +280,17 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
   session in app shell, protected routes, OIDC callback redirect.
 - **i18n:** English + Russian locale files for all UI strings.
 
-**Shifts** and **incidents** pages still use **demo fixtures** in `App.tsx` — UI and handlers are
-built and tested; backend endpoints exist for a future API wiring pass.
-
 ### Not yet built (post-MVP)
 
 See [`backlog/roadmap.md`](./backlog/roadmap.md) *Later*: Mattermost/Telegram, mobile push,
 phone/SMS paging, status pages, runbook automation, multi-tenant SaaS, self-hosted IdP, Helm charts,
 and related items.
 
-## Run locally
-
-Production/K8s: pull `ghcr.io/btb-hub/aegis` — see
-[`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md#production-image-ghcr).
-
-Full deployment notes: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
-
-**Prerequisites:** Docker 24+ with Compose v2. For native dev (option 2): Go 1.25+, Node 20+, and GNU Make (or use `scripts/dev.ps1` on Windows).
-
-### Option 1 — Full stack in Docker (recommended)
-
-Runs Postgres, migrations, API, worker, and web in containers.
-
-```bash
-make setup          # copy deploy/.env.example → .env, install deps
-# edit .env — SESSION_SECRET, WEBHOOK_SECRET; OIDC creds for production-like sign-in
-# optional: DEV_AUTH_ENABLED=true and PUBLIC_URL=http://localhost:3000 for Dev sign in
-make up             # build and start all services (foreground)
-# or: make up-detached && make logs
-```
-
-| Service | URL |
-|---------|-----|
-| Web | http://localhost:3000 |
-| API | http://localhost:8080 |
-| Health | http://localhost:8080/healthz |
-
-Stop: `make down`.
-
-### Option 2 — Native apps + Postgres in Docker
-
-Hot reload for Go and Vite while Postgres runs in a container.
-
-```bash
-make setup-local    # copy deploy/.env.local.example → .env (localhost DATABASE_URL)
-make dev-db         # Postgres + migrations in Docker (port 5432)
-
-# three terminals:
-make dev-api        # API on :8080
-make dev-worker     # background job worker
-make dev-web        # Vite dev server on :3000 (proxies /api and /auth to :8080)
-```
-
-Stop Postgres: `make dev-db-down`.
-
-#### Sign in without OIDC (local dev)
-
-Use this to open Alerts, Integrations, Dashboard, and Setup without Google/Slack/eXpress app registration.
-
-1. In `.env` (from `make setup-local`):
-   ```bash
-   DEV_AUTH_ENABLED=true
-   PUBLIC_URL=http://localhost:3000
-   ```
-2. Ensure migrations are applied (`make dev-db` runs them automatically; includes `000010_dev_auth_provider`).
-3. Restart the API after changing `.env`.
-4. Open http://localhost:3000/login and click **Dev sign in**.
-
-You get an admin session on localhost only. Do not enable `DEV_AUTH_ENABLED` in production. Full notes:
-[`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md#local-testing-without-oidc).
-
-#### Seed dev users (local directory)
-
-After migrations, populate SSO-like users for team pickers and shifts testing without real OIDC sign-ins:
-
-```bash
-make seed-dev
-```
-
-Requires `DATABASE_URL` and `PUBLIC_URL` pointing at localhost (same guard as dev auth), or set
-`SEED_DEV=1` to override the host check. Idempotent — safe to re-run. Seeds four users: Google,
-Slack (with `slack_user_id` + avatar), eXpress (with `express_user_huid` + avatar), and a dev
-admin row (`dev@localhost`).
-
-**Typical local on-call flow:** `make seed-dev` → sign in (dev or OIDC) → **Setup** wizard or **Teams**
-→ create a team and members → open **Shifts** → create a weekly schedule and optional overrides.
-The calendar reads `GET /teams/{id}/on-call/*`; no demo fixtures on the production route.
-
-On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up` (see `.\scripts\dev.ps1` for all commands).
-
-### Other commands
-
-| Command | Description |
-|---------|-------------|
-| `make install` | Alias for `make setup` |
-| `make ps` | Show running Compose services |
-| `make migrate-up` | Apply migrations (requires `migrate` CLI + `DATABASE_URL`) |
-| `make seed-dev` | Upsert local dev user directory (localhost guard; see below) |
-| `make lint type test` | CI gate — lint, typecheck, tests + coverage |
-
-Storybook: `cd apps/web && npm run storybook` → http://localhost:6006
-
-### Compose files
-
-| File | Purpose |
-|------|---------|
-| [`deploy/docker-compose.yml`](./deploy/docker-compose.yml) | Full stack (`make up`) |
-| [`deploy/docker-compose.dev.yml`](./deploy/docker-compose.dev.yml) | Postgres only (`make dev-db`) |
-| [`deploy/.env.example`](./deploy/.env.example) | Env template for Docker (`DATABASE_URL` host `postgres`) |
-| [`deploy/.env.local.example`](./deploy/.env.local.example) | Env template for native dev (`DATABASE_URL` host `localhost`) |
-
 ## Repo layout
 
 ```
 aegis/
-├── docs/                  # the spec (source of truth)
+├── docs/                  # spec (source of truth) + how-to HTML
 ├── backlog/               # roadmap + epics/stories the agents pull from
 ├── pkg/                   # shared Go packages (config, db, integrations, routing, oncall, i18n)
 ├── apps/
