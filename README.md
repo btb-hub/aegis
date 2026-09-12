@@ -9,44 +9,24 @@ automatically), and hand work cleanly between L2 and L3 support. Aegis does that
 department dashboards to analyse what's happening. The product must be easy to **set up**, easy to
 **use**, and easy to **analyse**.
 
-This repository is **documentation-first**. Specs live in `docs/` and `backlog/`. The HTML
+This repository is **documentation-first**. Specs live in `docs/` and `backlog/`. The
 how-tos are the **user manual** for configuring the on-call workflow in the product.
 
-## How-to: set up the workflow (open in a browser)
+## How-to: set up the workflow
 
 These pages are for admins and on-call engineers using Aegis, not for compiling the repo.
+Read them on GitHub (Markdown). HTML copies in the same folder are for a docs host.
 
-```bash
-open docs/how-to/index.html          # macOS
-# xdg-open docs/how-to/index.html    # Linux
-```
+| Guide | What it covers |
+|-------|----------------|
+| [Set up the workflow](./docs/how-to/setup.md) | Admin screens in order: workspace, L2/L3 teams, members, escalation path, weekly rotation, routing rule, test alert |
+| [Routing rules](./docs/how-to/routing.md) | Filled-in forms: `team=platform` → Platform L2; NOC-first; shared DevOps |
+| [Escalation paths](./docs/how-to/paths.md) | L2 → L3, NOC chain, shared L3 |
+| [Work an incident](./docs/how-to/incidents.md) | Acknowledge, hand off, bounce, resolve |
+| [Connect Jira, Slack, eXpress](./docs/how-to/connect.md) | Global connectors, workspace inherit/custom slots, paging identity |
+| [When it does not route](./docs/how-to/troubleshooting.md) | Alerts without incidents, empty on-call banner, missing handoff button |
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3><a href="docs/how-to/setup.html">Set up the workflow</a></h3>
-      <p>Admin screens in order: workspace, L2/L3 teams, members, escalation path, weekly rotation, routing rule, test alert.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3><a href="docs/how-to/routing.html">Routing rules</a> · <a href="docs/how-to/paths.html">Escalation paths</a></h3>
-      <p>Filled-in forms: <code>team=platform</code> → Platform L2; L2 → L3 path. Russian: <a href="docs/how-to/ru/index.html">docs/how-to/ru/</a>.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3><a href="docs/how-to/connect.html">Connect Jira, Slack, eXpress</a></h3>
-      <p>Global connectors, workspace inherit/custom slots, paging identity on Account.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3><a href="docs/how-to/troubleshooting.html">When it does not route</a></h3>
-      <p>Alerts without incidents, empty on-call banner, missing handoff button, nobody getting paged.</p>
-    </td>
-  </tr>
-</table>
-
-Hub: [`docs/how-to/index.html`](./docs/how-to/index.html). Installing the software (Docker, env, GHCR):
-[`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md). Day-to-day by role:
-[`docs/user-guide.md`](./docs/user-guide.md).
+Hub: [`docs/how-to/README.md`](./docs/how-to/README.md). Russian: [`docs/how-to/ru/README.md`](./docs/how-to/ru/README.md). Installing the software (Docker, env, GHCR): [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md). Day-to-day by role: [`docs/user-guide.md`](./docs/user-guide.md).
 
 ## Set up locally
 
@@ -115,7 +95,7 @@ Guarded to localhost `PUBLIC_URL` (or `SEED_DEV=1`). Idempotent. Seeds Alice (Go
 Carol eXpress, and Local Admin (`dev@localhost`).
 
 **Typical local on-call flow:** `make seed-dev` → sign in → follow
-[`docs/how-to/setup.html`](./docs/how-to/setup.html) (workspace, teams, shifts, routing, test alert).
+[`docs/how-to/setup.md`](./docs/how-to/setup.md) (workspace, teams, shifts, routing, test alert).
 
 On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up`.
 
@@ -188,7 +168,7 @@ Production image: `ghcr.io/btb-hub/aegis` — see
 
 | # | Doc | What it answers |
 |---|-----|-----------------|
-| — | [`docs/how-to/`](./docs/how-to/) | User manual (EN + RU): workflow, routing rules, escalation paths |
+| — | [`docs/how-to/README.md`](./docs/how-to/README.md) | User manual (EN + RU): workflow, routing rules, escalation paths |
 | — | [`CLAUDE.md`](./CLAUDE.md) | How an agent works in this repo (conventions, the loop, guardrails) |
 | 00 | [`docs/00-product-brief.md`](./docs/00-product-brief.md) | Vision, users, scope, success metrics |
 | 01 | [`docs/01-prd.md`](./docs/01-prd.md) | Detailed MVP requirements per feature |
@@ -290,7 +270,7 @@ and related items.
 
 ```
 aegis/
-├── docs/                  # spec (source of truth) + how-to HTML
+├── docs/                  # spec (source of truth) + how-to (Markdown + HTML)
 ├── backlog/               # roadmap + epics/stories the agents pull from
 ├── pkg/                   # shared Go packages (config, db, integrations, routing, oncall, i18n)
 ├── apps/
