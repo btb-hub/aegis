@@ -4,8 +4,8 @@ Aegis talks to external systems through a small set of connectors. All outbound 
 **worker** with retry, idempotency keys, and recorded fixtures in tests.
 
 Local first-day path in the product (workspace, teams, routing, then a routed alert):
-[`../how-to/setup.html`](../how-to/setup.html). Connector screens:
-[`../how-to/connect.html`](../how-to/connect.html). Env bootstrap lives in
+[`../how-to/setup.md`](../how-to/setup.md). Connector screens:
+[`../how-to/connect.md`](../how-to/connect.md). Env bootstrap lives in
 [`../07-setup-deployment.md`](../07-setup-deployment.md).
 
 ## Connector types
