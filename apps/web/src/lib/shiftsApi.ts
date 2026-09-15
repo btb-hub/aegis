@@ -1,3 +1,4 @@
+import type { ContactLinks } from './contactTypes';
 import type { CalendarOverride, CalendarSlot, OnCallUser } from './shiftsTypes';
 import type { Team, TeamMember } from './teamTypes';
 
@@ -6,6 +7,7 @@ export type ApiOnCallUser = {
   email: string;
   display_name: string;
   source: 'rotation' | 'override';
+  contacts?: ContactLinks;
 };
 
 export type ApiOnCallSlot = {
@@ -188,6 +190,7 @@ export function mapApiToOnCallUsers(items: ApiOnCallUser[]): OnCallUser[] {
     displayName: item.display_name,
     email: item.email,
     source: item.source,
+    contacts: item.contacts,
   }));
 }
 

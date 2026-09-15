@@ -76,12 +76,9 @@ func mapOnCallError(err error) error {
 }
 
 func OnCallUserJSON(user db.OnCallUser) map[string]any {
-	return map[string]any{
-		"user_id":      user.UserID.String(),
-		"email":        user.Email,
-		"display_name": user.DisplayName,
-		"source":       user.Source,
-	}
+	out := PersonJSON(user.UserID, user.Email, user.DisplayName, user.SlackUserID, user.ExpressUserHuid)
+	out["source"] = user.Source
+	return out
 }
 
 func OnCallSlotJSON(slot db.OnCallSlot) map[string]any {

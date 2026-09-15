@@ -118,9 +118,31 @@ func TestOnCallServiceCurrentEmptyUsers(t *testing.T) {
 
 func TestOnCallUserJSON(t *testing.T) {
 	userID := uuid.New()
-	payload := OnCallUserJSON(db.OnCallUser{UserID: userID, Email: "a@example.com", DisplayName: "Alice", Source: "rotation"})
+	slackID := "U123"
+	huid := uuid.MustParse("83fbf1c7-f14b-5176-bd32-ca15cf00d4b7")
+	payload := OnCallUserJSON(db.OnCallUser{
+		UserID:          userID,
+		Email:           "a@example.com",
+		DisplayName:     "Alice",
+		Source:          "rotation",
+		SlackUserID:     &slackID,
+		ExpressUserHuid: db.ExpressHuidToPg(huid),
+	})
 	require.Equal(t, userID.String(), payload["user_id"])
 	require.Equal(t, "Alice", payload["display_name"])
+	require.Equal(t, "rotation", payload["source"])
+	contacts, ok := payload["contacts"].(map[string]string)
+	require.True(t, ok)
+	require.Equal(t, "mailto:a@example.com", contacts["email"])
+	require.Equal(t, "https://slack.com/app_redirect?channel=U123", contacts["slack"])
+	require.Equal(t, "https://xlnk.ms/open/profile/"+huid.String(), contacts["express"])
+}
+
+func TestOnCallUserJSONOmitsUnlinkedChat(t *testing.T) {
+	payload := OnCallUserJSON(db.OnCallUser{UserID: uuid.New(), Email: "a@example.com", DisplayName: "Alice", Source: "override"})
+	contacts, ok := payload["contacts"].(map[string]string)
+	require.True(t, ok)
+	require.Equal(t, map[string]string{"email": "mailto:a@example.com"}, contacts)
 }
 
 func TestOnCallSlotJSON(t *testing.T) {

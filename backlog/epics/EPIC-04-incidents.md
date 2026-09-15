@@ -126,3 +126,5 @@
 - **Acceptance:**
   - [x] List with status filters
   - [x] Detail page: timeline, alerts, Jira link, ack/resolve buttons
+
+**Follow-up:** Assignee contact strip (email / Slack / eXpress) is [AEG-107](./EPIC-02-shifts.md).

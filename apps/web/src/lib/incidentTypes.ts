@@ -1,3 +1,5 @@
+import type { ContactPerson } from './contactTypes';
+
 export type IncidentStatus = 'open' | 'acknowledged' | 'resolved';
 
 export type IncidentAlert = {
@@ -14,6 +16,8 @@ export type TimelineEvent = {
   createdAt: string;
 };
 
+export type IncidentAssignee = ContactPerson;
+
 export type Incident = {
   id: string;
   teamId: string;
@@ -25,6 +29,7 @@ export type Incident = {
   createdAt: string;
   acknowledgedAt?: string;
   resolvedAt?: string;
+  assignee?: IncidentAssignee;
   alerts: IncidentAlert[];
   timeline: TimelineEvent[];
 };

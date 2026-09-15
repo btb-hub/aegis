@@ -64,6 +64,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-SHIFT-06 | Calendar UI shows rotations and overrides; "now" indicator visible. |
 | REQ-SHIFT-07 | API exposes current on-call per team. |
 | REQ-SHIFT-08 | Admins store optional team eXpress chat and Slack channel IDs. The worker publishes current on-call to those channels daily, on rotation change, and when an admin clicks Publish now. |
+| REQ-SHIFT-09 | Current on-call API and shifts banner expose contact deep links (email, Slack, eXpress) for each on-call user when that identity is stored. |
 
 ---
 
@@ -82,6 +83,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INC-09 | Acknowledge from chat or UI updates incident + timeline. |
 | REQ-INC-10 | Escalation timer: if unacked within policy, one escalation step (re-page or next person). |
 | REQ-INC-11 | Incident timeline records all state changes, pages, acks, ticket links. |
+| REQ-INC-12 | Incident detail shows the assignee and the same contact deep links as current on-call, omitting unlinked channels. |
 
 ---
 

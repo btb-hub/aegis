@@ -38,6 +38,12 @@ describe('incidentsApi', () => {
         fingerprint: 'fp-1',
         jira_issue_key: 'OPS-1',
         created_at: '2026-06-26T10:00:00Z',
+        assignee: {
+          user_id: 'u1',
+          email: 'alice@example.com',
+          display_name: 'Alice',
+          contacts: { email: 'mailto:alice@example.com' },
+        },
       },
       [{ id: 'a1', severity: 'critical', title: 'CPU high', status: 'firing' }],
       [{ id: 'e1', kind: 'created', payload: {}, createdAt: '2026-06-26T10:00:00Z' }],
@@ -47,6 +53,12 @@ describe('incidentsApi', () => {
       id: '11111111-1111-1111-1111-111111111111',
       teamId: 'team-1',
       jiraIssueKey: 'OPS-1',
+      assignee: {
+        userId: 'u1',
+        email: 'alice@example.com',
+        displayName: 'Alice',
+        contacts: { email: 'mailto:alice@example.com' },
+      },
       alerts: [{ id: 'a1', severity: 'critical', title: 'CPU high', status: 'firing' }],
       timeline: [{ id: 'e1', kind: 'created', payload: {}, createdAt: '2026-06-26T10:00:00Z' }],
     });

@@ -123,8 +123,17 @@ func (h *IncidentHandler) getIncident(c *gin.Context) {
 			"status":   alert.Status,
 		})
 	}
+	out := service.IncidentJSON(incident)
+	assignee, err := h.incidents.Assignee(c.Request.Context(), incident)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	if assignee != nil {
+		out["assignee"] = service.AssigneeJSON(*assignee)
+	}
 	WriteJSON(c, http.StatusOK, gin.H{
-		"incident": service.IncidentJSON(incident),
+		"incident": out,
 		"alerts":   alertItems,
 	})
 }

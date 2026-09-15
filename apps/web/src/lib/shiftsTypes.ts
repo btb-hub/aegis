@@ -1,8 +1,11 @@
+import type { ContactLinks } from './contactTypes';
+
 export type OnCallUser = {
   userId: string;
   displayName: string;
   email: string;
   source: 'rotation' | 'override';
+  contacts?: ContactLinks;
 };
 
 export type CalendarSlot = {

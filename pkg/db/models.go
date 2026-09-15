@@ -166,10 +166,12 @@ type OnCallSlot struct {
 }
 
 type OnCallUser struct {
-	UserID      uuid.UUID `json:"user_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Source      string    `json:"source"`
+	UserID          uuid.UUID   `json:"user_id"`
+	Email           string      `json:"email"`
+	DisplayName     string      `json:"display_name"`
+	Source          string      `json:"source"`
+	SlackUserID     *string     `json:"-"`
+	ExpressUserHuid pgtype.UUID `json:"-"`
 }
 
 type RoutingRule struct {

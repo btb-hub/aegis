@@ -48,6 +48,39 @@ describe('IncidentDetail', () => {
     expect(screen.getByText('Hand off to L3')).toBeInTheDocument();
     expect(screen.getByText('Owned by Platform L2')).toBeInTheDocument();
     expect(screen.getByText('Created')).toBeInTheDocument();
+    expect(screen.getByText('No assignee')).toBeInTheDocument();
+  });
+
+  it('shows assignee contact links', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <IncidentDetail
+          incident={{
+            ...incident,
+            assignee: {
+              userId: 'user-1',
+              email: 'alice@example.com',
+              displayName: 'Alice',
+              contacts: {
+                email: 'mailto:alice@example.com',
+                slack: 'https://slack.com/app_redirect?channel=U123',
+              },
+            },
+          }}
+          teams={teams}
+          canBounce={false}
+          onAcknowledge={vi.fn()}
+          onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
+        />
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByText('Alice')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Email' })).toHaveAttribute('href', 'mailto:alice@example.com');
+    expect(screen.getByRole('link', { name: 'Message in Slack' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Message in eXpress' })).not.toBeInTheDocument();
   });
 
   it('shows actionable messages for skipped integrations', () => {

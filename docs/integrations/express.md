@@ -40,6 +40,14 @@ Must not sit behind interactive Google/IAP login.
 
 Codes are stored in `express_link_codes` and expire after 15 minutes.
 
+## Contact deep links (AEG-107)
+
+When `users.express_user_huid` is set, current on-call and incident-detail assignee JSON include:
+
+`https://xlnk.ms/open/profile/{express_user_huid}`
+
+That is the documented eXpress user-contact link. The client can start a DM from the profile.
+
 ## Outbound page
 
 - `POST /api/v4/botx/notifications/direct` with bubble ack button (`/ack_incident` + `incident_id` in `data`).

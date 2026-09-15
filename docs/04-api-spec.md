@@ -201,6 +201,14 @@ Create/update schedule body:
 | GET/POST | `/teams/{id}/overrides` | List/create overrides (create: admin) |
 | DELETE | `/teams/{id}/overrides/{oid}` | Delete override (admin) |
 | GET | `/teams/{id}/on-call/current` | Current on-call user(s) |
+
+**Implemented (AEG-107):** each item is `{ user_id, email, display_name, source, contacts }`. `contacts` is an object of optional URL strings:
+
+- `email` — `mailto:{email}` when email is set
+- `slack` — `https://slack.com/app_redirect?channel={slack_user_id}` when `slack_user_id` is set
+- `express` — `https://xlnk.ms/open/profile/{express_user_huid}` when huid is set
+
+Raw Slack / eXpress IDs are not returned. Missing channels are omitted. Empty `contacts` is `{}` when no channel is available.
 | GET | `/teams/{id}/on-call/calendar` | Materialised slots in range (`from`, `to` RFC3339) |
 | POST | `/teams/{id}/on-call/publish` | Enqueue `publish_oncall` for this team (admin; **202** `{ "result": "accepted" }`). Requires `express_chat_id` or `slack_channel_id`. |
 
@@ -227,6 +235,8 @@ matching remains global by labels/priority across workspaces; the matched team's
 supplies integrations.
 | GET | `/incidents` | List with filters |
 | GET | `/incidents/{id}` | Detail + timeline |
+
+**Implemented (AEG-107):** `incident` keeps `assignee_id`. When the assignee user exists, `incident.assignee` is `{ user_id, email, display_name, contacts }` using the same `contacts` shape as current on-call. Unassigned incidents and unknown assignee IDs omit `assignee`. `GET /incidents` list does not embed `assignee`.
 | POST | `/incidents` | Create incident from a firing alert (admin or member). Body: `{ "alert_id": "uuid", "team_id": "uuid", "assignee_id": "uuid" | omitted }`. Returns `200` with `IncidentJSON`. Enqueues notify and escalation jobs; does not call Jira/Slack/eXpress directly. |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |
 | POST | `/incidents/{id}/resolve` | Resolve |
