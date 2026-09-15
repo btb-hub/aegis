@@ -206,6 +206,12 @@ func TestOnCallCurrent(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	require.Len(t, resp.Items, 1)
+	require.Equal(t, "Alice", resp.Items[0]["display_name"])
+	contacts, ok := resp.Items[0]["contacts"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "mailto:a@example.com", contacts["email"])
+	_, hasSlack := contacts["slack"]
+	require.False(t, hasSlack)
 }
 
 func TestOnCallCalendarRequiresRange(t *testing.T) {

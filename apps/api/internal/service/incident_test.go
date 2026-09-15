@@ -13,10 +13,11 @@ import (
 )
 
 type incidentMockRepo struct {
-	incident db.Incident
-	events   []db.TimelineEvent
-	alerts   []db.Alert
-	user     db.User
+	incident   db.Incident
+	events     []db.TimelineEvent
+	alerts     []db.Alert
+	user       db.User
+	getUserErr error
 }
 
 func (m *incidentMockRepo) ListIncidents(context.Context, string) ([]db.Incident, error) {
@@ -53,7 +54,13 @@ func (m *incidentMockRepo) ListAlertsForIncident(context.Context, uuid.UUID) ([]
 	return m.alerts, nil
 }
 func (m *incidentMockRepo) CancelEscalationJobs(context.Context, uuid.UUID) error { return nil }
-func (m *incidentMockRepo) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
+func (m *incidentMockRepo) GetUserByID(_ context.Context, id uuid.UUID) (db.User, error) {
+	if m.getUserErr != nil {
+		return db.User{}, m.getUserErr
+	}
+	if m.user.ID == uuid.Nil || m.user.ID != id {
+		return db.User{}, pgx.ErrNoRows
+	}
 	return m.user, nil
 }
 func (m *incidentMockRepo) GetUserBySlackID(context.Context, string) (db.User, error) {
@@ -156,6 +163,45 @@ func TestIncidentJSON(t *testing.T) {
 		JiraIssueKey: &key,
 	})
 	require.Equal(t, "OPS-1", out["jira_issue_key"])
+	require.Equal(t, assignee.String(), out["assignee_id"])
+	_, hasAssignee := out["assignee"]
+	require.False(t, hasAssignee)
+}
+
+func TestIncidentServiceAssignee(t *testing.T) {
+	assigneeID := uuid.New()
+	svc := NewIncidentService(&incidentMockRepo{
+		incident: db.Incident{ID: uuid.New(), AssigneeID: &assigneeID, Status: "open"},
+		user:     db.User{ID: assigneeID, Email: "a@example.com", DisplayName: "Alice", SlackUserID: strPtr("U1")},
+	}, time.Hour, time.Minute)
+	user, err := svc.Assignee(context.Background(), db.Incident{AssigneeID: &assigneeID})
+	require.NoError(t, err)
+	require.NotNil(t, user)
+	require.Equal(t, "Alice", user.DisplayName)
+}
+
+func TestIncidentServiceAssigneeMissingUser(t *testing.T) {
+	assigneeID := uuid.New()
+	svc := NewIncidentService(&incidentMockRepo{
+		incident: db.Incident{ID: uuid.New(), AssigneeID: &assigneeID, Status: "open"},
+	}, time.Hour, time.Minute)
+	user, err := svc.Assignee(context.Background(), db.Incident{AssigneeID: &assigneeID})
+	require.NoError(t, err)
+	require.Nil(t, user)
+}
+
+func TestIncidentServiceAssigneeUnassigned(t *testing.T) {
+	svc := NewIncidentService(&incidentMockRepo{incident: db.Incident{ID: uuid.New(), Status: "open"}}, time.Hour, time.Minute)
+	user, err := svc.Assignee(context.Background(), db.Incident{Status: "open"})
+	require.NoError(t, err)
+	require.Nil(t, user)
+}
+
+func TestIncidentServiceAssigneeLookupError(t *testing.T) {
+	assigneeID := uuid.New()
+	svc := NewIncidentService(&incidentMockRepo{getUserErr: context.Canceled}, time.Hour, time.Minute)
+	_, err := svc.Assignee(context.Background(), db.Incident{AssigneeID: &assigneeID})
+	require.Error(t, err)
 }
 
 func strPtr(v string) *string { return &v }

@@ -11,6 +11,11 @@ const onCallUsers: OnCallUser[] = [
     displayName: 'Bob Chen',
     email: 'bob@example.com',
     source: 'rotation',
+    contacts: {
+      email: 'mailto:bob@example.com',
+      slack: 'https://slack.com/app_redirect?channel=U456',
+      express: 'https://xlnk.ms/open/profile/83fbf1c7-f14b-5176-bd32-ca15cf00d4b7',
+    },
   },
 ];
 

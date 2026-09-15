@@ -112,7 +112,7 @@ ORDER BY start_at`
 
 func (s *Store) CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]OnCallUser, error) {
 	const q = `
-SELECT s.user_id, u.email, u.display_name, s.source
+SELECT s.user_id, u.email, u.display_name, s.source, u.slack_user_id, u.express_user_huid
 FROM on_call_slots s
 JOIN users u ON u.id = s.user_id
 WHERE s.team_id = $1 AND s.start_at <= $2 AND s.end_at > $2
@@ -126,7 +126,7 @@ ORDER BY s.source DESC, u.display_name`
 	var users []OnCallUser
 	for rows.Next() {
 		var user OnCallUser
-		if err := rows.Scan(&user.UserID, &user.Email, &user.DisplayName, &user.Source); err != nil {
+		if err := rows.Scan(&user.UserID, &user.Email, &user.DisplayName, &user.Source, &user.SlackUserID, &user.ExpressUserHuid); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
