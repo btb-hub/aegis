@@ -9,7 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const sessionCookie = "aegis_session"
+const (
+	sessionCookie       = "aegis_session"
+	oauthStateCookie    = "aegis_oauth_state"
+	oauthRedirectCookie = "aegis_oauth_redirect"
+	oauthCookieTTL      = 300
+)
 
 type AuthHandler struct {
 	auth      *service.AuthService
@@ -57,16 +62,26 @@ func (h *AuthHandler) devLoginFailureURL() string {
 	return base + "/login?dev_auth_error=1"
 }
 
-func (h *AuthHandler) devRedirectURL(c *gin.Context) string {
-	redirectPath := c.Query("redirect")
-	if redirectPath != "" && strings.HasPrefix(redirectPath, "/") && !strings.HasPrefix(redirectPath, "//") {
-		return strings.TrimRight(h.publicURL, "/") + redirectPath
+func isSafeRedirectPath(path string) bool {
+	return path != "" && strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//")
+}
+
+func (h *AuthHandler) appRedirectURL(redirectPath string) string {
+	base := strings.TrimRight(h.publicURL, "/")
+	if isSafeRedirectPath(redirectPath) {
+		if base == "" {
+			return redirectPath
+		}
+		return base + redirectPath
 	}
-	redirectURL := h.publicURL
-	if redirectURL == "" {
+	if h.publicURL == "" {
 		return "/"
 	}
-	return redirectURL
+	return h.publicURL
+}
+
+func (h *AuthHandler) devRedirectURL(c *gin.Context) string {
+	return h.appRedirectURL(c.Query("redirect"))
 }
 
 func (h *AuthHandler) providers(c *gin.Context) {
@@ -80,18 +95,25 @@ func (h *AuthHandler) login(c *gin.Context) {
 		WriteError(c, err)
 		return
 	}
-	c.SetCookie("aegis_oauth_state", state, 300, "/", "", false, true)
+	c.SetCookie(oauthStateCookie, state, oauthCookieTTL, "/", "", false, true)
+	redirectPath := c.Query("redirect")
+	if isSafeRedirectPath(redirectPath) {
+		c.SetCookie(oauthRedirectCookie, redirectPath, oauthCookieTTL, "/", "", false, true)
+	} else {
+		c.SetCookie(oauthRedirectCookie, "", -1, "/", "", false, true)
+	}
 	c.Redirect(http.StatusFound, url)
 }
 
 func (h *AuthHandler) callback(c *gin.Context) {
 	state := c.Query("state")
-	cookie, err := c.Cookie("aegis_oauth_state")
+	cookie, err := c.Cookie(oauthStateCookie)
 	if err != nil || state == "" || state != cookie {
 		WriteError(c, service.ErrInvalidOAuthState())
 		return
 	}
-	token, user, err := h.auth.CompleteLogin(c.Request.Context(), c.Param("provider"), c.Query("code"))
+	provider := c.Param("provider")
+	token, user, err := h.auth.CompleteLogin(c.Request.Context(), provider, c.Query("code"))
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -106,11 +128,23 @@ func (h *AuthHandler) callback(c *gin.Context) {
 		WriteJSON(c, http.StatusOK, service.UserJSON(profile.User, profile.Identities))
 		return
 	}
-	redirectURL := h.publicURL
-	if redirectURL == "" {
-		redirectURL = "/"
+	redirectPath, _ := c.Cookie(oauthRedirectCookie)
+	c.SetCookie(oauthRedirectCookie, "", -1, "/", "", false, true)
+	c.Redirect(http.StatusFound, h.appRedirectURL(withConnectedQuery(redirectPath, provider)))
+}
+
+func withConnectedQuery(redirectPath, provider string) string {
+	if !isSafeRedirectPath(redirectPath) {
+		return redirectPath
 	}
-	c.Redirect(http.StatusFound, redirectURL)
+	path, query, found := strings.Cut(redirectPath, "?")
+	if path != "/account" {
+		return redirectPath
+	}
+	if found {
+		return path + "?" + query + "&connected=" + provider
+	}
+	return path + "?connected=" + provider
 }
 
 func (h *AuthHandler) logout(c *gin.Context) {

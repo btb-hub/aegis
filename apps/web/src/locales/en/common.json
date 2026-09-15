@@ -516,6 +516,7 @@
   "account.connected_body": "Link additional sign-in providers that are configured for this deployment. Profile fields you set here are kept.",
   "account.connected": "Connected",
   "account.connect_provider": "Connect {{provider}}",
+  "account.connected_toast": "{{provider}} connected",
   "account.provider.google": "Google",
   "account.provider.slack": "Slack",
   "account.provider.express": "eXpress",
