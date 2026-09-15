@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
-import { createExpressLinkCode, fetchAuthProviders, patchAuthMe, type AuthProviderId } from '../lib/authTypes';
+import {
+  AUTH_PROVIDERS,
+  createExpressLinkCode,
+  fetchAuthProviders,
+  patchAuthMe,
+  type AuthProviderId,
+} from '../lib/authTypes';
 import i18n, { persistLocale } from '../i18n';
 
 function initials(name: string): string {
@@ -24,6 +30,8 @@ function initials(name: string): string {
 export function AccountPage() {
   const { t } = useTranslation();
   const { user, refresh } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [locale, setLocale] = useState<'en' | 'ru'>('en');
   const [savingProfile, setSavingProfile] = useState(false);
@@ -39,6 +47,18 @@ export function AccountPage() {
   useEffect(() => {
     void fetchAuthProviders().then(setSsoProviders);
   }, []);
+
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    if (!connected || !AUTH_PROVIDERS.includes(connected as AuthProviderId)) {
+      return;
+    }
+    setToast({
+      message: t('account.connected_toast', { provider: t(`account.provider.${connected}`) }),
+      variant: 'success',
+    });
+    navigate('/account', { replace: true });
+  }, [navigate, searchParams, t]);
 
   useEffect(() => {
     if (!user) {
@@ -187,7 +207,7 @@ export function AccountPage() {
               {linkedProviders.has(provider) ? (
                 <span className="text-zinc-600">{t('account.connected')}</span>
               ) : (
-                <a href={`/auth/${provider}/login`} className="text-accent hover:underline">
+                <a href={`/auth/${provider}/login?redirect=/account`} className="text-accent hover:underline">
                   {t('account.connect_provider', { provider: t(`account.provider.${provider}`) })}
                 </a>
               )}

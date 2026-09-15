@@ -516,6 +516,7 @@
   "account.connected_body": "Привяжите дополнительные провайдеры входа, которые настроены в этом развёртывании. Поля профиля, которые вы задаёте здесь, сохраняются.",
   "account.connected": "Подключено",
   "account.connect_provider": "Подключить {{provider}}",
+  "account.connected_toast": "{{provider}} подключён",
   "account.provider.google": "Google",
   "account.provider.slack": "Slack",
   "account.provider.express": "eXpress",
