@@ -129,6 +129,23 @@ AEG-014 + AEG-019 (Done)
 
 ---
 
+### AEG-108 — Jira Bearer PAT auth
+
+- **Status:** In Review
+- **Depends on:** AEG-017, AEG-093 (Done)
+- **PRD:** REQ-INT-02
+- **Acceptance:**
+  - [x] Jira HTTP calls send `Authorization: Bearer <api_token>` by default
+  - [x] Optional `auth_type: "basic"` keeps Cloud email+token Basic auth
+  - [x] Email is optional for Bearer; required for basic
+  - [x] Integrations (and setup wizard) expose the auth method; PAT hint in en+ru
+  - [x] Docs and tests cover Bearer vs Basic
+
+**Plan:** `pkg/integrations/jira` `applyAuth`; `IntegrationConfigFields` select. Branch:
+`feat/integrations-AEG-105-jira-bearer`.
+
+---
+
 ## Out of scope
 
 - SmartApp; `/notification/callback`

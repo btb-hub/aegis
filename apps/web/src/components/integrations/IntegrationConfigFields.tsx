@@ -1,14 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
 
 export type IntegrationKind = 'jira' | 'slack' | 'express';
 export type IntegrationMode = 'inherit' | 'custom';
+export type JiraAuthType = 'bearer' | 'basic';
 
 export type IntegrationConfigForm = {
   base_url: string;
   email: string;
   api_token: string;
   project_key: string;
+  auth_type: JiraAuthType;
   bot_token: string;
   signing_secret: string;
   bot_id: string;
@@ -21,6 +24,7 @@ export const emptyIntegrationConfigForm = (): IntegrationConfigForm => ({
   email: '',
   api_token: '',
   project_key: '',
+  auth_type: 'bearer',
   bot_token: '',
   signing_secret: '',
   bot_id: '',
@@ -44,6 +48,7 @@ export function configFormFromItem(
     form.base_url = read('base_url');
     form.email = read('email');
     form.project_key = read('project_key');
+    form.auth_type = config.auth_type === 'basic' ? 'basic' : 'bearer';
   }
   if (kind === 'slack') {
     // secrets stay blank for edit
@@ -69,6 +74,7 @@ export function buildConfigPayload(
       base_url: form.base_url.trim(),
       email: form.email.trim(),
       project_key: form.project_key.trim(),
+      auth_type: form.auth_type === 'basic' ? 'basic' : 'bearer',
     };
     const token = form.api_token.trim();
     if (token || !opts.keepBlankSecrets) {
@@ -109,12 +115,8 @@ export function integrationFormReady(
   }
   if (kind === 'jira') {
     const secretsOk = opts.editing || form.api_token.trim() !== '';
-    return (
-      form.base_url.trim() !== '' &&
-      form.email.trim() !== '' &&
-      form.project_key.trim() !== '' &&
-      secretsOk
-    );
+    const emailOk = form.auth_type !== 'basic' || form.email.trim() !== '';
+    return form.base_url.trim() !== '' && form.project_key.trim() !== '' && secretsOk && emailOk;
   }
   if (kind === 'slack') {
     if (opts.editing) {
@@ -154,6 +156,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
   }
 
   if (kind === 'jira') {
+    const tokenHint = secretHint ?? t('setup.integrations.jira.api_token_hint');
     return (
       <>
         <Input
@@ -161,11 +164,21 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           value={form.base_url}
           onChange={(value) => onChange({ ...form, base_url: value })}
         />
+        <Select
+          label={t('setup.integrations.jira.auth_type')}
+          value={form.auth_type}
+          options={[
+            { value: 'bearer', label: t('setup.integrations.jira.auth_type_bearer') },
+            { value: 'basic', label: t('setup.integrations.jira.auth_type_basic') },
+          ]}
+          onChange={(value) => onChange({ ...form, auth_type: value === 'basic' ? 'basic' : 'bearer' })}
+        />
         <Input
           label={t('setup.integrations.jira.email')}
           value={form.email}
           onChange={(value) => onChange({ ...form, email: value })}
           autoComplete="off"
+          hint={t('setup.integrations.jira.email_hint')}
         />
         <Input
           label={t('setup.integrations.jira.api_token')}
@@ -173,7 +186,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           onChange={(value) => onChange({ ...form, api_token: value })}
           type="password"
           autoComplete="new-password"
-          hint={secretHint}
+          hint={tokenHint}
         />
         <Input
           label={t('setup.integrations.jira.project_key')}

@@ -17,10 +17,17 @@ describe('IntegrationConfigFields helpers', () => {
     expect(
       integrationFormReady(
         'jira',
-        { ...form, base_url: 'https://jira', email: 'a@b.c', api_token: 't', project_key: 'OPS' },
+        { ...form, base_url: 'https://jira', api_token: 't', project_key: 'OPS' },
         { workspaceOnly: false, editing: false },
       ),
     ).toBe(true);
+    expect(
+      integrationFormReady(
+        'jira',
+        { ...form, base_url: 'https://jira', api_token: 't', project_key: 'OPS', auth_type: 'basic' },
+        { workspaceOnly: false, editing: false },
+      ),
+    ).toBe(false);
     expect(integrationFormReady('slack', form, { workspaceOnly: false, editing: false })).toBe(false);
     expect(
       integrationFormReady(
@@ -55,6 +62,7 @@ describe('IntegrationConfigFields helpers', () => {
       base_url: 'https://jira',
       email: 'a@b.c',
       project_key: 'OPS',
+      auth_type: 'bearer',
     });
     expect(buildConfigPayload('slack', emptyIntegrationConfigForm(), { workspaceOnly: false, keepBlankSecrets: true })).toEqual(
       {},
@@ -91,6 +99,7 @@ describe('IntegrationConfigFields helpers', () => {
       base_url: 'https://jira',
       email: 'ops@example.com',
       project_key: 'OPS',
+      auth_type: 'bearer',
     });
     expect(
       configFormFromItem('express', {
@@ -114,6 +123,7 @@ describe('IntegrationConfigFields helpers', () => {
       </I18nextProvider>,
     );
     expect(screen.getByText('Jira base URL')).toBeInTheDocument();
+    expect(screen.getByLabelText('Jira auth method')).toBeInTheDocument();
     unmount();
 
     render(

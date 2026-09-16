@@ -19,7 +19,13 @@ type Config struct {
 	APIToken   string `json:"api_token"`
 	ProjectKey string `json:"project_key"`
 	IssueType  string `json:"issue_type"`
+	AuthType   string `json:"auth_type"`
 }
+
+const (
+	authTypeBearer = "bearer"
+	authTypeBasic  = "basic"
+)
 
 type Provider struct {
 	cfg    Config
@@ -43,13 +49,33 @@ func NewFromJSON(raw []byte) (*Provider, error) {
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(cfg.BaseURL) == "" || strings.TrimSpace(cfg.Email) == "" || strings.TrimSpace(cfg.APIToken) == "" {
+	if strings.TrimSpace(cfg.BaseURL) == "" || strings.TrimSpace(cfg.APIToken) == "" {
 		return nil, fmt.Errorf("jira config incomplete")
 	}
-	if cfg.ProjectKey == "" {
+	if strings.TrimSpace(cfg.ProjectKey) == "" {
 		return nil, fmt.Errorf("jira project_key is required")
 	}
+	if cfg.authType() == authTypeBasic && strings.TrimSpace(cfg.Email) == "" {
+		return nil, fmt.Errorf("jira email is required for basic auth")
+	}
 	return New(cfg), nil
+}
+
+func (c Config) authType() string {
+	switch strings.ToLower(strings.TrimSpace(c.AuthType)) {
+	case authTypeBasic:
+		return authTypeBasic
+	default:
+		return authTypeBearer
+	}
+}
+
+func (p *Provider) applyAuth(req *http.Request) {
+	if p.cfg.authType() == authTypeBasic {
+		req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+p.cfg.APIToken)
 }
 
 func (p *Provider) Kind() string { return "jira" }
@@ -73,7 +99,7 @@ func (p *Provider) CreateTicket(ctx context.Context, incident integrations.Incid
 	if err != nil {
 		return "", err
 	}
-	req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+	p.applyAuth(req)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := p.client.Do(req)
@@ -107,7 +133,7 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+	p.applyAuth(req)
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return err
@@ -153,7 +179,7 @@ func (p *Provider) UpdateAssignee(ctx context.Context, issueKey, assigneeEmail s
 	if err != nil {
 		return err
 	}
-	req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+	p.applyAuth(req)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := p.client.Do(req)
@@ -178,7 +204,7 @@ func (p *Provider) lookupAccountID(ctx context.Context, email string) (string, e
 	if err != nil {
 		return "", err
 	}
-	req.SetBasicAuth(p.cfg.Email, p.cfg.APIToken)
+	p.applyAuth(req)
 	resp, err := p.client.Do(req)
 	if err != nil {
 		return "", err
