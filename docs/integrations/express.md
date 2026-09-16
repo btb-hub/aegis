@@ -16,13 +16,15 @@ Integration `config` JSON:
 - `host` — BotX CTS base URL (e.g. `https://cts.example.com`)
 - `secret_key` — bot secret for HMAC token signing and JWT verification
 
-BotX webhook **base** (paste this in the BotX admin; CTS appends paths):
+BotX webhook **base** (paste this in the BotX admin; CTS appends `/status` and `/command`):
 
 `{PUBLIC_URL}/api/v1/callbacks/express`
 
+If the BotX admin already has `{PUBLIC_URL}/api/v1/callbacks/express/bot`, that is also a valid base — CTS then calls `…/bot/status` and `…/bot/command`.
+
 | Method | Path | Auth | Response |
 |--------|------|------|----------|
-| GET | `{base}/status` | BotX JWT (`Authorization`) | **200** `{status:"ok", result:{enabled, status_message, commands}}`. Missing integration: **503** `{reason:"bot_disabled", …}` |
+| GET | `{base}/status` | BotX JWT optional | **200** `{status:"ok", result:{enabled, status_message, commands}}` listing `/link` and `/ack_incident`. Missing integration: **503** `{reason:"bot_disabled", …}`. Invalid JWT: **401** |
 | POST | `{base}/command` | BotX JWT | **202** `{"result":"accepted"}` (≤5s). `/link` and ack are processed synchronously, then accepted. `system:*` and unknown commands also 202 |
 | POST | `{base}/bot` | BotX JWT | Deprecated alias of `/command` |
 
@@ -33,7 +35,7 @@ Must not sit behind interactive Google/IAP login.
 1. User signs in to Aegis and calls `POST /api/v1/users/me/express-link-code`.
 2. Response includes a short-lived code and the command to send in eXpress: `/link <code>`.
 3. User sends that command to the Aegis bot in eXpress.
-4. BotX delivers the command to `/callbacks/express/command`; Aegis binds `express_user_huid` to the user.
+4. BotX delivers the command to `{base}/command`; Aegis binds `express_user_huid` to the user.
 
 **Direct bind stub (admin/testing):** `POST /api/v1/users/me/express-link` with body
 `{"express_user_huid":"<uuid>"}` binds the huid without the bot flow.
@@ -62,10 +64,10 @@ That is the documented eXpress user-contact link. The client can start a DM from
 
 ## Inbound ack and link
 
-- `GET /api/v1/callbacks/express/status` — bot alive + command list (`/link`)
-- `POST /api/v1/callbacks/express/command` — commands (`/link`, ack, system events)
+- `GET /api/v1/callbacks/express/status` and `GET /api/v1/callbacks/express/bot/status` — bot alive + command list (`/link`, `/ack_incident`)
+- `POST /api/v1/callbacks/express/command` and `POST /api/v1/callbacks/express/bot/command` — commands (`/link`, ack, system events)
 - `POST /api/v1/callbacks/express/bot` — deprecated alias of `/command`
-- Verify BotX JWT in `Authorization` header (HS256, `secret_key`)
+- Verify BotX JWT in `Authorization` header (HS256, `secret_key`) on `/command`. Status verifies JWT when the header is present.
 - `/link <code>` → bind huid, then 202
 - `/ack_incident` (or bubble `data.incident_id`) → acknowledge incident, then 202
 

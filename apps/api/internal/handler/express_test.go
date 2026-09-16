@@ -192,9 +192,46 @@ func TestExpressStatusOK(t *testing.T) {
 	commands, ok := result["commands"].([]any)
 	require.True(t, ok)
 	require.NotEmpty(t, commands)
-	first, ok := commands[0].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "/link", first["body"])
+	bodies := make([]string, 0, len(commands))
+	for _, raw := range commands {
+		cmd, ok := raw.(map[string]any)
+		require.True(t, ok)
+		body, _ := cmd["body"].(string)
+		bodies = append(bodies, body)
+	}
+	require.Contains(t, bodies, "/link")
+	require.Contains(t, bodies, "/ack_incident")
+}
+
+func TestExpressStatusNoAuthorizationOK(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	seedExpressIntegration(t, repo)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/callbacks/express/status", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestExpressBotStatusAndCommandPaths(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	userID := uuid.New()
+	repo.users[userID] = db.User{ID: userID, Role: "member"}
+	seedExpressIntegration(t, repo)
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/api/v1/callbacks/express/bot/status", nil)
+	statusW := httptest.NewRecorder()
+	r.ServeHTTP(statusW, statusReq)
+	require.Equal(t, http.StatusOK, statusW.Code)
+
+	body := readExpressFixture(t, "command_link.json")
+	token := signExpressJWT(t, "secret", map[string]any{"exp": float64(time.Now().Add(time.Hour).Unix())})
+	cmdReq := httptest.NewRequest(http.MethodPost, "/api/v1/callbacks/express/bot/command", bytes.NewReader(body))
+	cmdReq.Header.Set("Content-Type", "application/json")
+	cmdReq.Header.Set("Authorization", "Bearer "+token)
+	cmdW := httptest.NewRecorder()
+	r.ServeHTTP(cmdW, cmdReq)
+	require.Equal(t, http.StatusAccepted, cmdW.Code)
+	require.JSONEq(t, `{"result":"accepted"}`, cmdW.Body.String())
 }
 
 func TestExpressStatusDisabled(t *testing.T) {

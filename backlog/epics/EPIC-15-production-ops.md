@@ -35,6 +35,11 @@ AEG-103 (base, not `/bot`).
 ### AEG-104 — BotX `/status` and `/command`
 
 - **Status:** In Review
+
+CTS treats the BotX admin URL as a base. Production often pastes `…/bot`, so Aegis also serves
+`GET …/bot/status` and `POST …/bot/command` with the same handlers. Status lists `/link` and
+`/ack_incident`. JWT on status is optional (missing header still 200 when the integration exists).
+
 - **Depends on:** AEG-019 (Done)
 - **PRD:** REQ-INT-04, REQ-INT-07 (proposed: CTS calls `{base}/status` and `{base}/command`)
 - **Acceptance:**
