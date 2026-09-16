@@ -24,7 +24,9 @@ func NewExpressCallbackHandler(incidents *service.IncidentService, links *servic
 
 func (h *ExpressCallbackHandler) Register(r gin.IRouter) {
 	r.GET("/api/v1/callbacks/express/status", h.status)
+	r.GET("/api/v1/callbacks/express/bot/status", h.status)
 	r.POST("/api/v1/callbacks/express/command", h.command)
+	r.POST("/api/v1/callbacks/express/bot/command", h.command)
 	r.POST("/api/v1/callbacks/express/bot", h.command)
 }
 
@@ -38,9 +40,11 @@ func (h *ExpressCallbackHandler) status(c *gin.Context) {
 		})
 		return
 	}
-	if err := intexpress.VerifyAuthorization(c.GetHeader("Authorization"), secret); err != nil {
-		WriteError(c, apperrors.Unauthorized("invalid express signature"))
-		return
+	if auth := c.GetHeader("Authorization"); strings.TrimSpace(auth) != "" {
+		if err := intexpress.VerifyAuthorization(auth, secret); err != nil {
+			WriteError(c, apperrors.Unauthorized("invalid express signature"))
+			return
+		}
 	}
 	WriteJSON(c, http.StatusOK, gin.H{
 		"status": "ok",
@@ -49,9 +53,16 @@ func (h *ExpressCallbackHandler) status(c *gin.Context) {
 			"status_message": "Bot is working",
 			"commands": []gin.H{
 				{
-					"name":        "link",
-					"body":        "/link",
-					"description": "Bind your Aegis account",
+					"body":         "/link",
+					"name":         "link",
+					"description":  "Bind Aegis paging identity",
+					"command_type": "user",
+				},
+				{
+					"body":         "/ack_incident",
+					"name":         "ack_incident",
+					"description":  "Acknowledge incident",
+					"command_type": "user",
 				},
 			},
 		},

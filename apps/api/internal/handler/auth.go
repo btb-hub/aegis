@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/aegis/aegis/apps/api/internal/service"
@@ -90,9 +91,9 @@ func (h *AuthHandler) providers(c *gin.Context) {
 
 func (h *AuthHandler) login(c *gin.Context) {
 	provider := c.Param("provider")
-	url, state, err := h.auth.LoginURL(provider)
+	loginURL, state, err := h.auth.LoginURL(provider)
 	if err != nil {
-		WriteError(c, err)
+		c.Redirect(http.StatusFound, h.unconfiguredProviderURL(provider))
 		return
 	}
 	c.SetCookie(oauthStateCookie, state, oauthCookieTTL, "/", "", false, true)
@@ -102,7 +103,18 @@ func (h *AuthHandler) login(c *gin.Context) {
 	} else {
 		c.SetCookie(oauthRedirectCookie, "", -1, "/", "", false, true)
 	}
-	c.Redirect(http.StatusFound, url)
+	c.Redirect(http.StatusFound, loginURL)
+}
+
+func (h *AuthHandler) unconfiguredProviderURL(provider string) string {
+	query := url.Values{}
+	query.Set("auth_error", "unconfigured")
+	query.Set("provider", provider)
+	base := strings.TrimRight(h.publicURL, "/")
+	if base == "" {
+		return "/login?" + query.Encode()
+	}
+	return base + "/login?" + query.Encode()
 }
 
 func (h *AuthHandler) callback(c *gin.Context) {

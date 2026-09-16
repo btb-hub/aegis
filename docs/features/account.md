@@ -108,7 +108,7 @@ but page via Slack once `slack_user_id` is set.
 
 | Channel | Field | UI |
 |---------|-------|-----|
-| Slack | `slack_user_id` | Read-only; “Set when you sign in with Slack” or show id |
+| Slack | `slack_user_id` | Read-only. If Slack OIDC is configured: “Set when you sign in with Slack” or show id. If Slack is not a configured provider: say the provider is not configured (no Connect that 400s). |
 | eXpress | `express_user_huid` | If missing: **Generate link code** → calls `POST /users/me/express-link-code`, shows `/link <code>` instruction + copy button. If set: read-only UUID |
 
 Reuse wording from [`integrations/express.md`](../integrations/express.md).

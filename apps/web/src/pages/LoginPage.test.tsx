@@ -6,10 +6,10 @@ import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
 import { LoginPage } from './LoginPage';
 
-function renderLoginPage() {
+function renderLoginPage(path = '/login') {
   return render(
     <I18nextProvider i18n={i18n}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AuthProvider>
           <LoginPage />
         </AuthProvider>
@@ -98,5 +98,19 @@ describe('LoginPage', () => {
       );
     });
     expect(screen.getByText('Local development only. Do not enable in production.')).toBeInTheDocument();
+  });
+
+  it('shows unconfigured provider error from query params', async () => {
+    mockAuthFetches(false, ['google']);
+
+    renderLoginPage('/login?auth_error=unconfigured&provider=slack');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Slack is not configured for this deployment.',
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('link', { name: 'Sign in with Slack' })).not.toBeInTheDocument();
   });
 });

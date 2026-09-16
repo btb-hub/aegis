@@ -17,7 +17,8 @@ MVP supports exactly three identity providers:
 ### Flow
 
 1. User chooses provider on the login page ([`docs/features/web-auth.md`](./features/web-auth.md); Phase 3.5).
-2. `GET /auth/{provider}/login` generates state/nonce, redirects to IdP.
+2. `GET /auth/{provider}/login` generates state/nonce, redirects to IdP. Unknown or unconfigured
+   providers redirect to `/login?auth_error=unconfigured&provider={name}` (browser-safe).
 3. Callback validates state, exchanges code for tokens, fetches userinfo.
 4. Upsert `users` on `(provider, provider_sub)`.
 5. Create `sessions` row; set **HttpOnly**, **Secure** (prod), **SameSite=Lax** cookie.
@@ -68,9 +69,10 @@ Enforced in service layer + handler checks.
 
 - Alert webhook: shared secret header `X-Aegis-Webhook-Secret` or HMAC body signature.
 - Slack: verify `X-Slack-Signature` timestamp + signing secret.
-- eXpress: BotX JWT (HS256, `secret_key`) on `GET /api/v1/callbacks/express/status`,
-  `POST /api/v1/callbacks/express/command`, and the deprecated `POST …/bot` alias.
-  These paths are machine ingress (REQ-INT-07) and must not sit behind interactive IAP.
+- eXpress: BotX JWT (HS256, `secret_key`) on `POST /api/v1/callbacks/express/command`
+  (and `/bot/command`, deprecated `POST …/bot`). `GET …/status` and `GET …/bot/status`
+  verify JWT when `Authorization` is present. These paths are machine ingress
+  (REQ-INT-07) and must not sit behind interactive IAP.
 
 ## Audit (REQ-AUDIT-01)
 

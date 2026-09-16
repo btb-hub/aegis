@@ -78,6 +78,7 @@ func TestAppRedirectURLWithoutPublicURL(t *testing.T) {
 	require.Equal(t, "/account", h.appRedirectURL("/account"))
 	require.Equal(t, "/", h.appRedirectURL(""))
 	require.Equal(t, "/", h.appRedirectURL("//evil.test"))
+	require.Equal(t, "/login?auth_error=unconfigured&provider=slack", h.unconfiguredProviderURL("slack"))
 }
 
 func TestLoginRejectsUnsafeRedirect(t *testing.T) {
@@ -149,7 +150,17 @@ func TestLoginUnknownProviderHTTP(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/auth/unknown/login", nil)
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/login?auth_error=unconfigured&provider=unknown", w.Header().Get("Location"))
+}
+
+func TestLoginUnconfiguredProviderRedirectsToLogin(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/slack/login?redirect=/account", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/login?auth_error=unconfigured&provider=slack", w.Header().Get("Location"))
 }
 
 func TestPatchMeInvalidJSON(t *testing.T) {

@@ -9,7 +9,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/auth/providers` | — | `{ "providers": ["google", …] }` — OIDC providers configured in this deployment |
-| GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`). Optional query: `redirect` (same-origin relative path, stored and used after callback). |
+| GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`). Optional query: `redirect` (same-origin relative path, stored and used after callback). Unknown or unconfigured providers redirect to `{PUBLIC_URL}/login?auth_error=unconfigured&provider={name}` (browser-safe; not JSON 400). |
 | GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`), or to the stored `redirect` path when present. Pass `?format=json` for JSON user body instead. |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user profile (see below) |
@@ -315,12 +315,14 @@ continues the Aegis incident lifecycle and other provider deliveries.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/callbacks/express/status` | BotX JWT | Bot alive + command list |
+| GET | `/callbacks/express/status` | BotX JWT optional | Bot alive + `/link`, `/ack_incident` |
+| GET | `/callbacks/express/bot/status` | BotX JWT optional | Same as `/status` (when admin URL ends in `/bot`) |
 | POST | `/callbacks/express/command` | BotX JWT | Commands (`/link`, ack); **202** `{"result":"accepted"}` |
+| POST | `/callbacks/express/bot/command` | BotX JWT | Same as `/command` |
 | POST | `/callbacks/express/bot` | BotX JWT | Deprecated alias of `/command` |
 | POST | `/callbacks/slack/interactive` | Slack signature | Ack button |
 
-BotX admin URL is the **base** `{PUBLIC_URL}/api/v1/callbacks/express`. CTS appends `/status` and `/command`.
+BotX admin URL is a **base**. Paste `{PUBLIC_URL}/api/v1/callbacks/express` or `{PUBLIC_URL}/api/v1/callbacks/express/bot`. CTS appends `/status` and `/command`.
 
 ## Handoffs (Phase 5)
 

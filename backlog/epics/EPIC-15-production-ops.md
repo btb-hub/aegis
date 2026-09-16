@@ -35,6 +35,11 @@ AEG-103 (base, not `/bot`).
 ### AEG-104 — BotX `/status` and `/command`
 
 - **Status:** In Review
+
+CTS treats the BotX admin URL as a base. Production often pastes `…/bot`, so Aegis also serves
+`GET …/bot/status` and `POST …/bot/command` with the same handlers. Status lists `/link` and
+`/ack_incident`. JWT on status is optional (missing header still 200 when the integration exists).
+
 - **Depends on:** AEG-019 (Done)
 - **PRD:** REQ-INT-04, REQ-INT-07 (proposed: CTS calls `{base}/status` and `{base}/command`)
 - **Acceptance:**
@@ -64,24 +69,26 @@ AEG-103 (base, not `/bot`).
 
 ### AEG-106 — Configured OIDC only; SSO vs paging
 
-- **Status:** Ready
+- **Status:** In Review
 - **Depends on:** AEG-057, AEG-071 (Done)
 - **PRD:** REQ-AUTH-01 (proposed: UI lists only configured providers)
 - **Acceptance:**
-  - [ ] Given `GET /auth/providers` (no session), when called, then `{ "providers": ["google", …] }`
+  - [x] Given `GET /auth/providers` (no session), when called, then `{ "providers": ["google", …] }`
         contains only names that pass `cfg.Provider` (non-empty credentials; eXpress also needs issuer)
-  - [ ] Given `/login`, when only Google is configured, then Slack and eXpress sign-in buttons are
+  - [x] Given `/login`, when only Google is configured, then Slack and eXpress sign-in buttons are
         not rendered. Buttons that are shown remain full-page `<a href="/auth/{p}/login">`
-  - [ ] Given `/account` **Connected sign-in (SSO)**, when a provider is not configured, then Connect
+  - [x] Given `/account` **Connected sign-in (SSO)**, when a provider is not configured, then Connect
         is not shown. Connect for a configured, unlinked provider is `<a href>` (never React Router
         `Link`) so the SPA catch-all cannot send the user to `/shifts`
-  - [ ] Given Account **Paging identity**, when the user needs eXpress for paging, then they still
+  - [x] Given Account **Paging identity**, when the user needs eXpress for paging, then they still
         use **Generate link code** (`/link`). Copy does not say “sign-in and paging”. Headings
         separate SSO from bind-eXpress-for-paging
-  - [ ] en + ru; Vitest for login/account provider lists; no silent redirect
+  - [x] Given `GET /auth/{provider}/login` for an unconfigured provider, when the browser follows
+        the href, then redirect to `/login?auth_error=unconfigured&provider=…` (not JSON 400)
+  - [x] en + ru; Vitest for login/account provider lists; no silent redirect
 
-**Plan:** `Config.ConfiguredProviders()`; `AuthHandler.providers`. Branch:
-`feat/auth-AEG-106-configured-oidc-providers`.
+**Plan:** `Config.ConfiguredProviders()`; `AuthHandler.providers`. Unconfigured login is a
+browser redirect. Branch: `feat/auth-AEG-106-configured-providers`.
 
 ---
 

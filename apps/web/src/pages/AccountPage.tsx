@@ -43,9 +43,12 @@ export function AccountPage() {
   const [generatingCode, setGeneratingCode] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
   const [ssoProviders, setSsoProviders] = useState<AuthProviderId[]>([]);
+  const [ssoLoaded, setSsoLoaded] = useState(false);
 
   useEffect(() => {
-    void fetchAuthProviders().then(setSsoProviders);
+    void fetchAuthProviders()
+      .then(setSsoProviders)
+      .finally(() => setSsoLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -222,7 +225,10 @@ export function AccountPage() {
         <div className="space-y-2 text-sm">
           <p>
             <span className="font-medium">{t('account.slack_id_label')}:</span>{' '}
-            {user.slack_user_id ?? t('account.slack_id_empty')}
+            {user.slack_user_id ??
+              (!ssoLoaded || ssoProviders.includes('slack')
+                ? t('account.slack_id_empty')
+                : t('account.slack_id_unconfigured'))}
           </p>
           <p>
             <span className="font-medium">{t('account.express_id_label')}:</span>{' '}
