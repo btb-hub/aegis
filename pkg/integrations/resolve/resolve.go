@@ -68,9 +68,15 @@ func ConfigComplete(kind string, raw []byte) bool {
 			Email      string `json:"email"`
 			APIToken   string `json:"api_token"`
 			ProjectKey string `json:"project_key"`
+			AuthType   string `json:"auth_type"`
 		}
-		return json.Unmarshal(raw, &cfg) == nil &&
-			nonBlank(cfg.BaseURL, cfg.Email, cfg.APIToken, cfg.ProjectKey)
+		if json.Unmarshal(raw, &cfg) != nil || !nonBlank(cfg.BaseURL, cfg.APIToken, cfg.ProjectKey) {
+			return false
+		}
+		if strings.EqualFold(strings.TrimSpace(cfg.AuthType), "basic") {
+			return nonBlank(cfg.Email)
+		}
+		return true
 	case "slack":
 		var cfg struct {
 			BotToken      string `json:"bot_token"`

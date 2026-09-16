@@ -4,10 +4,14 @@ Ticket provider. Implements `TicketProvider`.
 
 ## Config (env / integration JSON)
 
-- `base_url` — Jira Cloud or Server URL
-- `email` + `api_token` — basic auth (Cloud) or PAT
+- `base_url` — Jira Cloud or Server/Data Center URL
+- `api_token` — PAT or Cloud API token
+- `auth_type` — `bearer` (default, Data Center PAT) or `basic` (Cloud `email:api_token`)
+- `email` — required for `basic`; optional for Bearer (used only to look up assignee accounts)
 - `project_key` — default project for new issues
 - `issue_type` — default `Task` or `Incident`
+
+Default HTTP auth is `Authorization: Bearer <api_token>`. Set `auth_type: "basic"` for Jira Cloud API tokens.
 
 ## Create ticket
 

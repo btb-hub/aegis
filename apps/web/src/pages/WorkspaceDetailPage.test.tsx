@@ -994,8 +994,8 @@ describe('WorkspaceDetailPage', () => {
     expect(confirm).toHaveBeenCalledTimes(2);
     fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'custom' } });
     fireEvent.change(screen.getByLabelText('Jira base URL'), { target: { value: 'https://jira.example.com' } });
-    fireEvent.change(screen.getByLabelText('Jira email'), { target: { value: 'ops@example.com' } });
-    fireEvent.change(screen.getByLabelText('Jira API token'), { target: { value: 'secret' } });
+    fireEvent.change(screen.getByLabelText(/^Jira email/), { target: { value: 'ops@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^Jira API token/), { target: { value: 'secret' } });
     fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
 
@@ -1008,6 +1008,7 @@ describe('WorkspaceDetailPage', () => {
           email: 'ops@example.com',
           api_token: 'secret',
           project_key: 'OPS',
+          auth_type: 'bearer',
         },
       });
     });
