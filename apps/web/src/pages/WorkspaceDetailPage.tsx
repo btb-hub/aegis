@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { WorkspaceSlotsPanel } from '../components/integrations/WorkspaceSlotsPanel';
@@ -14,7 +15,8 @@ import { Select } from '../components/ui/Select';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import { fetchTeams } from '../lib/shiftsApi';
-import type { Team, Workspace } from '../lib/teamTypes';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
 import {
   assignTeamsToWorkspace,
   createRoutingRule,
@@ -26,7 +28,6 @@ import {
   updateWorkspace,
   WorkspaceApiError,
   type RoutingRule,
-  type WorkspaceSummary,
 } from '../lib/workspacesApi';
 
 type RuleFormState = {
@@ -43,6 +44,10 @@ type WorkspaceFormState = {
   description: string;
 };
 
+const EMPTY_WORKSPACES: Awaited<ReturnType<typeof fetchWorkspaces>> = [];
+const EMPTY_TEAMS: Awaited<ReturnType<typeof fetchTeams>> = [];
+const EMPTY_RULES: RoutingRule[] = [];
+
 const emptyRuleForm: RuleFormState = {
   team_id: '',
   priority: '100',
@@ -56,14 +61,31 @@ export function WorkspaceDetailPage() {
   const { workspaceId = '' } = useParams();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
 
-  const [workspace, setWorkspace] = useState<Workspace | null>(null);
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [allTeams, setAllTeams] = useState<Team[]>([]);
-  const [rules, setRules] = useState<RoutingRule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const detailQuery = useLoader(queryKeys.workspaces.detail(workspaceId), async () => {
+    const [workspaceData, workspaceList, teamList, ruleList] = await Promise.all([
+      fetchWorkspace(workspaceId),
+      fetchWorkspaces(),
+      fetchTeams(),
+      fetchRoutingRules(),
+    ]);
+    return {
+      workspace: workspaceData,
+      workspaces: workspaceList,
+      allTeams: teamList,
+      teams: teamList.filter((team) => team.workspace_id === workspaceId),
+      rules: ruleList,
+    };
+  });
+
+  const workspace = detailQuery.data?.workspace ?? null;
+  const workspaces = detailQuery.data?.workspaces ?? EMPTY_WORKSPACES;
+  const teams = detailQuery.data?.teams ?? EMPTY_TEAMS;
+  const allTeams = detailQuery.data?.allTeams ?? EMPTY_TEAMS;
+  const rules = detailQuery.data?.rules ?? EMPTY_RULES;
+  const loading = detailQuery.loading;
+  const loadError = detailQuery.isError ? t('workspaces.detail.load_error') : null;
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -135,36 +157,8 @@ export function WorkspaceDetailPage() {
     });
   }, [allTeams, assignSearch, workspaceId]);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [workspaceData, workspaceList, teamList, ruleList] = await Promise.all([
-        fetchWorkspace(workspaceId),
-        fetchWorkspaces(),
-        fetchTeams(),
-        fetchRoutingRules(),
-      ]);
-      setWorkspace(workspaceData);
-      setWorkspaces(workspaceList);
-      setAllTeams(teamList);
-      setTeams(teamList.filter((team) => team.workspace_id === workspaceId));
-      setRules(ruleList);
-    } catch {
-      setLoadError(t('workspaces.detail.load_error'));
-      setWorkspace(null);
-      setWorkspaces([]);
-      setTeams([]);
-      setAllTeams([]);
-      setRules([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId, t]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  const refreshWorkspace = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.workspaces.detail(workspaceId) });
 
   const openCreate = () => {
     setEditingRule(null);
@@ -212,9 +206,12 @@ export function WorkspaceDetailPage() {
         slug: editForm.slug.trim(),
         description: editForm.description.trim(),
       });
-      setWorkspace(updated);
+      queryClient.setQueryData(queryKeys.workspaces.detail(workspaceId), (current: typeof detailQuery.data) =>
+        current ? { ...current, workspace: updated } : current,
+      );
       setToast({ message: t('workspaces.detail.update_success'), variant: 'success' });
       setEditOpen(false);
+      await refreshWorkspace();
     } catch (error) {
       const message =
         error instanceof WorkspaceApiError ? error.message : t('workspaces.detail.update_failed');
@@ -231,7 +228,7 @@ export function WorkspaceDetailPage() {
       await assignTeamsToWorkspace(workspaceId, selectedTeamIds);
       setToast({ message: t('workspaces.teams.assign_success'), variant: 'success' });
       setAssignOpen(false);
-      await loadData();
+      await refreshWorkspace();
     } catch (error) {
       if (error instanceof WorkspaceApiError && error.status === 409) {
         setAssignError(t('workspaces.teams.assign_blocked'));
@@ -289,7 +286,7 @@ export function WorkspaceDetailPage() {
         variant: 'success',
       });
       closeForm();
-      setRules(await fetchRoutingRules());
+      await refreshWorkspace();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('workspaces.routing.save_failed');
       setToast({ message, variant: 'default' });
@@ -308,7 +305,7 @@ export function WorkspaceDetailPage() {
       await deleteRoutingRule(deleteTarget.id);
       setToast({ message: t('workspaces.routing.delete_success'), variant: 'success' });
       setDeleteTarget(null);
-      setRules(await fetchRoutingRules());
+      await refreshWorkspace();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('workspaces.routing.delete_failed');
       setToast({ message, variant: 'default' });

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,9 +8,12 @@ import {
   SUPPORT_TIERS,
   type SupportTier,
   type Team,
-  type Workspace,
 } from '../lib/teamTypes';
 import { fetchWorkspaces } from '../lib/workspacesApi';
+import { ApiError } from '../lib/apiClient';
+import { queryKeys } from '../lib/queryClient';
+import { createTeam, deleteTeam, fetchTeams, updateTeam } from '../lib/shiftsApi';
+import { useLoader } from '../lib/useLoader';
 import { Banner } from '../components/ui/Banner';
 import { Button } from '../components/ui/Button';
 import { DataTable } from '../components/ui/DataTable';
@@ -20,6 +24,9 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Select } from '../components/ui/Select';
 import { StatusTag } from '../components/ui/StatusTag';
 import { Toast } from '../components/ui/Toast';
+
+const EMPTY_TEAMS: Team[] = [];
+const EMPTY_WORKSPACES: Awaited<ReturnType<typeof fetchWorkspaces>> = [];
 
 type TeamFormState = {
   name: string;
@@ -43,12 +50,10 @@ export function TeamsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
 
-  const [items, setItems] = useState<Team[]>([]);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceFilter, setWorkspaceFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -58,6 +63,19 @@ export function TeamsPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<Team | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const teamsQuery = useLoader(queryKeys.teams.list(workspaceFilter), () =>
+    fetchTeams(workspaceFilter === 'all' ? undefined : workspaceFilter),
+  );
+  const workspacesQuery = useLoader(queryKeys.workspaces.list, () => fetchWorkspaces());
+  const items = teamsQuery.data ?? EMPTY_TEAMS;
+  const workspaces = workspacesQuery.data ?? EMPTY_WORKSPACES;
+  const loading = teamsQuery.loading;
+  const loadError = teamsQuery.isError
+    ? teamsQuery.error instanceof ApiError && teamsQuery.error.status === 401
+      ? t('teams.sign_in_required')
+      : t('teams.load_error')
+    : null;
 
   const workspaceById = useMemo(
     () => new Map(workspaces.map((workspace) => [workspace.id, workspace])),
@@ -76,50 +94,6 @@ export function TeamsPage() {
     () => workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
     [workspaces],
   );
-
-  const loadWorkspaces = useCallback(async () => {
-    try {
-      const list = await fetchWorkspaces();
-      setWorkspaces(list);
-    } catch {
-      setWorkspaces([]);
-    }
-  }, []);
-
-  const loadTeams = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const query =
-        workspaceFilter !== 'all'
-          ? `/api/v1/teams?workspace_id=${encodeURIComponent(workspaceFilter)}`
-          : '/api/v1/teams';
-      const response = await fetch(query, { credentials: 'include' });
-      if (response.status === 401) {
-        setLoadError(t('teams.sign_in_required'));
-        setItems([]);
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(t('teams.load_error'));
-      }
-      const data = (await response.json()) as { items: Team[] };
-      setItems(data.items ?? []);
-    } catch {
-      setLoadError(t('teams.load_error'));
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t, workspaceFilter]);
-
-  useEffect(() => {
-    void loadWorkspaces();
-  }, [loadWorkspaces]);
-
-  useEffect(() => {
-    void loadTeams();
-  }, [loadTeams]);
 
   const openCreate = () => {
     setEditingTeam(null);
@@ -173,31 +147,24 @@ export function TeamsPage() {
         }
       }
 
-      const response = await fetch(
-        editingTeam ? `/api/v1/teams/${editingTeam.id}` : '/api/v1/teams',
-        {
-          method: editingTeam ? 'PATCH' : 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (response.status === 401) {
-        setToast({ message: t('teams.sign_in_required'), variant: 'default' });
-        return;
-      }
-      if (!response.ok) {
-        const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('teams.save_failed'));
+      if (editingTeam) {
+        await updateTeam(editingTeam.id, payload);
+      } else {
+        await createTeam(payload);
       }
       setToast({
         message: t(editingTeam ? 'teams.update_success' : 'teams.create_success'),
         variant: 'success',
       });
       closeForm();
-      await loadTeams();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.teams.all });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t('teams.save_failed');
+      const message =
+        error instanceof ApiError && error.status === 401
+          ? t('teams.sign_in_required')
+          : error instanceof Error
+            ? error.message
+            : t('teams.save_failed');
       setToast({ message, variant: 'default' });
     } finally {
       setSaving(false);
@@ -211,23 +178,17 @@ export function TeamsPage() {
     setDeleting(true);
     setToast(null);
     try {
-      const response = await fetch(`/api/v1/teams/${deleteTarget.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (response.status === 401) {
-        setToast({ message: t('teams.sign_in_required'), variant: 'default' });
-        return;
-      }
-      if (!response.ok) {
-        const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('teams.delete_failed'));
-      }
+      await deleteTeam(deleteTarget.id);
       setToast({ message: t('teams.delete_success'), variant: 'success' });
       setDeleteTarget(null);
-      await loadTeams();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.teams.all });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t('teams.delete_failed');
+      const message =
+        error instanceof ApiError && error.status === 401
+          ? t('teams.sign_in_required')
+          : error instanceof Error
+            ? error.message
+            : t('teams.delete_failed');
       setToast({ message, variant: 'default' });
     } finally {
       setDeleting(false);

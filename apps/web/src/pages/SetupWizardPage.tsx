@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,25 +8,32 @@ import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
+import { fetchIntegrations } from '../lib/integrationsApi';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
 import { DEFAULT_WORKSPACE_ID } from '../lib/teamTypes';
 import { addEscalationPath, fetchWorkspaces } from '../lib/workspacesApi';
 import { loadSetupWizardState, saveSetupWizardState } from '../lib/setupWizard';
-
-type IntegrationItem = {
-  id: string;
-  kind: string;
-  name: string;
-  enabled: boolean;
-};
 
 const STEP_COUNT = 6;
 
 export function SetupWizardPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(() => loadSetupWizardState().step);
-  const [healthOk, setHealthOk] = useState<boolean | null>(null);
-  const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
+
+  const healthQuery = useLoader(queryKeys.setup.health, async () => {
+    const response = await fetch('/healthz');
+    return response.ok;
+  });
+  const integrationsQuery = useLoader(queryKeys.integrations.list, () => fetchIntegrations());
+  const workspacesQuery = useLoader(queryKeys.setup.wizardWorkspaces, () => fetchWorkspaces());
+
+  const healthOk = healthQuery.isError ? false : (healthQuery.data ?? null);
+  const integrations = integrationsQuery.data ?? [];
+  const workspaceStepSkippable =
+    workspacesQuery.data?.some((item) => item.id !== DEFAULT_WORKSPACE_ID && item.team_count > 0) ?? false;
   const [savingKind, setSavingKind] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [alertId, setAlertId] = useState<string | null>(null);
@@ -60,47 +68,10 @@ export function SetupWizardPage() {
   const [createdTeamId, setCreatedTeamId] = useState<string | null>(null);
   const [createdWorkspaceId, setCreatedWorkspaceId] = useState<string | null>(null);
   const [creatingTeam, setCreatingTeam] = useState(false);
-  const [workspaceStepSkippable, setWorkspaceStepSkippable] = useState(false);
-
-  useEffect(() => {
-    void fetchWorkspaces()
-      .then((items) => {
-        const hasConfiguredWorkspace = items.some(
-          (item) => item.id !== DEFAULT_WORKSPACE_ID && item.team_count > 0,
-        );
-        setWorkspaceStepSkippable(hasConfiguredWorkspace);
-      })
-      .catch(() => {
-        setWorkspaceStepSkippable(false);
-      });
-  }, []);
 
   useEffect(() => {
     saveSetupWizardState({ step, completed: step >= STEP_COUNT - 1 });
   }, [step]);
-
-  const checkHealth = useCallback(async () => {
-    try {
-      const response = await fetch('/healthz');
-      setHealthOk(response.ok);
-    } catch {
-      setHealthOk(false);
-    }
-  }, []);
-
-  const loadIntegrations = useCallback(async () => {
-    const response = await fetch('/api/v1/integrations', { credentials: 'include' });
-    if (!response.ok) {
-      return;
-    }
-    const data = (await response.json()) as { items: IntegrationItem[] };
-    setIntegrations(data.items ?? []);
-  }, []);
-
-  useEffect(() => {
-    void checkHealth();
-    void loadIntegrations();
-  }, [checkHealth, loadIntegrations]);
 
   const upsertIntegration = async (kind: string, name: string, config: Record<string, string>) => {
     setSavingKind(kind);
@@ -117,7 +88,7 @@ export function SetupWizardPage() {
         throw new Error(body.message ?? t('setup.integrations.save_failed'));
       }
       setToast({ message: t('setup.integrations.save_success', { kind }), variant: 'success' });
-      await loadIntegrations();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('setup.integrations.save_failed');
       setToast({ message, variant: 'default' });
@@ -307,7 +278,7 @@ export function SetupWizardPage() {
                   ? t('setup.welcome.health_ok')
                   : t('setup.welcome.health_failed')}
             </p>
-            <Button variant="secondary" onClick={() => void checkHealth()}>
+            <Button variant="secondary" onClick={() => void healthQuery.refetch()}>
               {t('setup.welcome.retry_health')}
             </Button>
           </div>

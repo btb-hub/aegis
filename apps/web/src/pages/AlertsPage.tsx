@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AlertAnalyticsPanel } from '../components/alerts/AlertAnalyticsPanel';
@@ -12,16 +13,14 @@ import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import {
   defaultAlertFilters,
-  filtersToExportQuery,
-  filtersToQuery,
   filtersToSavedView,
   savedViewToFilters,
-  type AlertAnalytics,
   type AlertFilters,
-  type AlertGroup,
-  type AlertItem,
-  type SavedView,
 } from '../lib/alertTypes';
+import { createSavedView, exportAlertsCsv, fetchAlerts, fetchSavedViews } from '../lib/alertsApi';
+import { ApiError } from '../lib/apiClient';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
 import { fetchWorkspaces } from '../lib/workspacesApi';
 
 const PAGE_SIZE = 25;
@@ -34,77 +33,30 @@ export function AlertsPage() {
   const [draftFilters, setDraftFilters] = useState<AlertFilters>(() => defaultAlertFilters());
   const [appliedFilters, setAppliedFilters] = useState<AlertFilters>(() => defaultAlertFilters());
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState<AlertItem[]>([]);
-  const [groups, setGroups] = useState<AlertGroup[]>([]);
-  const [groupBy, setGroupBy] = useState('');
-  const [total, setTotal] = useState(0);
-  const [analytics, setAnalytics] = useState<AlertAnalytics | null>(null);
-  const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [selectedViewId, setSelectedViewId] = useState('');
   const [saveName, setSaveName] = useState('');
   const [shareView, setShareView] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
   const [routingLoading, setRoutingLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const loadSavedViews = useCallback(async () => {
-    const response = await fetch('/api/v1/saved-views', { credentials: 'include' });
-    if (!response.ok) {
-      return;
-    }
-    const data = (await response.json()) as { items: SavedView[] };
-    setSavedViews(data.items ?? []);
-  }, []);
-
-  const loadAlerts = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const params = filtersToQuery(appliedFilters, page, PAGE_SIZE);
-      const response = await fetch(`/api/v1/alerts?${params.toString()}`, { credentials: 'include' });
-      if (response.status === 401) {
-        setLoadError(t('alerts.sign_in_required'));
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(t('alerts.load_error'));
-      }
-      const data = (await response.json()) as {
-        items?: AlertItem[];
-        groups?: AlertGroup[];
-        group_by?: string;
-        total?: number;
-        analytics?: AlertAnalytics;
-      };
-      setTotal(data.total ?? 0);
-      setAnalytics(data.analytics ?? null);
-      if (data.groups) {
-        setGroups(data.groups);
-        setGroupBy(data.group_by ?? '');
-        setItems([]);
-      } else {
-        setItems(data.items ?? []);
-        setGroups([]);
-        setGroupBy('');
-      }
-    } catch {
-      setLoadError(t('alerts.load_error'));
-      setItems([]);
-      setGroups([]);
-      setAnalytics(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [appliedFilters, page, t]);
-
-  useEffect(() => {
-    void loadSavedViews();
-  }, [loadSavedViews]);
-
-  useEffect(() => {
-    void loadAlerts();
-  }, [loadAlerts]);
+  const alertsQuery = useLoader(queryKeys.alerts.list(`${JSON.stringify(appliedFilters)}:${page}`), () =>
+    fetchAlerts(appliedFilters, page, PAGE_SIZE),
+  );
+  const viewsQuery = useLoader(queryKeys.alerts.savedViews, () => fetchSavedViews());
+  const alerts = alertsQuery.data;
+  const items = alerts?.items ?? [];
+  const groups = alerts?.groups ?? [];
+  const groupBy = alerts?.group_by ?? '';
+  const total = alerts?.total ?? 0;
+  const analytics = alerts?.analytics ?? null;
+  const savedViews = viewsQuery.data ?? [];
+  const loading = alertsQuery.loading;
+  const loadError = alertsQuery.isError
+    ? alertsQuery.error instanceof ApiError && alertsQuery.error.status === 401
+      ? t('alerts.sign_in_required')
+      : t('alerts.load_error')
+    : null;
 
   const applyFilters = () => {
     setPage(1);
@@ -128,43 +80,34 @@ export function AlertsPage() {
       setToast({ message: t('alerts.saved_views.name_required'), variant: 'default' });
       return;
     }
-    const response = await fetch('/api/v1/saved-views', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      await createSavedView({
         name: saveName.trim(),
         filter: filtersToSavedView(appliedFilters),
         shared: shareView,
-      }),
-    });
-    if (!response.ok) {
+      });
+      setSaveName('');
+      setShareView(false);
+      setToast({ message: t('alerts.saved_views.save_success'), variant: 'success' });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.alerts.savedViews });
+    } catch {
       setToast({ message: t('alerts.saved_views.save_failed'), variant: 'default' });
-      return;
     }
-    setSaveName('');
-    setShareView(false);
-    setToast({ message: t('alerts.saved_views.save_success'), variant: 'success' });
-    await loadSavedViews();
   };
 
   const exportCsv = async () => {
-    const params = filtersToExportQuery(appliedFilters);
-    const response = await fetch(`/api/v1/alerts/export?${params.toString()}`, {
-      credentials: 'include',
-    });
-    if (!response.ok) {
+    try {
+      const blob = await exportAlertsCsv(appliedFilters);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'alerts.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+      setToast({ message: t('alerts.export_success'), variant: 'success' });
+    } catch {
       setToast({ message: t('alerts.export_failed'), variant: 'default' });
-      return;
     }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'alerts.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-    setToast({ message: t('alerts.export_success'), variant: 'success' });
   };
 
   const openRouting = async () => {

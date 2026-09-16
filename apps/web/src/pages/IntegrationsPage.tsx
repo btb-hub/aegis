@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -21,20 +22,18 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Select } from '../components/ui/Select';
 import { StatusTag } from '../components/ui/StatusTag';
 import { Toast } from '../components/ui/Toast';
-import type { Workspace } from '../lib/teamTypes';
+import { ApiError } from '../lib/apiClient';
+import {
+  createIntegration,
+  deleteIntegration,
+  fetchIntegrations,
+  testIntegration,
+  updateIntegration,
+  type IntegrationItem,
+} from '../lib/integrationsApi';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
 import { fetchWorkspaces } from '../lib/workspacesApi';
-
-type IntegrationItem = {
-  id: string;
-  kind: string;
-  name: string;
-  enabled: boolean;
-  workspace_id?: string | null;
-  config?: Record<string, unknown>;
-  config_complete?: boolean;
-  mode?: IntegrationMode;
-  slot_status?: 'ready' | 'needs_setup' | 'using_global' | 'missing' | 'disabled';
-};
 
 type EditorMode = 'create' | 'edit';
 
@@ -64,15 +63,25 @@ const emptyEditor = (kind: IntegrationKind): EditorState => ({
   form: emptyIntegrationConfigForm(),
 });
 
+const EMPTY_INTEGRATIONS: IntegrationItem[] = [];
+const EMPTY_WORKSPACES: Awaited<ReturnType<typeof fetchWorkspaces>> = [];
+
 export function IntegrationsPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
 
-  const [items, setItems] = useState<IntegrationItem[]>([]);
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const integrationsQuery = useLoader(queryKeys.integrations.list, () => fetchIntegrations());
+  const workspacesQuery = useLoader(queryKeys.workspaces.list, () => fetchWorkspaces());
+  const items = (integrationsQuery.data ?? EMPTY_INTEGRATIONS) as IntegrationItem[];
+  const workspaces = workspacesQuery.data ?? EMPTY_WORKSPACES;
+  const loading = integrationsQuery.loading;
+  const loadError = integrationsQuery.isError
+    ? integrationsQuery.error instanceof ApiError && integrationsQuery.error.status === 401
+      ? t('integrations.sign_in_required')
+      : t('integrations.load_error')
+    : null;
   const [testingId, setTestingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -84,63 +93,27 @@ export function IntegrationsPage() {
   const [kindFilter, setKindFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const refreshIntegrations = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all });
+
   const workspaceById = useMemo(
     () => new Map(workspaces.map((workspace) => [workspace.id, workspace])),
     [workspaces],
   );
 
-  const loadIntegrations = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const response = await fetch('/api/v1/integrations', { credentials: 'include' });
-      if (response.status === 401) {
-        setLoadError(t('integrations.sign_in_required'));
-        setItems([]);
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(t('integrations.load_error'));
-      }
-      const data = (await response.json()) as { items: IntegrationItem[] };
-      setItems(data.items ?? []);
-    } catch {
-      setLoadError(t('integrations.load_error'));
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    void loadIntegrations();
-    void fetchWorkspaces()
-      .then(setWorkspaces)
-      .catch(() => setWorkspaces([]));
-  }, [loadIntegrations]);
-
   const testConnection = async (id: string) => {
     setTestingId(id);
     setToast(null);
     try {
-      const response = await fetch(`/api/v1/integrations/${id}/test`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (response.status === 401) {
-        setToast({ message: t('integrations.sign_in_required'), variant: 'default' });
-        return;
-      }
-      if (!response.ok) {
-        const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('integrations.test_failed'));
-      }
+      await testIntegration(id);
       setToast({ message: t('integrations.test_success'), variant: 'success' });
     } catch (error) {
       const message =
-        error instanceof Error && error.message && error.message !== 'network'
-          ? error.message
-          : t('integrations.test_failed');
+        error instanceof ApiError && error.status === 401
+          ? t('integrations.sign_in_required')
+          : error instanceof Error && error.message && error.message !== 'network'
+            ? error.message
+            : t('integrations.test_failed');
       setToast({ message, variant: 'default' });
     } finally {
       setTestingId(null);
@@ -182,8 +155,10 @@ export function IntegrationsPage() {
       name: item.name,
       workspace_id: item.workspace_id ?? '',
       form: configFormFromItem(kind, item.config),
-      integrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
-      savedIntegrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
+      integrationMode: item.workspace_id ? ((item.mode as IntegrationMode | undefined) ?? 'inherit') : undefined,
+      savedIntegrationMode: item.workspace_id
+        ? ((item.mode as IntegrationMode | undefined) ?? 'inherit')
+        : undefined,
     });
   };
 
@@ -236,50 +211,25 @@ export function IntegrationsPage() {
           enabled: true,
           config,
         };
-        const response = await fetch('/api/v1/integrations', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (response.status === 401) {
-          setToast({ message: t('integrations.sign_in_required'), variant: 'default' });
-          return;
-        }
-        if (!response.ok) {
-          const body = (await response.json()) as { message?: string };
-          throw new Error(body.message ?? t('integrations.save_failed'));
-        }
+        await createIntegration(payload);
       } else {
-        const response = await fetch(`/api/v1/integrations/${editor.id}`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(
-            editor.workspace_id
-              ? {
-                  mode: workspaceMode,
-                  enabled: items.find((item) => item.id === editor.id)?.enabled ?? true,
-                  config,
-                }
-              : {
-                  name: editor.name.trim() || editor.kind,
-                  config,
-                },
-          ),
-        });
-        if (response.status === 401) {
-          setToast({ message: t('integrations.sign_in_required'), variant: 'default' });
-          return;
-        }
-        if (!response.ok) {
-          const body = (await response.json()) as { message?: string };
-          throw new Error(body.message ?? t('integrations.save_failed'));
-        }
+        await updateIntegration(
+          editor.id ?? '',
+          editor.workspace_id
+            ? {
+                mode: workspaceMode,
+                enabled: items.find((item) => item.id === editor.id)?.enabled ?? true,
+                config,
+              }
+            : {
+                name: editor.name.trim() || editor.kind,
+                config,
+              },
+        );
       }
       setToast({ message: t('integrations.save_success'), variant: 'success' });
       setEditor(null);
-      await loadIntegrations();
+      await refreshIntegrations();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('integrations.save_failed');
       setToast({ message, variant: 'default' });
@@ -292,21 +242,12 @@ export function IntegrationsPage() {
     setTogglingId(item.id);
     setToast(null);
     try {
-      const response = await fetch(`/api/v1/integrations/${item.id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !item.enabled }),
-      });
-      if (!response.ok) {
-        const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('integrations.save_failed'));
-      }
+      await updateIntegration(item.id, { enabled: !item.enabled });
       setToast({
         message: item.enabled ? t('integrations.disabled_toast') : t('integrations.enabled_toast'),
         variant: 'success',
       });
-      await loadIntegrations();
+      await refreshIntegrations();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('integrations.save_failed');
       setToast({ message, variant: 'default' });
@@ -322,17 +263,10 @@ export function IntegrationsPage() {
     setDeleting(true);
     setToast(null);
     try {
-      const response = await fetch(`/api/v1/integrations/${deleteTarget.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      if (!response.ok && response.status !== 204) {
-        const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('integrations.delete_failed'));
-      }
+      await deleteIntegration(deleteTarget.id);
       setToast({ message: t('integrations.delete_success'), variant: 'success' });
       setDeleteTarget(null);
-      await loadIntegrations();
+      await refreshIntegrations();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('integrations.delete_failed');
       setToast({ message, variant: 'default' });

@@ -45,9 +45,9 @@ States: `open`, `acknowledged`, `resolved`. Transitions logged to `timeline_even
 - Incident list with status filters.
 - Detail: timeline, linked alerts, Jira link, ack/resolve actions.
 
-**Current gap (Phase 10):** The web incidents page still uses in-memory demo data in `App.tsx`.
-Acknowledge, resolve, and handoff update React state only — they do not call the API. Wiring is
-tracked in [EPIC-11](../../backlog/epics/EPIC-11-support-levels-workspaces.md) (AEG-078).
+The incidents page loads list and detail through TanStack Query (`GET /incidents`,
+`GET /incidents/{id}`) and ack/resolve/handoff/bounce call the matching POST endpoints, then
+invalidate cached queries so the timeline survives refresh.
 
 ## References
 

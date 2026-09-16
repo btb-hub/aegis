@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ApiError } from '../../lib/apiClient';
+import { queryKeys } from '../../lib/queryClient';
 import type { UserDirectoryItem } from '../../lib/teamTypes';
+import { fetchUsers } from '../../lib/usersApi';
+import { useLoader } from '../../lib/useLoader';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 
@@ -14,48 +18,29 @@ export function TeamMemberPicker({ onSelect, excludeUserIds = [], disabled = fal
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [results, setResults] = useState<UserDirectoryItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  const searchUsers = useCallback(async () => {
-    if (!debouncedQuery) {
-      setResults([]);
-      setError(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ q: debouncedQuery, page_size: '20' });
-      const response = await fetch(`/api/v1/users?${params.toString()}`, { credentials: 'include' });
-      if (response.status === 401) {
-        setError(t('teams.sign_in_required'));
-        setResults([]);
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(t('teams.member_picker.load_error'));
-      }
-      const data = (await response.json()) as { items: UserDirectoryItem[] };
+  const searchQuery = useLoader(
+    queryKeys.users.list(debouncedQuery),
+    async () => {
+      const data = await fetchUsers(debouncedQuery);
       const excluded = new Set(excludeUserIds);
-      setResults((data.items ?? []).filter((user) => !excluded.has(user.id)));
-    } catch {
-      setError(t('teams.member_picker.load_error'));
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedQuery, excludeUserIds, t]);
+      return (data.items ?? []).filter((user) => !excluded.has(user.id)) as UserDirectoryItem[];
+    },
+    { enabled: Boolean(debouncedQuery) },
+  );
 
-  useEffect(() => {
-    void searchUsers();
-  }, [searchUsers]);
+  const results = debouncedQuery ? (searchQuery.data ?? []) : [];
+  const loading = Boolean(debouncedQuery) && searchQuery.loading;
+  const error = searchQuery.isError
+    ? searchQuery.error instanceof ApiError && searchQuery.error.status === 401
+      ? t('teams.sign_in_required')
+      : t('teams.member_picker.load_error')
+    : null;
 
   return (
     <div className="space-y-3">
@@ -83,7 +68,6 @@ export function TeamMemberPicker({ onSelect, excludeUserIds = [], disabled = fal
                 onClick={() => {
                   onSelect(user);
                   setQuery('');
-                  setResults([]);
                 }}
               >
                 {t('teams.member_picker.select')}

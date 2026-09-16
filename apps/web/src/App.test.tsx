@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
@@ -5,16 +6,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
 import i18n from './i18n';
+import { createTestQueryClient } from './test/renderWithQuery';
 
 function renderApp(initialPath = '/shifts') {
+  const queryClient = createTestQueryClient();
   return render(
-    <I18nextProvider i18n={i18n}>
-      <MemoryRouter initialEntries={[initialPath]}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </MemoryRouter>
-    </I18nextProvider>,
+    <QueryClientProvider client={queryClient}>
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </MemoryRouter>
+      </I18nextProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -203,7 +208,7 @@ describe('App', () => {
     renderApp('/incidents');
 
     await waitFor(() => {
-      expect(screen.getAllByText('CPU high on api-1').length).toBeGreaterThan(0);
+      expect(screen.getByRole('button', { name: 'Acknowledge' })).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));

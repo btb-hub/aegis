@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { IntegrationsPage } from './IntegrationsPage';
 
 const slackIntegration = {
@@ -34,13 +35,15 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
+    <TestQueryProvider>
     <MemoryRouter>
       <I18nextProvider i18n={i18n}>
         <AuthProvider>
           <IntegrationsPage />
         </AuthProvider>
       </I18nextProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 

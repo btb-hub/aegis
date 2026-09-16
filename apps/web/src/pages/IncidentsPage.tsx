@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { IncidentDetail } from '../components/incidents/IncidentDetail';
@@ -20,124 +21,126 @@ import {
 import type { Incident, IncidentStatus } from '../lib/incidentTypes';
 import { fetchTeam } from '../lib/shiftsApi';
 import { resolveApiErrorMessage } from '../lib/apiErrors';
+import { incidentQueryKeys } from '../lib/queryClient';
 import { validEscalationTargetTiers, type SupportTier } from '../lib/teamTypes';
+
+type IncidentContext = {
+  incident: Incident;
+  handoffTargets: HandoffTarget[];
+  owningTeamName?: string;
+  owningTier?: string;
+};
+
+async function loadIncidentContext(id: string): Promise<IncidentContext> {
+  const detail = await fetchIncidentDetail(id);
+  const [handoffTargetList, team] = await Promise.all([
+    fetchHandoffTargets(detail.teamId),
+    fetchTeam(detail.teamId).catch(() => null),
+  ]);
+  const allowedTiers = team?.support_tier
+    ? validEscalationTargetTiers(team.support_tier as SupportTier)
+    : [];
+  const handoffTargets =
+    allowedTiers.length === 0
+      ? handoffTargetList
+      : handoffTargetList.filter(
+          (target) =>
+            target.support_tier && allowedTiers.includes(target.support_tier as SupportTier),
+        );
+  return {
+    incident: detail,
+    handoffTargets,
+    owningTeamName: team?.name,
+    owningTier: team?.support_tier,
+  };
+}
 
 export function IncidentsPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const initialStatus = (searchParams.get('status') as IncidentStatus | 'all' | null) ?? 'all';
 
-  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [handoffTargets, setHandoffTargets] = useState<HandoffTarget[]>([]);
-  const [owningTeamName, setOwningTeamName] = useState<string | undefined>();
-  const [owningTier, setOwningTier] = useState<string | undefined>();
   const [statusFilter, setStatusFilter] = useState<IncidentStatus | 'all'>(initialStatus);
-  const [loading, setLoading] = useState(true);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const items = await fetchIncidents(statusFilter === 'all' ? undefined : statusFilter);
-      setIncidents(items);
-      if (items.length === 0) {
-        setSelectedId(undefined);
-        setSelectedIncident(null);
-      } else if (!selectedId || !items.some((item) => item.id === selectedId)) {
-        setSelectedId(items[0].id);
-      }
-    } catch {
-      setLoadError(t('incidents.load_error'));
-      setIncidents([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedId, statusFilter, t]);
+  const listQuery = useQuery({
+    queryKey: incidentQueryKeys.list(statusFilter),
+    queryFn: () => fetchIncidents(statusFilter === 'all' ? undefined : statusFilter),
+  });
+
+  const incidents = listQuery.data ?? [];
 
   useEffect(() => {
-    void loadList();
-  }, [loadList]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setSelectedIncident(null);
-      setHandoffTargets([]);
+    if (!listQuery.data) {
       return;
     }
-    let cancelled = false;
-    const loadDetail = async () => {
-      setDetailLoading(true);
-      setActionError(null);
-      try {
-        const detail = await fetchIncidentDetail(selectedId);
-        if (cancelled) {
-          return;
-        }
-        const [handoffTargetList, team] = await Promise.all([
-          fetchHandoffTargets(detail.teamId),
-          fetchTeam(detail.teamId).catch(() => null),
-        ]);
-        if (cancelled) {
-          return;
-        }
-        setSelectedIncident(detail);
-        const allowedTiers = team?.support_tier
-          ? validEscalationTargetTiers(team.support_tier as SupportTier)
-          : [];
-        const filteredTargets =
-          allowedTiers.length === 0
-            ? handoffTargetList
-            : handoffTargetList.filter(
-                (target) =>
-                  target.support_tier &&
-                  allowedTiers.includes(target.support_tier as SupportTier),
-              );
-        setHandoffTargets(filteredTargets);
-        setOwningTeamName(team?.name);
-        setOwningTier(team?.support_tier);
-      } catch {
-        if (!cancelled) {
-          setActionError(t('incidents.detail_load_error'));
-        }
-      } finally {
-        if (!cancelled) {
-          setDetailLoading(false);
-        }
-      }
-    };
-    void loadDetail();
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId, t]);
+    const items = listQuery.data;
+    if (items.length === 0) {
+      setSelectedId(undefined);
+      return;
+    }
+    if (!selectedId || !items.some((item) => item.id === selectedId)) {
+      setSelectedId(items[0].id);
+    }
+  }, [listQuery.data, selectedId]);
 
-  const refreshDetail = useCallback(async (incidentId: string) => {
-    const detail = await fetchIncidentDetail(incidentId);
-    setSelectedIncident(detail);
-    const [handoffTargetList, team] = await Promise.all([
-      fetchHandoffTargets(detail.teamId),
-      fetchTeam(detail.teamId).catch(() => null),
-    ]);
-    const allowedTiers = team?.support_tier
-      ? validEscalationTargetTiers(team.support_tier as SupportTier)
-      : [];
-    const filteredTargets =
-      allowedTiers.length === 0
-        ? handoffTargetList
-        : handoffTargetList.filter(
-            (target) =>
-              target.support_tier && allowedTiers.includes(target.support_tier as SupportTier),
-          );
-    setHandoffTargets(filteredTargets);
-    setOwningTeamName(team?.name);
-    setOwningTier(team?.support_tier);
-    await loadList();
-  }, [loadList]);
+  const detailQuery = useQuery({
+    queryKey: incidentQueryKeys.detail(selectedId ?? ''),
+    queryFn: () => loadIncidentContext(selectedId!),
+    enabled: Boolean(selectedId),
+  });
+
+  const selectedIncident = detailQuery.data?.incident ?? null;
+  const handoffTargets = detailQuery.data?.handoffTargets ?? [];
+  const owningTeamName = detailQuery.data?.owningTeamName;
+  const owningTier = detailQuery.data?.owningTier;
+
+  const invalidateIncidents = () =>
+    queryClient.invalidateQueries({ queryKey: incidentQueryKeys.all });
+
+  const onActionError = (error: Error) => {
+    setActionError(
+      error instanceof IncidentApiError
+        ? resolveApiErrorMessage(t, error.body, t('incidents.action_error'))
+        : t('incidents.action_error'),
+    );
+  };
+
+  const acknowledgeMut = useMutation({
+    mutationFn: acknowledgeIncident,
+    onSuccess: () => {
+      setActionError(null);
+      return invalidateIncidents();
+    },
+    onError: onActionError,
+  });
+  const resolveMut = useMutation({
+    mutationFn: resolveIncident,
+    onSuccess: () => {
+      setActionError(null);
+      return invalidateIncidents();
+    },
+    onError: onActionError,
+  });
+  const handoffMut = useMutation({
+    mutationFn: ({ id, toTeamId, note }: { id: string; toTeamId: string; note: string }) =>
+      handoffIncident(id, toTeamId, note),
+    onSuccess: () => {
+      setActionError(null);
+      return invalidateIncidents();
+    },
+    onError: onActionError,
+  });
+  const bounceMut = useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) => bounceIncident(id, note),
+    onSuccess: () => {
+      setActionError(null);
+      return invalidateIncidents();
+    },
+    onError: onActionError,
+  });
 
   const canBounce = useMemo(
     () =>
@@ -146,20 +149,6 @@ export function IncidentsPage() {
       ) ?? false,
     [selectedIncident],
   );
-
-  const runAction = async (action: () => Promise<void>, incidentId: string) => {
-    setActionError(null);
-    try {
-      await action();
-      await refreshDetail(incidentId);
-    } catch (error) {
-      if (error instanceof IncidentApiError) {
-        setActionError(resolveApiErrorMessage(t, error.body, t('incidents.action_error')));
-      } else {
-        setActionError(t('incidents.action_error'));
-      }
-    }
-  };
 
   return (
     <PageContent>
@@ -172,10 +161,11 @@ export function IncidentsPage() {
         }}
       />
 
-      {loadError ? <Banner variant="error">{loadError}</Banner> : null}
+      {listQuery.isError ? <Banner variant="error">{t('incidents.load_error')}</Banner> : null}
+      {detailQuery.isError ? <Banner variant="error">{t('incidents.detail_load_error')}</Banner> : null}
       {actionError ? <Banner variant="error">{actionError}</Banner> : null}
 
-      {loading ? (
+      {listQuery.isLoading ? (
         <p className="text-sm text-zinc-600">{t('incidents.loading')}</p>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
@@ -186,7 +176,7 @@ export function IncidentsPage() {
             onSelect={setSelectedId}
             selectedId={selectedId}
           />
-          {detailLoading ? (
+          {selectedId && detailQuery.isLoading ? (
             <p className="rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">
               {t('incidents.loading_detail')}
             </p>
@@ -201,10 +191,22 @@ export function IncidentsPage() {
               owningTeamName={owningTeamName}
               owningTier={owningTier}
               canBounce={canBounce}
-              onAcknowledge={(id) => void runAction(() => acknowledgeIncident(id), id)}
-              onResolve={(id) => void runAction(() => resolveIncident(id), id)}
-              onHandoff={(id, toTeamId, note) => void runAction(() => handoffIncident(id, toTeamId, note), id)}
-              onBounce={(id, note) => void runAction(() => bounceIncident(id, note), id)}
+              onAcknowledge={(id) => {
+                setActionError(null);
+                acknowledgeMut.mutate(id);
+              }}
+              onResolve={(id) => {
+                setActionError(null);
+                resolveMut.mutate(id);
+              }}
+              onHandoff={(id, toTeamId, note) => {
+                setActionError(null);
+                handoffMut.mutate({ id, toTeamId, note });
+              }}
+              onBounce={(id, note) => {
+                setActionError(null);
+                bounceMut.mutate({ id, note });
+              }}
             />
           ) : (
             <p className="rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">

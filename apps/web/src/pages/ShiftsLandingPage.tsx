@@ -1,41 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
+import { queryKeys } from '../lib/queryClient';
 import { fetchTeams } from '../lib/shiftsApi';
-import type { Team } from '../lib/teamTypes';
+import { useLoader } from '../lib/useLoader';
 
 export function ShiftsLandingPage() {
   const { t } = useTranslation();
-  const [teams, setTeams] = useState<Team[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const teamsQuery = useLoader(queryKeys.shifts.landing, () => fetchTeams());
+  const teams = teamsQuery.data;
+  const error = teamsQuery.isError ? t('shifts.load_error') : null;
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const items = await fetchTeams();
-      setTeams(items);
-    } catch {
-      setError(t('shifts.load_error'));
-      setTeams([]);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  if (teams === null) {
+  if (teamsQuery.loading) {
     return <p className="text-sm text-zinc-600">{t('shifts.loading')}</p>;
   }
 
-  if (error) {
+  if (error || teams === undefined) {
     return (
       <PageContent>
         <p className="text-sm text-red-700">{error}</p>
-        <Button variant="secondary" onClick={() => void load()}>
+        <Button variant="secondary" onClick={() => void teamsQuery.refetch()}>
           {t('shifts.retry')}
         </Button>
       </PageContent>

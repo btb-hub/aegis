@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { TeamMemberPicker } from '../components/teams/TeamMemberPicker';
@@ -14,8 +15,11 @@ import { StatusTag } from '../components/ui/StatusTag';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 import { resolveApiErrorMessage } from '../lib/apiErrors';
-import { fetchTeams } from '../lib/shiftsApi';
-import type { Team, TeamMember, TeamRole, UserDirectoryItem } from '../lib/teamTypes';
+import { ApiError } from '../lib/apiClient';
+import { queryKeys } from '../lib/queryClient';
+import { fetchTeam, fetchTeamMembers, fetchTeams } from '../lib/shiftsApi';
+import { useLoader } from '../lib/useLoader';
+import type { TeamMember, TeamRole, UserDirectoryItem } from '../lib/teamTypes';
 import { SUPPORT_TIERS, TEAM_ROLES, validEscalationTargetTiers } from '../lib/teamTypes';
 import {
   addEscalationPath,
@@ -24,8 +28,12 @@ import {
   fetchOutgoingPaths,
   fetchWorkspaces,
   type EscalationPath,
-  type WorkspaceSummary,
 } from '../lib/workspacesApi';
+
+const EMPTY_MEMBERS: TeamMember[] = [];
+const EMPTY_TEAMS: Awaited<ReturnType<typeof fetchTeams>> = [];
+const EMPTY_WORKSPACES: Awaited<ReturnType<typeof fetchWorkspaces>> = [];
+const EMPTY_PATHS: EscalationPath[] = [];
 
 const roleOptions = (t: (key: string) => string) =>
   TEAM_ROLES.map((role) => ({ value: role, label: t(`teams.detail.role.${role}`) }));
@@ -40,15 +48,50 @@ export function TeamDetailPage() {
   const { teamId = '' } = useParams();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
 
-  const [team, setTeam] = useState<Team | null>(null);
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [allTeams, setAllTeams] = useState<Team[]>([]);
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
-  const [outgoingPaths, setOutgoingPaths] = useState<EscalationPath[]>([]);
-  const [incomingPaths, setIncomingPaths] = useState<EscalationPath[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const teamQuery = useLoader(queryKeys.teams.detail(teamId), async () => {
+    const [teamData, membersData, outgoing, incoming, teamList, workspaceList] = await Promise.all([
+      fetchTeam(teamId),
+      fetchTeamMembers(teamId),
+      fetchOutgoingPaths(teamId),
+      fetchIncomingPaths(teamId),
+      fetchTeams(),
+      fetchWorkspaces(),
+    ]);
+    return {
+      team: teamData,
+      members: membersData,
+      outgoingPaths: outgoing,
+      incomingPaths: incoming,
+      allTeams: teamList,
+      workspaces: workspaceList,
+    };
+  });
+
+  const team = teamQuery.data?.team ?? null;
+  const members = teamQuery.data?.members ?? EMPTY_MEMBERS;
+  const allTeams = teamQuery.data?.allTeams ?? EMPTY_TEAMS;
+  const workspaces = teamQuery.data?.workspaces ?? EMPTY_WORKSPACES;
+  const outgoingPaths = teamQuery.data?.outgoingPaths ?? EMPTY_PATHS;
+  const incomingPaths = teamQuery.data?.incomingPaths ?? EMPTY_PATHS;
+  const loading = teamQuery.loading;
+  const loadError = teamQuery.isError
+    ? teamQuery.error instanceof ApiError && teamQuery.error.status === 401
+      ? t('teams.sign_in_required')
+      : t('teams.detail.load_error')
+    : null;
+
+  useEffect(() => {
+    if (!team) {
+      return;
+    }
+    setPendingTier(team.support_tier ?? '');
+    setExpressChatId(team.express_chat_id ?? '');
+    setSlackChannelId(team.slack_channel_id ?? '');
+  }, [team]);
+
+  const refreshTeam = () => queryClient.invalidateQueries({ queryKey: queryKeys.teams.detail(teamId) });
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
   const [pendingRole, setPendingRole] = useState<TeamRole>('member');
   const [addingMember, setAddingMember] = useState(false);
@@ -112,6 +155,7 @@ export function TeamDetailPage() {
       }),
     [validTargetTeams, team?.workspace_id, workspaceById, t],
   );
+  const resolvedTargetTeamId = targetTeamId || validTargetTeams[0]?.id || '';
 
   const hasOtherWorkspaceTargets = useMemo(() => {
     if (!team?.support_tier) {
@@ -127,56 +171,6 @@ export function TeamDetailPage() {
         !outgoingPaths.some((path) => path.to_team_id === item.id),
     );
   }, [team, allTeams, outgoingPaths]);
-
-  const loadTeam = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [teamResponse, membersResponse, outgoing, incoming] = await Promise.all([
-        fetch(`/api/v1/teams/${teamId}`, { credentials: 'include' }),
-        fetch(`/api/v1/teams/${teamId}/members`, { credentials: 'include' }),
-        fetchOutgoingPaths(teamId),
-        fetchIncomingPaths(teamId),
-      ]);
-      if (teamResponse.status === 401 || membersResponse.status === 401) {
-        setLoadError(t('teams.sign_in_required'));
-        setTeam(null);
-        setMembers([]);
-        return;
-      }
-      if (!teamResponse.ok || !membersResponse.ok) {
-        throw new Error(t('teams.detail.load_error'));
-      }
-      const teamData = (await teamResponse.json()) as Team;
-      const membersData = (await membersResponse.json()) as { items: TeamMember[] };
-      const [teamList, workspaceList] = await Promise.all([fetchTeams(), fetchWorkspaces()]);
-      setTeam(teamData);
-      setMembers(membersData.items ?? []);
-      setAllTeams(teamList);
-      setWorkspaces(workspaceList);
-      setOutgoingPaths(outgoing);
-      setIncomingPaths(incoming);
-      setPendingTier(teamData.support_tier ?? '');
-      setExpressChatId(teamData.express_chat_id ?? '');
-      setSlackChannelId(teamData.slack_channel_id ?? '');
-      setTargetTeamId('');
-      setCrossWorkspace(false);
-    } catch {
-      setLoadError(t('teams.detail.load_error'));
-      setTeam(null);
-      setMembers([]);
-      setAllTeams([]);
-      setWorkspaces([]);
-      setOutgoingPaths([]);
-      setIncomingPaths([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [teamId, t]);
-
-  useEffect(() => {
-    void loadTeam();
-  }, [loadTeam]);
 
   useEffect(() => {
     if (validTargetTeams.length > 0 && !targetTeamId) {
@@ -205,7 +199,7 @@ export function TeamDetailPage() {
         );
       }
       setToast({ message: t('teams.detail.member_add_success'), variant: 'success' });
-      await loadTeam();
+      await refreshTeam();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('teams.detail.member_add_failed');
       setToast({ message, variant: 'default' });
@@ -235,7 +229,7 @@ export function TeamDetailPage() {
         );
       }
       setToast({ message: t('teams.detail.member_update_success'), variant: 'success' });
-      await loadTeam();
+      await refreshTeam();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('teams.detail.member_update_failed');
       setToast({ message, variant: 'default' });
@@ -263,7 +257,7 @@ export function TeamDetailPage() {
         );
       }
       setToast({ message: t('teams.detail.member_remove_success'), variant: 'success' });
-      await loadTeam();
+      await refreshTeam();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('teams.detail.member_remove_failed');
       setToast({ message, variant: 'default' });
@@ -295,7 +289,7 @@ export function TeamDetailPage() {
         throw new Error(resolveApiErrorMessage(t, body, t('teams.detail.tier_update_failed')));
       }
       setToast({ message: t('teams.detail.tier_update_success'), variant: 'success' });
-      await loadTeam();
+      await refreshTeam();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('teams.detail.tier_update_failed');
       setToast({ message, variant: 'default' });
@@ -330,21 +324,21 @@ export function TeamDetailPage() {
   };
 
   const createPath = async () => {
-    if (!team || !targetTeamId) {
+    if (!team || !resolvedTargetTeamId) {
       return;
     }
     setAddingPath(true);
     setToast(null);
     try {
-      const target = teamById.get(targetTeamId);
+      const target = teamById.get(resolvedTargetTeamId);
       const needsCross = Boolean(target && target.workspace_id !== team.workspace_id);
       await addEscalationPath(team.workspace_id, {
         from_team_id: team.id,
-        to_team_id: targetTeamId,
+        to_team_id: resolvedTargetTeamId,
         cross_workspace: crossWorkspace || needsCross,
       });
       setToast({ message: t('teams.detail.path_add_success'), variant: 'success' });
-      await loadTeam();
+      await refreshTeam();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('teams.detail.path_add_failed');
       setToast({ message, variant: 'default' });
@@ -359,7 +353,7 @@ export function TeamDetailPage() {
     try {
       await deleteEscalationPath(pathId);
       setToast({ message: t('teams.detail.path_remove_success'), variant: 'success' });
-      await loadTeam();
+      await refreshTeam();
     } catch (error) {
       const message = error instanceof Error ? error.message : t('teams.detail.path_remove_failed');
       setToast({ message, variant: 'default' });
@@ -629,11 +623,11 @@ export function TeamDetailPage() {
                     <Select
                       id="escalation-target-team"
                       label={t('teams.detail.path_target')}
-                      value={targetTeamId}
+                      value={resolvedTargetTeamId}
                       options={targetTeamOptions}
                       onChange={setTargetTeamId}
                     />
-                    <Button disabled={addingPath || !targetTeamId} onClick={() => void createPath()}>
+                    <Button disabled={addingPath || !resolvedTargetTeamId} onClick={() => void createPath()}>
                       {t('teams.detail.add_path')}
                     </Button>
                   </>

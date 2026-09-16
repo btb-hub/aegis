@@ -1,7 +1,11 @@
 import type { Preview } from '@storybook/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { I18nextProvider } from 'react-i18next';
 import '../src/index.css';
 import i18n from '../src/i18n';
+import { createAppQueryClient } from '../src/lib/queryClient';
+
+const storyQueryClient = createAppQueryClient();
 
 const preview: Preview = {
   parameters: {
@@ -28,9 +32,11 @@ const preview: Preview = {
       void i18n.changeLanguage(locale);
       document.documentElement.lang = locale;
       return (
-        <I18nextProvider i18n={i18n}>
-          <Story />
-        </I18nextProvider>
+        <QueryClientProvider client={storyQueryClient}>
+          <I18nextProvider i18n={i18n}>
+            <Story />
+          </I18nextProvider>
+        </QueryClientProvider>
       );
     },
   ],

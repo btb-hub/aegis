@@ -43,16 +43,16 @@ Full **multi-tenant SaaS** (separate orgs per project) is a post-MVP non-goal. T
 - **Depends on:** AEG-056, EPIC-04 (incident APIs), EPIC-06 (handoff APIs)
 - **PRD:** REQ-SLV-04; REQ-INC-05, REQ-L2L3-01
 - **Acceptance:**
-  - [ ] Remove `initialIncidents`, `handoffTeams`, and mutation handlers from `App.tsx`
-  - [ ] `IncidentsPage` fetches `GET /incidents` and `GET /incidents/{id}` via TanStack Query
-  - [ ] Acknowledge, resolve, handoff, bounce call respective POST endpoints and invalidate queries
-  - [ ] Timeline events persist after page refresh (integration test or e2e-style web test)
-  - [ ] Loading and error states use shared `Banner` / skeleton patterns
-  - [ ] `IncidentsPage.test.tsx` updated; no regression in `App.test.tsx`
-  - [ ] Document in [`docs/features/incident-management.md`](../docs/features/incident-management.md)
+  - [x] Remove `initialIncidents`, `handoffTeams`, and mutation handlers from `App.tsx`
+  - [x] `IncidentsPage` fetches `GET /incidents` and `GET /incidents/{id}` via TanStack Query
+  - [x] Acknowledge, resolve, handoff, bounce call respective POST endpoints and invalidate queries
+  - [x] Timeline events persist after page refresh (integration test or e2e-style web test)
+  - [x] Loading and error states use shared `Banner` / skeleton patterns
+  - [x] `IncidentsPage.test.tsx` updated; no regression in `App.test.tsx`
+  - [x] Document in [`docs/features/incident-management.md`](../docs/features/incident-management.md)
 
-**Plan:** Add `apps/web/src/lib/incidentsApi.ts`. Temporary handoff picker: all teams until AEG-081.
-Branch: `feat/incidents-AEG-078-api-wiring`.
+**Plan:** Shared `apiFetch` + Query-backed `useLoader` for list pages. Incidents uses `useQuery` /
+`useMutation` so selecting a row does not refetch the list. Branch: `feat/incidents-AEG-078-api-wiring`.
 
 ---
 

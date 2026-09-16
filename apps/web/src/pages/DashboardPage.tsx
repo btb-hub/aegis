@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { MetricTrendChart } from '../components/analytics/MetricTrendChart';
@@ -7,52 +7,28 @@ import { Banner } from '../components/ui/Banner';
 import { Checkbox } from '../components/ui/Checkbox';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
-import {
-  defaultAnalyticsRange,
-  formatDuration,
-  type OverviewAnalytics,
-} from '../lib/analyticsTypes';
+import { ApiError } from '../lib/apiClient';
+import { fetchOverview } from '../lib/analyticsApi';
+import { formatDuration } from '../lib/analyticsTypes';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
 
 export function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [overview, setOverview] = useState<OverviewAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [comparePrevious, setComparePrevious] = useState(true);
 
-  const loadOverview = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const { from, to } = defaultAnalyticsRange();
-    const params = new URLSearchParams({
-      from,
-      to,
-      compare_previous: comparePrevious ? 'true' : 'false',
-    });
-    try {
-      const response = await fetch(`/api/v1/analytics/overview?${params.toString()}`, {
-        credentials: 'include',
-      });
-      if (response.status === 401) {
-        setError(t('dashboard.sign_in_required'));
-        return;
-      }
-      if (!response.ok) {
-        throw new Error(t('dashboard.load_error'));
-      }
-      setOverview((await response.json()) as OverviewAnalytics);
-    } catch {
-      setError(t('dashboard.load_error'));
-      setOverview(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [comparePrevious, t]);
+  const overviewQuery = useLoader(
+    queryKeys.dashboard.overview(comparePrevious),
+    () => fetchOverview(comparePrevious),
+  );
 
-  useEffect(() => {
-    void loadOverview();
-  }, [loadOverview]);
+  const overview = overviewQuery.data ?? null;
+  const error = overviewQuery.isError
+    ? overviewQuery.error instanceof ApiError && overviewQuery.error.status === 401
+      ? t('dashboard.sign_in_required')
+      : t('dashboard.load_error')
+    : null;
 
   return (
     <PageContent>
@@ -74,7 +50,7 @@ export function DashboardPage() {
 
       {error ? <Banner variant="warning">{error}</Banner> : null}
 
-      {loading ? (
+      {overviewQuery.loading ? (
         <p className="text-sm text-zinc-600">{t('dashboard.loading')}</p>
       ) : overview ? (
         <div className="grid gap-4 lg:grid-cols-2">

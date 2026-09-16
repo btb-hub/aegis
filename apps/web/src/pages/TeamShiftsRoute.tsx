@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { OverrideFormModal } from '../components/shifts/OverrideFormModal';
@@ -21,168 +22,119 @@ import {
   memberNameMap,
   monthRangeUTC,
   updateSchedule,
-  type ApiSchedule,
 } from '../lib/shiftsApi';
-import type { CalendarOverride, CalendarSlot, OnCallUser } from '../lib/shiftsTypes';
+import { apiFetch } from '../lib/apiClient';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
+import type { CalendarOverride, CalendarSlot } from '../lib/shiftsTypes';
 import type { TeamMember } from '../lib/teamTypes';
 import { TeamShiftsPage } from './TeamShiftsPage';
+
+const EMPTY_MEMBERS: TeamMember[] = [];
 
 export function TeamShiftsRoute() {
   const { t } = useTranslation();
   const { teamId = '' } = useParams();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
   const [month] = useState(() => new Date());
-  const [teamName, setTeamName] = useState('');
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [schedules, setSchedules] = useState<ApiSchedule[]>([]);
-  const [overrides, setOverrides] = useState<Awaited<ReturnType<typeof fetchTeamOverrides>>>([]);
-  const [onCallUsers, setOnCallUsers] = useState<OnCallUser[]>([]);
-  const [slots, setSlots] = useState<CalendarSlot[]>([]);
-  const [calendarOverrides, setCalendarOverrides] = useState<CalendarOverride[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
   const [publishing, setPublishing] = useState(false);
-  const [canPublish, setCanPublish] = useState(false);
+
+  const shiftsQuery = useLoader(queryKeys.shifts.team(teamId), async () => {
+    const range = monthRangeUTC(month);
+    const [team, teamMembers, teamSchedules, teamOverrides, current] = await Promise.all([
+      fetchTeam(teamId),
+      fetchTeamMembers(teamId),
+      fetchTeamSchedules(teamId),
+      fetchTeamOverrides(teamId),
+      fetchCurrentOnCall(teamId),
+    ]);
+    let slots: CalendarSlot[] = [];
+    let calendarOverrides: CalendarOverride[] = [];
+    if (teamSchedules.length > 0) {
+      const calendar = await fetchOnCallCalendar(teamId, range.from, range.to);
+      const mapped = mapApiCalendarSlots(calendar, memberNameMap(teamMembers));
+      slots = mapped.slots;
+      calendarOverrides = mapped.overrides;
+    }
+    return {
+      teamName: team.name,
+      canPublish: Boolean(team.express_chat_id || team.slack_channel_id),
+      members: teamMembers,
+      schedules: teamSchedules,
+      overrides: teamOverrides,
+      onCallUsers: mapApiToOnCallUsers(current),
+      slots,
+      calendarOverrides,
+    };
+  });
+
+  const teamName = shiftsQuery.data?.teamName ?? '';
+  const members = shiftsQuery.data?.members ?? EMPTY_MEMBERS;
+  const schedules = shiftsQuery.data?.schedules ?? [];
+  const overrides = shiftsQuery.data?.overrides ?? [];
+  const onCallUsers = shiftsQuery.data?.onCallUsers ?? [];
+  const slots = shiftsQuery.data?.slots ?? [];
+  const calendarOverrides = shiftsQuery.data?.calendarOverrides ?? [];
+  const loading = shiftsQuery.loading;
+  const error = shiftsQuery.isError ? t('shifts.load_error') : null;
+  const canPublish = shiftsQuery.data?.canPublish ?? false;
 
   const primarySchedule = schedules[0] ?? null;
   const nameByUserId = useMemo(() => memberNameMap(members), [members]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [team, teamMembers, teamSchedules, teamOverrides, current, range] = await Promise.all([
-        fetchTeam(teamId),
-        fetchTeamMembers(teamId),
-        fetchTeamSchedules(teamId),
-        fetchTeamOverrides(teamId),
-        fetchCurrentOnCall(teamId),
-        Promise.resolve(monthRangeUTC(month)),
-      ]);
-      setTeamName(team.name);
-      setCanPublish(Boolean(team.express_chat_id || team.slack_channel_id));
-      setMembers(teamMembers);
-      setSchedules(teamSchedules);
-      setOverrides(teamOverrides);
-      setOnCallUsers(mapApiToOnCallUsers(current));
+  const refreshShifts = () => queryClient.invalidateQueries({ queryKey: queryKeys.shifts.team(teamId) });
 
-      if (teamSchedules.length === 0) {
-        setSlots([]);
-        setCalendarOverrides([]);
-        return;
-      }
-
-      const calendar = await fetchOnCallCalendar(teamId, range.from, range.to);
-      const mapped = mapApiCalendarSlots(calendar, memberNameMap(teamMembers));
-      setSlots(mapped.slots);
-      setCalendarOverrides(mapped.overrides);
-    } catch {
-      setError(t('shifts.load_error'));
-      setTeamName('');
-      setMembers([]);
-      setSchedules([]);
-      setOverrides([]);
-      setOnCallUsers([]);
-      setSlots([]);
-      setCalendarOverrides([]);
-    } finally {
-      setLoading(false);
+  const saveSchedule = async (payload: {
+    name: string;
+    timezone: string;
+    handoffWeekday: number;
+    handoffTime: string;
+    participants: string[];
+  }) => {
+    const body = {
+      name: payload.name,
+      timezone: payload.timezone,
+      rotation: {
+        handoff_weekday: payload.handoffWeekday,
+        handoff_time: payload.handoffTime,
+        participants: payload.participants,
+      },
+    };
+    if (primarySchedule) {
+      await updateSchedule(teamId, primarySchedule.id, body);
+    } else {
+      await createSchedule(teamId, body);
     }
-  }, [teamId, month, t]);
+    setToast({ message: t('schedule.saved'), variant: 'success' });
+    await refreshShifts();
+  };
 
-  const refreshCalendar = useCallback(async () => {
-    const range = monthRangeUTC(month);
-    const [current, calendar] = await Promise.all([
-      fetchCurrentOnCall(teamId),
-      fetchOnCallCalendar(teamId, range.from, range.to),
-    ]);
-    setOnCallUsers(mapApiToOnCallUsers(current));
-    const mapped = mapApiCalendarSlots(calendar, memberNameMap(members));
-    setSlots(mapped.slots);
-    setCalendarOverrides(mapped.overrides);
-  }, [members, month, teamId]);
+  const addOverride = async (payload: { userId: string; startAt: string; endAt: string }) => {
+    await createOverride(teamId, {
+      user_id: payload.userId,
+      start_at: payload.startAt,
+      end_at: payload.endAt,
+    });
+    setToast({ message: t('override.saved'), variant: 'success' });
+    await refreshShifts();
+  };
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const removeOverride = async (overrideId: string) => {
+    await deleteOverride(teamId, overrideId);
+    setToast({ message: t('override.deleted'), variant: 'success' });
+    await refreshShifts();
+  };
 
-  const saveSchedule = useCallback(
-    async (payload: {
-      name: string;
-      timezone: string;
-      handoffWeekday: number;
-      handoffTime: string;
-      participants: string[];
-    }) => {
-      const body = {
-        name: payload.name,
-        timezone: payload.timezone,
-        rotation: {
-          handoff_weekday: payload.handoffWeekday,
-          handoff_time: payload.handoffTime,
-          participants: payload.participants,
-        },
-      };
-      const saved = primarySchedule
-        ? await updateSchedule(teamId, primarySchedule.id, body)
-        : await createSchedule(teamId, body);
-      setSchedules((current) => {
-        const index = current.findIndex((schedule) => schedule.id === saved.id);
-        if (index >= 0) {
-          const next = [...current];
-          next[index] = saved;
-          return next;
-        }
-        return [...current, saved];
-      });
-      setToast({ message: t('schedule.saved'), variant: 'success' });
-      await refreshCalendar();
-    },
-    [primarySchedule, refreshCalendar, t, teamId],
-  );
-
-  const addOverride = useCallback(
-    async (payload: { userId: string; startAt: string; endAt: string }) => {
-      await createOverride(teamId, {
-        user_id: payload.userId,
-        start_at: payload.startAt,
-        end_at: payload.endAt,
-      });
-      setToast({ message: t('override.saved'), variant: 'success' });
-      await refreshCalendar();
-      const teamOverrides = await fetchTeamOverrides(teamId);
-      setOverrides(teamOverrides);
-    },
-    [refreshCalendar, t, teamId],
-  );
-
-  const removeOverride = useCallback(
-    async (overrideId: string) => {
-      await deleteOverride(teamId, overrideId);
-      setToast({ message: t('override.deleted'), variant: 'success' });
-      await refreshCalendar();
-      const teamOverrides = await fetchTeamOverrides(teamId);
-      setOverrides(teamOverrides);
-    },
-    [refreshCalendar, t, teamId],
-  );
-
-  const publishOnCall = useCallback(async () => {
+  const publishOnCall = async () => {
     setPublishing(true);
     setToast(null);
     try {
-      const response = await fetch(`/api/v1/teams/${teamId}/on-call/publish`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!response.ok) {
-        const body = (await response.json()) as { message?: string };
-        throw new Error(body.message ?? t('shifts.publish_failed'));
-      }
+      await apiFetch(`/api/v1/teams/${teamId}/on-call/publish`, { method: 'POST' });
       setToast({ message: t('shifts.published'), variant: 'success' });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('shifts.publish_failed');
@@ -190,7 +142,7 @@ export function TeamShiftsRoute() {
     } finally {
       setPublishing(false);
     }
-  }, [t, teamId]);
+  };
 
   if (loading) {
     return <p className="text-sm text-zinc-600">{t('shifts.loading')}</p>;
@@ -200,7 +152,7 @@ export function TeamShiftsRoute() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-red-700">{error}</p>
-        <Button variant="secondary" onClick={() => void load()}>
+        <Button variant="secondary" onClick={() => void shiftsQuery.refetch()}>
           {t('shifts.retry')}
         </Button>
       </div>

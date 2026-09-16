@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { AlertsPage } from './AlertsPage';
 
 type AuthRole = 'admin' | 'member' | 'viewer';
@@ -15,6 +16,7 @@ function LocationPath() {
 
 function renderPage() {
   return render(
+    <TestQueryProvider>
     <I18nextProvider i18n={i18n}>
       <MemoryRouter initialEntries={['/alerts']}>
         <AuthProvider>
@@ -26,7 +28,8 @@ function renderPage() {
           </Routes>
         </AuthProvider>
       </MemoryRouter>
-    </I18nextProvider>,
+    </I18nextProvider>
+    </TestQueryProvider>,
   );
 }
 

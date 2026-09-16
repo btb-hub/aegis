@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   IntegrationConfigFields,
@@ -17,6 +18,9 @@ import { Modal } from '../ui/Modal';
 import { Select } from '../ui/Select';
 import { StatusTag } from '../ui/StatusTag';
 import { Toast } from '../ui/Toast';
+import { fetchIntegrations } from '../../lib/integrationsApi';
+import { queryKeys } from '../../lib/queryClient';
+import { useLoader } from '../../lib/useLoader';
 
 type SlotStatus = 'ready' | 'needs_setup' | 'using_global' | 'missing' | 'disabled';
 
@@ -63,38 +67,22 @@ function placeholderSlot(workspaceId: string, kind: IntegrationKind): Integratio
 
 export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
   const { t } = useTranslation();
-  const [items, setItems] = useState<IntegrationSlot[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const queryClient = useQueryClient();
+  const slotsQuery = useLoader(queryKeys.integrations.list, () => fetchIntegrations());
+  const loading = slotsQuery.loading;
+  const loadError = slotsQuery.isError;
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
 
-  const loadSlots = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const response = await fetch('/api/v1/integrations', { credentials: 'include' });
-      if (!response.ok) {
-        throw new Error('load failed');
-      }
-      const data = (await response.json()) as { items?: IntegrationSlot[] };
-      setItems((data.items ?? []).filter((item) => item.workspace_id === workspaceId));
-    } catch {
-      setItems([]);
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId]);
-
-  useEffect(() => {
-    void loadSlots();
-  }, [loadSlots]);
+  const refreshSlots = () => queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all });
 
   const slots = useMemo(
-    () => kinds.map((kind) => items.find((item) => item.kind === kind) ?? placeholderSlot(workspaceId, kind)),
-    [items, workspaceId],
+    () => {
+      const items = (slotsQuery.data ?? []).filter((item) => item.workspace_id === workspaceId) as IntegrationSlot[];
+      return kinds.map((kind) => items.find((item) => item.kind === kind) ?? placeholderSlot(workspaceId, kind));
+    },
+    [slotsQuery.data, workspaceId],
   );
 
   const openEditor = (slot: IntegrationSlot) => {
@@ -169,7 +157,7 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
       }
       setEditor(null);
       setToast({ message: t('workspaces.integrations.save_success'), variant: 'success' });
-      await loadSlots();
+      await refreshSlots();
     } catch (error) {
       setToast({
         message: error instanceof Error ? error.message : t('workspaces.integrations.save_failed'),

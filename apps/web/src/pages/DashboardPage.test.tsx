@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import i18n from '../i18n';
 import { DashboardPage } from './DashboardPage';
 
@@ -21,11 +22,13 @@ const overviewPayload = {
 
 function renderDashboard() {
   return render(
+    <TestQueryProvider>
     <I18nextProvider i18n={i18n}>
       <MemoryRouter>
         <DashboardPage />
       </MemoryRouter>
-    </I18nextProvider>,
+    </I18nextProvider>
+    </TestQueryProvider>,
   );
 }
 
@@ -57,11 +60,13 @@ describe('DashboardPage', () => {
     );
 
     render(
-      <I18nextProvider i18n={i18n}>
+      <TestQueryProvider>
+    <I18nextProvider i18n={i18n}>
         <MemoryRouter>
           <DashboardPage />
         </MemoryRouter>
-      </I18nextProvider>,
+      </I18nextProvider>
+    </TestQueryProvider>,
     );
 
     await waitFor(() => {
@@ -91,11 +96,13 @@ describe('DashboardPage', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(
-      <I18nextProvider i18n={i18n}>
+      <TestQueryProvider>
+    <I18nextProvider i18n={i18n}>
         <MemoryRouter>
           <DashboardPage />
         </MemoryRouter>
-      </I18nextProvider>,
+      </I18nextProvider>
+    </TestQueryProvider>,
     );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));

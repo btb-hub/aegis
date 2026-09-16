@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
 import { saveSetupWizardState } from '../lib/setupWizard';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { SetupWizardPage } from './SetupWizardPage';
 
 vi.mock('../context/AuthContext', () => ({
@@ -12,11 +13,13 @@ vi.mock('../context/AuthContext', () => ({
 
 function renderWizard() {
   return render(
+    <TestQueryProvider>
     <I18nextProvider i18n={i18n}>
       <MemoryRouter>
         <SetupWizardPage />
       </MemoryRouter>
-    </I18nextProvider>,
+    </I18nextProvider>
+    </TestQueryProvider>,
   );
 }
 

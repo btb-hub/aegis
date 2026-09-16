@@ -1,3 +1,5 @@
+import { apiFetch, UsersApiError } from './apiClient';
+
 export type UserRole = 'admin' | 'member' | 'viewer';
 
 export type ListedUser = {
@@ -8,28 +10,7 @@ export type ListedUser = {
   role_pinned?: boolean;
 };
 
-export class UsersApiError extends Error {
-  status: number;
-  code?: string;
-
-  constructor(message: string, status: number, code?: string) {
-    super(message);
-    this.status = status;
-    this.code = code;
-  }
-}
-
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { credentials: 'include', ...init });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as {
-      message?: string;
-      code?: string;
-    };
-    throw new UsersApiError(body.message ?? `request failed: ${response.status}`, response.status, body.code);
-  }
-  return (await response.json()) as T;
-}
+export { UsersApiError };
 
 export async function fetchUsers(q = ''): Promise<{ items: ListedUser[] }> {
   const query = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : '';

@@ -1,3 +1,4 @@
+import { apiFetch } from './apiClient';
 import type { ContactLinks } from './contactTypes';
 import type { CalendarOverride, CalendarSlot, OnCallUser } from './shiftsTypes';
 import type { Team, TeamMember } from './teamTypes';
@@ -45,72 +46,64 @@ export function monthRangeUTC(month: Date): { from: string; to: string } {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
-async function parseJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
-}
-
 export async function fetchTeam(teamId: string): Promise<Team> {
-  const response = await fetch(`/api/v1/teams/${teamId}`, { credentials: 'include' });
-  if (!response.ok) {
-    throw new Error('team fetch failed');
-  }
-  return parseJson<Team>(response);
+  return apiFetch<Team>(`/api/v1/teams/${teamId}`);
 }
 
 export async function fetchTeamMembers(teamId: string): Promise<TeamMember[]> {
-  const response = await fetch(`/api/v1/teams/${teamId}/members`, { credentials: 'include' });
-  if (!response.ok) {
-    throw new Error('members fetch failed');
-  }
-  const data = await parseJson<{ items: TeamMember[] }>(response);
+  const data = await apiFetch<{ items: TeamMember[] }>(`/api/v1/teams/${teamId}/members`);
   return data.items ?? [];
 }
 
-export async function fetchTeams(): Promise<Team[]> {
-  const response = await fetch('/api/v1/teams', { credentials: 'include' });
-  if (!response.ok) {
-    throw new Error('teams fetch failed');
-  }
-  const data = await parseJson<{ items: Team[] }>(response);
+export async function fetchTeams(workspaceId?: string): Promise<Team[]> {
+  const query =
+    workspaceId && workspaceId !== 'all'
+      ? `?workspace_id=${encodeURIComponent(workspaceId)}`
+      : '';
+  const data = await apiFetch<{ items: Team[] }>(`/api/v1/teams${query}`);
   return data.items ?? [];
+}
+
+export async function createTeam(payload: Record<string, string>): Promise<Team> {
+  return apiFetch<Team>('/api/v1/teams', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTeam(teamId: string, payload: Record<string, string>): Promise<Team> {
+  return apiFetch<Team>(`/api/v1/teams/${teamId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+  await apiFetch(`/api/v1/teams/${teamId}`, { method: 'DELETE' });
 }
 
 export async function fetchCurrentOnCall(teamId: string): Promise<ApiOnCallUser[]> {
-  const response = await fetch(`/api/v1/teams/${teamId}/on-call/current`, { credentials: 'include' });
-  if (!response.ok) {
-    throw new Error('on-call fetch failed');
-  }
-  const data = await parseJson<{ items: ApiOnCallUser[] }>(response);
+  const data = await apiFetch<{ items: ApiOnCallUser[] }>(`/api/v1/teams/${teamId}/on-call/current`);
   return data.items ?? [];
 }
 
 export async function fetchOnCallCalendar(teamId: string, from: string, to: string): Promise<ApiOnCallSlot[]> {
   const params = new URLSearchParams({ from, to });
-  const response = await fetch(`/api/v1/teams/${teamId}/on-call/calendar?${params}`, {
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    throw new Error('calendar fetch failed');
-  }
-  const data = await parseJson<{ items: ApiOnCallSlot[] }>(response);
+  const data = await apiFetch<{ items: ApiOnCallSlot[] }>(
+    `/api/v1/teams/${teamId}/on-call/calendar?${params}`,
+  );
   return data.items ?? [];
 }
 
 export async function fetchTeamSchedules(teamId: string): Promise<ApiSchedule[]> {
-  const response = await fetch(`/api/v1/teams/${teamId}/schedules`, { credentials: 'include' });
-  if (!response.ok) {
-    throw new Error('schedules fetch failed');
-  }
-  const data = await parseJson<{ items: ApiSchedule[] }>(response);
+  const data = await apiFetch<{ items: ApiSchedule[] }>(`/api/v1/teams/${teamId}/schedules`);
   return data.items ?? [];
 }
 
 export async function fetchTeamOverrides(teamId: string): Promise<ApiOverride[]> {
-  const response = await fetch(`/api/v1/teams/${teamId}/overrides`, { credentials: 'include' });
-  if (!response.ok) {
-    throw new Error('overrides fetch failed');
-  }
-  const data = await parseJson<{ items: ApiOverride[] }>(response);
+  const data = await apiFetch<{ items: ApiOverride[] }>(`/api/v1/teams/${teamId}/overrides`);
   return data.items ?? [];
 }
 
@@ -125,59 +118,34 @@ export type ScheduleInput = {
 };
 
 export async function createSchedule(teamId: string, input: ScheduleInput): Promise<ApiSchedule> {
-  const response = await fetch(`/api/v1/teams/${teamId}/schedules`, {
+  return apiFetch<ApiSchedule>(`/api/v1/teams/${teamId}/schedules`, {
     method: 'POST',
-    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (!response.ok) {
-    const body = await parseJson<{ message?: string }>(response);
-    throw new Error(body.message ?? 'schedule create failed');
-  }
-  return parseJson<ApiSchedule>(response);
 }
 
 export async function updateSchedule(teamId: string, scheduleId: string, input: ScheduleInput): Promise<ApiSchedule> {
-  const response = await fetch(`/api/v1/teams/${teamId}/schedules/${scheduleId}`, {
+  return apiFetch<ApiSchedule>(`/api/v1/teams/${teamId}/schedules/${scheduleId}`, {
     method: 'PATCH',
-    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (!response.ok) {
-    const body = await parseJson<{ message?: string }>(response);
-    throw new Error(body.message ?? 'schedule update failed');
-  }
-  return parseJson<ApiSchedule>(response);
 }
 
 export async function createOverride(
   teamId: string,
   input: { user_id: string; start_at: string; end_at: string },
 ): Promise<ApiOverride> {
-  const response = await fetch(`/api/v1/teams/${teamId}/overrides`, {
+  return apiFetch<ApiOverride>(`/api/v1/teams/${teamId}/overrides`, {
     method: 'POST',
-    credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (!response.ok) {
-    const body = await parseJson<{ message?: string }>(response);
-    throw new Error(body.message ?? 'override create failed');
-  }
-  return parseJson<ApiOverride>(response);
 }
 
 export async function deleteOverride(teamId: string, overrideId: string): Promise<void> {
-  const response = await fetch(`/api/v1/teams/${teamId}/overrides/${overrideId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    const body = await parseJson<{ message?: string }>(response);
-    throw new Error(body.message ?? 'override delete failed');
-  }
+  await apiFetch(`/api/v1/teams/${teamId}/overrides/${overrideId}`, { method: 'DELETE' });
 }
 
 export function memberNameMap(members: TeamMember[]): Map<string, string> {

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { WorkspaceDetailPage } from './WorkspaceDetailPage';
 
 const workspaceId = '00000000-0000-0000-0000-000000000001';
@@ -38,6 +39,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
+    <TestQueryProvider>
     <MemoryRouter initialEntries={[`/workspaces/${workspaceId}`]}>
       <I18nextProvider i18n={i18n}>
         <AuthProvider>
@@ -46,7 +48,8 @@ function renderPage() {
           </Routes>
         </AuthProvider>
       </I18nextProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 
@@ -368,6 +371,12 @@ describe('WorkspaceDetailPage', () => {
   });
 
   it('updates workspace metadata as admin', async () => {
+    let workspace = {
+      id: workspaceId,
+      name: 'Default',
+      slug: 'default',
+      description: 'Default workspace',
+    };
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
@@ -381,20 +390,16 @@ describe('WorkspaceDetailPage', () => {
         });
       }
       if (url === `/api/v1/workspaces/${workspaceId}` && init?.method === 'PATCH') {
-        return jsonResponse({
+        workspace = {
           id: workspaceId,
           name: 'Platform Ops',
           slug: 'platform-ops',
           description: 'Updated',
-        });
+        };
+        return jsonResponse(workspace);
       }
       if (url === `/api/v1/workspaces/${workspaceId}`) {
-        return jsonResponse({
-          id: workspaceId,
-          name: 'Default',
-          slug: 'default',
-          description: 'Default workspace',
-        });
+        return jsonResponse(workspace);
       }
       if (url === '/api/v1/workspaces') {
         return jsonResponse({ items: [] });
@@ -902,7 +907,9 @@ describe('WorkspaceDetailPage', () => {
     expect(screen.getByText('Slack')).toBeInTheDocument();
     expect(screen.getByText('eXpress')).toBeInTheDocument();
     expect(screen.getAllByText('Inherit')).toHaveLength(3);
-    expect(screen.getAllByText('Using global')).toHaveLength(2);
+    await waitFor(() => {
+      expect(screen.getAllByText('Using global')).toHaveLength(2);
+    });
     expect(screen.getByText('Missing — no global')).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Configure' })[0]);
@@ -982,6 +989,9 @@ describe('WorkspaceDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Integrations' })).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: 'Configure' })[0]).not.toBeDisabled();
     });
     fireEvent.click(screen.getAllByRole('button', { name: 'Configure' })[0]);
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);

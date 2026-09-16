@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { TeamShiftsRoute } from './TeamShiftsRoute';
 
 function currentMonthSlot() {
@@ -16,6 +17,7 @@ function currentMonthSlot() {
 
 function renderRoute(teamId = 'team-1') {
   return render(
+    <TestQueryProvider>
     <I18nextProvider i18n={i18n}>
       <MemoryRouter initialEntries={[`/teams/${teamId}/shifts`]}>
         <AuthProvider>
@@ -24,7 +26,8 @@ function renderRoute(teamId = 'team-1') {
           </Routes>
         </AuthProvider>
       </MemoryRouter>
-    </I18nextProvider>,
+    </I18nextProvider>
+    </TestQueryProvider>,
   );
 }
 
@@ -260,6 +263,13 @@ describe('TeamShiftsRoute', () => {
   });
 
   it('creates schedule from empty state as admin', async () => {
+    const createdSchedule = {
+      id: 'sch-1',
+      name: 'Primary',
+      timezone: 'UTC',
+      layers: [{ handoff_weekday: 1, handoff_time: '09:00', participant_user_ids: ['u1'] }],
+    };
+    let schedules: typeof createdSchedule[] = [];
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
@@ -290,18 +300,14 @@ describe('TeamShiftsRoute', () => {
         } as Response;
       }
       if (url.includes('/schedules') && init?.method === 'POST') {
+        schedules = [createdSchedule];
         return {
           ok: true,
-          json: async () => ({
-            id: 'sch-1',
-            name: 'Primary',
-            timezone: 'UTC',
-            layers: [{ handoff_weekday: 1, handoff_time: '09:00', participant_user_ids: ['u1'] }],
-          }),
+          json: async () => createdSchedule,
         } as Response;
       }
       if (url.includes('/schedules')) {
-        return { ok: true, json: async () => ({ items: [] }) } as Response;
+        return { ok: true, json: async () => ({ items: schedules }) } as Response;
       }
       if (url.includes('/on-call/current')) {
         return { ok: true, json: async () => ({ items: [] }) } as Response;

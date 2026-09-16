@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +18,8 @@ import {
   type WorkspaceSummary,
   WorkspaceApiError,
 } from '../lib/workspacesApi';
+import { queryKeys } from '../lib/queryClient';
+import { useLoader } from '../lib/useLoader';
 import { DEFAULT_WORKSPACE_ID } from '../lib/teamTypes';
 
 type WorkspaceFormState = {
@@ -35,10 +38,12 @@ export function WorkspacesPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const queryClient = useQueryClient();
 
-  const [items, setItems] = useState<WorkspaceSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const listQuery = useLoader(queryKeys.workspaces.list, () => fetchWorkspaces());
+  const items = listQuery.data ?? [];
+  const loading = listQuery.loading;
+  const loadError = listQuery.isError ? t('workspaces.list.load_error') : null;
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -48,22 +53,7 @@ export function WorkspacesPage() {
   const [deleteTarget, setDeleteTarget] = useState<WorkspaceSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      setItems(await fetchWorkspaces());
-    } catch {
-      setLoadError(t('workspaces.list.load_error'));
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
+  const invalidateWorkspaces = () => queryClient.invalidateQueries({ queryKey: queryKeys.workspaces.all });
 
   const openCreate = () => {
     setForm(emptyForm);
@@ -86,7 +76,7 @@ export function WorkspacesPage() {
       });
       setToast({ message: t('workspaces.list.create_success'), variant: 'success' });
       closeForm();
-      await loadItems();
+      await invalidateWorkspaces();
     } catch (error) {
       const message =
         error instanceof WorkspaceApiError ? error.message : t('workspaces.list.save_failed');
@@ -106,7 +96,7 @@ export function WorkspacesPage() {
       await deleteWorkspace(deleteTarget.id);
       setToast({ message: t('workspaces.list.delete_success'), variant: 'success' });
       setDeleteTarget(null);
-      await loadItems();
+      await invalidateWorkspaces();
     } catch (error) {
       const message =
         error instanceof WorkspaceApiError ? error.message : t('workspaces.list.delete_failed');

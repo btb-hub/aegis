@@ -1,3 +1,4 @@
+import { apiFetch, WorkspaceApiError } from './apiClient';
 import type { Team, Workspace } from './teamTypes';
 
 export type WorkspaceSummary = Workspace & {
@@ -30,43 +31,7 @@ export type BlockedTeamMove = {
   paths: EscalationPath[];
 };
 
-export class WorkspaceApiError extends Error {
-  status: number;
-  code?: string;
-  details?: { blocked_teams?: BlockedTeamMove[] };
-
-  constructor(message: string, status: number, code?: string, details?: WorkspaceApiError['details']) {
-    super(message);
-    this.status = status;
-    this.code = code;
-    this.details = details;
-  }
-}
-
-async function parseJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
-}
-
-async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, { credentials: 'include', ...init });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as {
-      message?: string;
-      code?: string;
-      details?: WorkspaceApiError['details'];
-    };
-    throw new WorkspaceApiError(
-      body.message ?? `request failed: ${response.status}`,
-      response.status,
-      body.code,
-      body.details,
-    );
-  }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return parseJson<T>(response);
-}
+export { WorkspaceApiError };
 
 export async function fetchWorkspaces(): Promise<WorkspaceSummary[]> {
   const data = await apiFetch<{ items: WorkspaceSummary[] }>('/api/v1/workspaces');

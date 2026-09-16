@@ -3,6 +3,7 @@ import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { ShiftsLandingPage } from './ShiftsLandingPage';
 
 describe('ShiftsLandingPage', () => {
@@ -23,6 +24,7 @@ describe('ShiftsLandingPage', () => {
     } as Response);
 
     render(
+      <TestQueryProvider>
       <I18nextProvider i18n={i18n}>
         <MemoryRouter initialEntries={['/shifts']}>
           <Routes>
@@ -30,7 +32,8 @@ describe('ShiftsLandingPage', () => {
             <Route path="/teams/:teamId/shifts" element={<div>Shifts view</div>} />
           </Routes>
         </MemoryRouter>
-      </I18nextProvider>,
+      </I18nextProvider>
+      </TestQueryProvider>,
     );
 
     await waitFor(() => {
@@ -50,11 +53,13 @@ describe('ShiftsLandingPage', () => {
     } as Response);
 
     render(
+      <TestQueryProvider>
       <I18nextProvider i18n={i18n}>
         <MemoryRouter initialEntries={['/shifts']}>
           <ShiftsLandingPage />
         </MemoryRouter>
-      </I18nextProvider>,
+      </I18nextProvider>
+      </TestQueryProvider>,
     );
 
     const platformLinks = await screen.findAllByRole('link', { name: 'Platform' });
@@ -69,11 +74,13 @@ describe('ShiftsLandingPage', () => {
     } as Response);
 
     render(
+      <TestQueryProvider>
       <I18nextProvider i18n={i18n}>
         <MemoryRouter initialEntries={['/shifts']}>
           <ShiftsLandingPage />
         </MemoryRouter>
-      </I18nextProvider>,
+      </I18nextProvider>
+      </TestQueryProvider>,
     );
 
     expect(await screen.findByText(/Create a team before viewing shifts/i)).toBeInTheDocument();
@@ -83,11 +90,13 @@ describe('ShiftsLandingPage', () => {
     vi.mocked(fetch).mockRejectedValue(new Error('network'));
 
     render(
+      <TestQueryProvider>
       <I18nextProvider i18n={i18n}>
         <MemoryRouter initialEntries={['/shifts']}>
           <ShiftsLandingPage />
         </MemoryRouter>
-      </I18nextProvider>,
+      </I18nextProvider>
+      </TestQueryProvider>,
     );
 
     expect(await screen.findByText(/Could not load shifts/i)).toBeInTheDocument();

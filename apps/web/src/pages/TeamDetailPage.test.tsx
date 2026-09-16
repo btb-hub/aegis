@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { TeamDetailPage } from './TeamDetailPage';
 
 const team = {
@@ -71,6 +72,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
+    <TestQueryProvider>
     <MemoryRouter initialEntries={['/teams/team-1']}>
       <I18nextProvider i18n={i18n}>
         <AuthProvider>
@@ -79,7 +81,8 @@ function renderPage() {
           </Routes>
         </AuthProvider>
       </I18nextProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 
@@ -309,6 +312,16 @@ describe('TeamDetailPage', () => {
       updated_at: '2026-07-01T00:00:00Z',
     };
 
+    const createdPath = {
+      id: 'path-1',
+      from_team_id: 'team-1',
+      to_team_id: 'team-l3',
+      workspace_id: '00000000-0000-0000-0000-000000000001',
+      cross_workspace: false,
+      created_at: '2026-07-01T00:00:00Z',
+    };
+    let outgoing = [] as typeof createdPath[];
+
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
@@ -322,17 +335,11 @@ describe('TeamDetailPage', () => {
         });
       }
       if (url.includes('/escalation-paths') && init?.method === 'POST') {
-        return jsonResponse({
-          id: 'path-1',
-          from_team_id: 'team-1',
-          to_team_id: 'team-l3',
-          workspace_id: '00000000-0000-0000-0000-000000000001',
-          cross_workspace: false,
-          created_at: '2026-07-01T00:00:00Z',
-        }, 201);
+        outgoing = [createdPath];
+        return jsonResponse(createdPath, 201);
       }
       if (url.includes('/escalation-paths/outgoing')) {
-        return jsonResponse({ items: [] });
+        return jsonResponse({ items: outgoing });
       }
       if (url.includes('/escalation-paths/incoming')) {
         return jsonResponse({ items: [] });
@@ -377,6 +384,9 @@ describe('TeamDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Add path' })).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Add path' })).toBeEnabled();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Add path' }));

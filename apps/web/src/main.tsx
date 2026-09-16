@@ -1,3 +1,4 @@
+import { QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -6,6 +7,9 @@ import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
 import './index.css';
 import i18n, { resolveLocale } from './i18n';
+import { createAppQueryClient } from './lib/queryClient';
+
+const queryClient = createAppQueryClient();
 
 void i18n.changeLanguage(resolveLocale());
 document.documentElement.lang = i18n.language.startsWith('ru') ? 'ru' : 'en';
@@ -18,11 +22,13 @@ if (root) {
   createRoot(root).render(
     <StrictMode>
       <I18nextProvider i18n={i18n}>
-        <BrowserRouter>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </BrowserRouter>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
       </I18nextProvider>
     </StrictMode>,
   );

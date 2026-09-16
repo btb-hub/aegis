@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
+import { TestQueryProvider } from '../test/renderWithQuery';
 import { UsersPage } from './UsersPage';
 
 const adminUser = {
@@ -43,13 +44,15 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function renderPage() {
   return render(
+    <TestQueryProvider>
     <MemoryRouter>
       <I18nextProvider i18n={i18n}>
         <AuthProvider>
           <UsersPage />
         </AuthProvider>
       </I18nextProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </TestQueryProvider>,
   );
 }
 
@@ -129,7 +132,7 @@ describe('UsersPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Role updated')).toBeInTheDocument();
     });
-    expect(fetch).toHaveBeenLastCalledWith('/api/v1/users/user-alice', {
+    expect(fetch).toHaveBeenCalledWith('/api/v1/users/user-alice', {
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
