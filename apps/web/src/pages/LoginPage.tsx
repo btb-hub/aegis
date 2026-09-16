@@ -33,6 +33,12 @@ export function LoginPage() {
   const [providers, setProviders] = useState<AuthProviderId[]>([]);
   const [devAuthLoading, setDevAuthLoading] = useState(true);
   const devAuthError = searchParams.get('dev_auth_error') === '1';
+  const providerUnconfigured = searchParams.get('auth_error') === 'unconfigured';
+  const unconfiguredProvider = searchParams.get('provider') ?? '';
+  const unconfiguredLabel =
+    unconfiguredProvider === 'google' || unconfiguredProvider === 'slack' || unconfiguredProvider === 'express'
+      ? t(`account.provider.${unconfiguredProvider}`)
+      : unconfiguredProvider;
 
   useEffect(() => {
     void Promise.all([fetchDevAuthEnabled(), fetchAuthProviders()])
@@ -63,6 +69,11 @@ export function LoginPage() {
           {devAuthError ? (
             <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
               {t('auth.dev_sign_in_error')}
+            </p>
+          ) : null}
+          {providerUnconfigured ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+              {t('auth.provider_unconfigured', { provider: unconfiguredLabel })}
             </p>
           ) : null}
           {pageLoading ? (

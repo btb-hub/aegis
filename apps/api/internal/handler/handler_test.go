@@ -397,7 +397,8 @@ func TestAuthLoginUnknownProvider(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/auth/unknown/login", nil)
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/login?auth_error=unconfigured&provider=unknown", w.Header().Get("Location"))
 }
 
 func TestCallbackJSONFormat(t *testing.T) {

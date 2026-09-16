@@ -194,4 +194,23 @@ describe('AccountPage', () => {
     renderPage('/account?connected=slack');
     expect(await screen.findByText('Slack connected')).toBeInTheDocument();
   });
+
+  it('says Slack paging is unconfigured when Slack OIDC is missing', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderPage();
+    expect(
+      await screen.findByText('Slack sign-in is not configured for this deployment.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Connect Slack' })).not.toBeInTheDocument();
+  });
 });

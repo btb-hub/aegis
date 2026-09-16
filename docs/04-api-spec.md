@@ -9,7 +9,7 @@ OpenAPI schema generated from code in `apps/api` (future story).
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/auth/providers` | — | `{ "providers": ["google", …] }` — OIDC providers configured in this deployment |
-| GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`). Optional query: `redirect` (same-origin relative path, stored and used after callback). |
+| GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`). Optional query: `redirect` (same-origin relative path, stored and used after callback). Unknown or unconfigured providers redirect to `{PUBLIC_URL}/login?auth_error=unconfigured&provider={name}` (browser-safe; not JSON 400). |
 | GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`), or to the stored `redirect` path when present. Pass `?format=json` for JSON user body instead. |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user profile (see below) |
