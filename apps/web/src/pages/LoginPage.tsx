@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
+import { AppVersion } from '../components/layout/AppVersion';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { fetchAuthProviders, type AuthProviderId } from '../lib/authTypes';
@@ -106,6 +107,7 @@ export function LoginPage() {
           )}
         </div>
       </main>
+      <AppVersion />
     </div>
   );
 }
