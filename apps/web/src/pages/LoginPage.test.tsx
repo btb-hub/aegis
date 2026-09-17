@@ -50,6 +50,16 @@ describe('LoginPage', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('shows the build version at the bottom of the login page', () => {
+    vi.stubEnv('VITE_APP_VERSION', 'v9.8.7');
+    mockAuthFetches(false);
+
+    renderLoginPage();
+
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Aegis v9.8.7');
   });
 
   it('renders provider sign-in links when unsigned', async () => {

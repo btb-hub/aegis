@@ -17,6 +17,8 @@ ENV GOWORK=off
 RUN CGO_ENABLED=0 go build -o /worker ./cmd/worker
 
 FROM node:20-alpine AS web
+ARG APP_VERSION=development
+ENV VITE_APP_VERSION=${APP_VERSION}
 WORKDIR /src
 COPY apps/web/package.json apps/web/package-lock.json* ./apps/web/
 WORKDIR /src/apps/web

@@ -30,6 +30,18 @@ describe('AppShell', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('shows the build version at the bottom of the app', () => {
+    vi.stubEnv('VITE_APP_VERSION', 'v9.8.7');
+    renderShell(
+      <AppShell>
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Aegis v9.8.7');
   });
 
   it('renders shell chrome', () => {

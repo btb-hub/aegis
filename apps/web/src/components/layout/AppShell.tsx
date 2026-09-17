@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { AppVersion } from './AppVersion';
 import type { AuthUser } from '../../lib/authTypes';
 import { Button } from '../ui/Button';
 
@@ -99,6 +100,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
         <main className="flex-1 p-6">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
+        <AppVersion />
       </div>
     </div>
   );
