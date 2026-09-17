@@ -64,7 +64,7 @@ export function Modal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="pointer-events-auto relative z-10 w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-lg"
+          className="pointer-events-auto relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-lg"
         >
           <h2 id={titleId} className="text-lg font-semibold text-zinc-900">
             {title}
