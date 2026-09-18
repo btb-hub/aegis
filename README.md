@@ -33,6 +33,7 @@ department dashboards to analyse what's happening. The product must be easy to *
 | 10 | [`docs/10-agent-loop.md`](./docs/10-agent-loop.md) | The development loop in detail |
 | 11 | [`docs/11-localization.md`](./docs/11-localization.md) | English + Russian i18n rules |
 | 12 | [`docs/12-design-system.md`](./docs/12-design-system.md) | UI tokens, components, patterns (see also [`design_system.html`](./docs/design_system.html)) |
+| 13 | [`docs/13-on-call-runbook.md`](./docs/13-on-call-runbook.md) | Действия дежурного инженера и первичная диагностика Aegis |
 | — | [`backlog/roadmap.md`](./backlog/roadmap.md) | Phases and milestones |
 | — | [`backlog/epics/`](./backlog/epics/) | Epics → stories → acceptance criteria |
 | — | [`docs/overview.html`](./docs/overview.html) | Visual, scannable map of the whole plan |
