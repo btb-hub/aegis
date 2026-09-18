@@ -17,6 +17,7 @@ type TeamRepository interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
 	CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error)
 	UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error)
+	UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error)
 	MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error
 	DeleteTeam(ctx context.Context, id uuid.UUID) error
 	ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]db.TeamMember, error)
@@ -94,6 +95,26 @@ func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, name, descri
 		}
 	}
 	team, err := s.repo.UpdateTeam(ctx, id, name, strings.TrimSpace(description), tier)
+	if err != nil {
+		return db.Team{}, mapTeamError(err)
+	}
+	return team, nil
+}
+
+func (s *TeamService) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+	current, err := s.repo.GetTeam(ctx, id)
+	if err != nil {
+		return db.Team{}, mapTeamError(err)
+	}
+	express := current.ExpressChatID
+	if expressChatID != nil {
+		express = normalizeOptionalString(expressChatID)
+	}
+	slack := current.SlackChannelID
+	if slackChannelID != nil {
+		slack = normalizeOptionalString(slackChannelID)
+	}
+	team, err := s.repo.UpdateTeamChannels(ctx, id, express, slack)
 	if err != nil {
 		return db.Team{}, mapTeamError(err)
 	}
@@ -251,6 +272,17 @@ func normalizeSupportTier(tier *string) (*string, error) {
 	}
 }
 
+func normalizeOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
 func normalizeTeamRole(teamRole string) (string, error) {
 	if teamRole == "" {
 		return "member", nil
@@ -300,6 +332,12 @@ func TeamJSON(team db.Team) map[string]any {
 	}
 	if team.SupportTier != nil {
 		out["support_tier"] = *team.SupportTier
+	}
+	if team.ExpressChatID != nil {
+		out["express_chat_id"] = *team.ExpressChatID
+	}
+	if team.SlackChannelID != nil {
+		out["slack_channel_id"] = *team.SlackChannelID
 	}
 	return out
 }

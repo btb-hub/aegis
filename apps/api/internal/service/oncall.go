@@ -15,6 +15,7 @@ type OnCallRepository interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
 	CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error)
 	ListOnCallSlotsInRange(ctx context.Context, teamID uuid.UUID, from, to time.Time) ([]db.OnCallSlot, error)
+	EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error
 }
 
 type OnCallService struct {
@@ -56,6 +57,17 @@ func (s *OnCallService) Calendar(ctx context.Context, teamID uuid.UUID, from, to
 	return slots, nil
 }
 
+func (s *OnCallService) EnqueuePublish(ctx context.Context, teamID uuid.UUID) error {
+	team, err := s.repo.GetTeam(ctx, teamID)
+	if err != nil {
+		return mapOnCallError(err)
+	}
+	if !team.HasChatChannel() {
+		return apperrors.Validation("set a Slack channel or eXpress chat before publishing", nil)
+	}
+	return s.repo.EnqueuePublishOnCall(ctx, teamID)
+}
+
 func mapOnCallError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return apperrors.NotFound("team")
@@ -64,12 +76,9 @@ func mapOnCallError(err error) error {
 }
 
 func OnCallUserJSON(user db.OnCallUser) map[string]any {
-	return map[string]any{
-		"user_id":      user.UserID.String(),
-		"email":        user.Email,
-		"display_name": user.DisplayName,
-		"source":       user.Source,
-	}
+	out := PersonJSON(user.UserID, user.Email, user.DisplayName, user.SlackUserID, user.ExpressUserHuid)
+	out["source"] = user.Source
+	return out
 }
 
 func OnCallSlotJSON(slot db.OnCallSlot) map[string]any {

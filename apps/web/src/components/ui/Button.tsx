@@ -9,6 +9,8 @@ type ButtonProps = {
   onClick?: () => void;
   type?: 'button' | 'submit';
   href?: string;
+  target?: string;
+  rel?: string;
   className?: string;
 };
 
@@ -28,13 +30,15 @@ export function Button({
   onClick,
   type = 'button',
   href,
+  target,
+  rel,
   className = '',
 }: ButtonProps) {
   const classes = `${baseClass} ${variantClass[variant]} ${className}`.trim();
 
   if (href) {
     return (
-      <a href={href} className={classes}>
+      <a href={href} className={classes} target={target} rel={rel}>
         {children}
       </a>
     );

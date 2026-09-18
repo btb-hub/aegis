@@ -16,10 +16,10 @@ const baseUser = {
   identities: [{ provider: 'google', linked_at: '2026-01-01T00:00:00Z' }],
 };
 
-function renderPage() {
+function renderPage(path = '/account') {
   return render(
     <I18nextProvider i18n={i18n}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AuthProvider>
           <AccountPage />
         </AuthProvider>
@@ -50,6 +50,9 @@ describe('AccountPage', () => {
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
       }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google', 'slack'] }) } as Response;
+      }
       return { ok: false, status: 401, json: async () => ({}) } as Response;
     });
 
@@ -78,6 +81,9 @@ describe('AccountPage', () => {
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
       }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
+      }
       return { ok: false, status: 401, json: async () => ({}) } as Response;
     });
 
@@ -98,6 +104,9 @@ describe('AccountPage', () => {
       const url = String(input);
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
       }
       if (url.includes('/express-link-code') && init?.method === 'POST') {
         return { ok: true, json: async () => ({ code: 'abc', command: '/link abc' }) } as Response;
@@ -125,5 +134,83 @@ describe('AccountPage', () => {
 
     renderPage();
     expect(await screen.findByText(/Sign in to manage your account/i)).toBeInTheDocument();
+  });
+
+  it('hides unconfigured SSO connect and uses a real href', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google', 'slack'] }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderPage();
+    const connect = await screen.findByRole('link', { name: 'Connect Slack' });
+    expect(connect).toHaveAttribute('href', '/auth/slack/login?redirect=/account');
+    expect(screen.queryByRole('link', { name: 'Connect eXpress' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'SSO' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bind eXpress for paging' })).toBeInTheDocument();
+  });
+
+  it('uses full-page OAuth hrefs for unlinked Slack and eXpress', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google', 'slack', 'express'] }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderPage();
+    expect(await screen.findByRole('link', { name: 'Connect Slack' })).toHaveAttribute(
+      'href',
+      '/auth/slack/login?redirect=/account',
+    );
+    expect(screen.getByRole('link', { name: 'Connect eXpress' })).toHaveAttribute(
+      'href',
+      '/auth/express/login?redirect=/account',
+    );
+  });
+
+  it('toasts after returning from a connected provider', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google', 'slack'] }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderPage('/account?connected=slack');
+    expect(await screen.findByText('Slack connected')).toBeInTheDocument();
+  });
+
+  it('says Slack paging is unconfigured when Slack OIDC is missing', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return { ok: true, json: async () => baseUser } as Response;
+      }
+      if (url.includes('/auth/providers')) {
+        return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
+      }
+      return { ok: false, status: 401, json: async () => ({}) } as Response;
+    });
+
+    renderPage();
+    expect(
+      await screen.findByText('Slack sign-in is not configured for this deployment.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Connect Slack' })).not.toBeInTheDocument();
   });
 });

@@ -18,7 +18,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 
 | ID | Requirement |
 |----|-------------|
-| REQ-AUTH-01 | Users sign in via OIDC only: Google, Slack, or eXpress. |
+| REQ-AUTH-01 | Users sign in via OIDC only: Google, Slack, or eXpress. The UI lists only providers that are configured in this deployment. |
 | REQ-AUTH-02 | No local passwords or self-hosted IdP in MVP. |
 | REQ-AUTH-03 | Server-side session after OIDC callback; logout invalidates session. |
 | REQ-AUTH-04 | RBAC roles: `admin`, `member`, `viewer` (minimum). |
@@ -63,6 +63,8 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-SHIFT-05 | On-call slots are materialised ahead for fast reads. |
 | REQ-SHIFT-06 | Calendar UI shows rotations and overrides; "now" indicator visible. |
 | REQ-SHIFT-07 | API exposes current on-call per team. |
+| REQ-SHIFT-08 | Admins store optional team eXpress chat and Slack channel IDs. The worker publishes current on-call to those channels daily, on rotation change, and when an admin clicks Publish now. |
+| REQ-SHIFT-09 | Current on-call API and shifts banner expose contact deep links (email, Slack, eXpress) for each on-call user when that identity is stored. |
 
 ---
 
@@ -81,6 +83,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INC-09 | Acknowledge from chat or UI updates incident + timeline. |
 | REQ-INC-10 | Escalation timer: if unacked within policy, one escalation step (re-page or next person). |
 | REQ-INC-11 | Incident timeline records all state changes, pages, acks, ticket links. |
+| REQ-INC-12 | Incident detail shows the assignee and the same contact deep links as current on-call, omitting unlinked channels. |
 
 ---
 
@@ -118,7 +121,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INT-01 | Connector interface: ticket vs chat providers; registry pattern. |
 | REQ-INT-02 | Jira: create issue, link to incident, optional status sync inbound. |
 | REQ-INT-03 | Slack: Block Kit page, signed interactive ack callback. |
-| REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. |
+| REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. BotX CTS calls `GET {base}/status` and `POST {base}/command` on the public callback base (`{PUBLIC_URL}/api/v1/callbacks/express`). |
 | REQ-INT-05 | Per-connector "Test connection" on the Integrations admin page (`/integrations`). Standalone configure (create/edit credentials) without the setup wizard. |
 | REQ-INT-06 | Connector failure does not block other connectors; retry with backoff in worker. |
 | REQ-INT-07 | Machine HTTP (eXpress BotX, Slack interactive callback, alert webhook) and health checks must be reachable without interactive Google/IAP login. Document a path-based proxy skip or a separate public host. Do not place IAP in front of those paths on the UI origin. Callback verification (BotX JWT, Slack signature, webhook secret) stays required. |

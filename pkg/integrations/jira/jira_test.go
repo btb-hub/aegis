@@ -15,6 +15,7 @@ func TestCreateTicketUsesFixture(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/rest/api/3/issue", r.URL.Path)
 		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"key": "OPS-42"})
 	}))
@@ -35,9 +36,37 @@ func TestCreateTicketUsesFixture(t *testing.T) {
 	require.Equal(t, "OPS-42", key)
 }
 
+func TestCreateTicketBasicAuth(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		require.True(t, ok)
+		require.Equal(t, "ops@example.com", user)
+		require.Equal(t, "token", pass)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"key": "OPS-1"})
+	}))
+	defer server.Close()
+
+	provider := New(Config{
+		BaseURL:    server.URL,
+		Email:      "ops@example.com",
+		APIToken:   "token",
+		ProjectKey: "OPS",
+		AuthType:   "basic",
+	})
+	key, err := provider.CreateTicket(t.Context(), integrations.IncidentRef{
+		ID:       uuid.New(),
+		Title:    "CPU high",
+		Severity: "critical",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "OPS-1", key)
+}
+
 func TestTestConnectionUsesFixture(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/rest/api/3/myself", r.URL.Path)
+		require.Equal(t, "Bearer token", r.Header.Get("Authorization"))
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()

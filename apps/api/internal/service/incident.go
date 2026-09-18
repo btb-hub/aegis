@@ -63,6 +63,20 @@ func (s *IncidentService) Get(ctx context.Context, id uuid.UUID) (db.Incident, e
 	return incident, nil
 }
 
+func (s *IncidentService) Assignee(ctx context.Context, incident db.Incident) (*db.User, error) {
+	if incident.AssigneeID == nil {
+		return nil, nil
+	}
+	user, err := s.repo.GetUserByID(ctx, *incident.AssigneeID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (s *IncidentService) Acknowledge(ctx context.Context, incidentID, actorID uuid.UUID) (db.Incident, error) {
 	incident, err := s.repo.AcknowledgeIncident(ctx, incidentID, actorID)
 	if err != nil {

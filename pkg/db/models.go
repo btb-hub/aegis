@@ -73,13 +73,24 @@ type Workspace struct {
 }
 
 type Team struct {
-	ID          uuid.UUID  `json:"id"`
-	WorkspaceID uuid.UUID  `json:"workspace_id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	SupportTier *string    `json:"support_tier,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID                     uuid.UUID  `json:"id"`
+	WorkspaceID            uuid.UUID  `json:"workspace_id"`
+	Name                   string     `json:"name"`
+	Description            string     `json:"description"`
+	SupportTier            *string    `json:"support_tier,omitempty"`
+	ExpressChatID          *string    `json:"express_chat_id,omitempty"`
+	SlackChannelID         *string    `json:"slack_channel_id,omitempty"`
+	OnCallAnnouncedUserIDs *string    `json:"-"`
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
+}
+
+func (t Team) HasChatChannel() bool {
+	return nonempty(t.ExpressChatID) || nonempty(t.SlackChannelID)
+}
+
+func nonempty(value *string) bool {
+	return value != nil && *value != ""
 }
 
 type EscalationPath struct {
@@ -155,10 +166,12 @@ type OnCallSlot struct {
 }
 
 type OnCallUser struct {
-	UserID      uuid.UUID `json:"user_id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Source      string    `json:"source"`
+	UserID          uuid.UUID   `json:"user_id"`
+	Email           string      `json:"email"`
+	DisplayName     string      `json:"display_name"`
+	Source          string      `json:"source"`
+	SlackUserID     *string     `json:"-"`
+	ExpressUserHuid pgtype.UUID `json:"-"`
 }
 
 type RoutingRule struct {

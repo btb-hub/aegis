@@ -9,12 +9,44 @@ describe('OnCallBanner', () => {
     render(
       <I18nextProvider i18n={i18n}>
         <OnCallBanner
-          users={[{ userId: '1', displayName: 'Alice', email: 'a@example.com', source: 'rotation' }]}
+          users={[
+            {
+              userId: '1',
+              displayName: 'Alice',
+              email: 'a@example.com',
+              source: 'rotation',
+              contacts: { email: 'mailto:a@example.com' },
+            },
+          ]}
         />
       </I18nextProvider>,
     );
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.getByText(/on call now/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Email' })).toHaveAttribute('href', 'mailto:a@example.com');
+  });
+
+  it('omits unlinked chat channels', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <OnCallBanner
+          users={[
+            {
+              userId: '1',
+              displayName: 'Alice',
+              email: 'a@example.com',
+              source: 'rotation',
+              contacts: {
+                email: 'mailto:a@example.com',
+                slack: 'https://slack.com/app_redirect?channel=U123',
+              },
+            },
+          ]}
+        />
+      </I18nextProvider>,
+    );
+    expect(screen.getByRole('link', { name: 'Message in Slack' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Message in eXpress' })).not.toBeInTheDocument();
   });
 
   it('shows empty state', () => {

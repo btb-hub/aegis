@@ -234,6 +234,23 @@ workaround and must be a first-class deploy path.
 
 **Next story:** [AEG-097](./epics/EPIC-14-alert-ops-public-ingress.md) — Configure routing CTA on Alerts.
 
+## Phase 14 — Production ops (BotX CTS, on-call announce, OIDC)
+
+*Exit: BotX CTS reaches `/status` and `/command` so `/link` works; Aegis publishes current on-call
+to team channels (no external CronJob); login/account only offer configured OIDC providers.*
+
+**Why now:** Production BotX admin URL is a **base**; `/bot` only → `/link` 404. On-call announce
+is still a CronJob. Slack/eXpress Connect buttons hit unconfigured OIDC and the UI silently lands
+on `/shifts`.
+
+- BotX `GET /status` + `POST /command` (AEG-104).
+- Configured OIDC discovery; SSO vs paging copy (AEG-106).
+- Team channel IDs + `publish_oncall` worker + Publish now (AEG-105).
+
+→ Epic: [EPIC-15 Production ops](./epics/EPIC-15-production-ops.md)
+
+**Next story (interrupt):** [AEG-105](./epics/EPIC-15-production-ops.md) — Publish current on-call to team channels.
+
 ## Later (post-MVP, not now)
 
 Mattermost, Telegram, native mobile push, phone/SMS paging, status pages, runbook automation,

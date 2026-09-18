@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
+import { AppVersion } from '../components/layout/AppVersion';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import { AUTH_PROVIDERS } from '../lib/authTypes';
+import { fetchAuthProviders, type AuthProviderId } from '../lib/authTypes';
 
-const providerLabelKey = {
+const providerLabelKey: Record<AuthProviderId, string> = {
   google: 'auth.sign_in_google',
   slack: 'auth.sign_in_slack',
   express: 'auth.sign_in_express',
-} as const;
+};
 
 async function fetchDevAuthEnabled(): Promise<boolean> {
   try {
@@ -30,12 +31,22 @@ export function LoginPage() {
   const { user, loading } = useAuth();
   const [searchParams] = useSearchParams();
   const [devAuthEnabled, setDevAuthEnabled] = useState(false);
+  const [providers, setProviders] = useState<AuthProviderId[]>([]);
   const [devAuthLoading, setDevAuthLoading] = useState(true);
   const devAuthError = searchParams.get('dev_auth_error') === '1';
+  const providerUnconfigured = searchParams.get('auth_error') === 'unconfigured';
+  const unconfiguredProvider = searchParams.get('provider') ?? '';
+  const unconfiguredLabel =
+    unconfiguredProvider === 'google' || unconfiguredProvider === 'slack' || unconfiguredProvider === 'express'
+      ? t(`account.provider.${unconfiguredProvider}`)
+      : unconfiguredProvider;
 
   useEffect(() => {
-    void fetchDevAuthEnabled()
-      .then(setDevAuthEnabled)
+    void Promise.all([fetchDevAuthEnabled(), fetchAuthProviders()])
+      .then(([enabled, configured]) => {
+        setDevAuthEnabled(enabled);
+        setProviders(configured);
+      })
       .finally(() => setDevAuthLoading(false));
   }, []);
 
@@ -61,11 +72,16 @@ export function LoginPage() {
               {t('auth.dev_sign_in_error')}
             </p>
           ) : null}
+          {providerUnconfigured ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+              {t('auth.provider_unconfigured', { provider: unconfiguredLabel })}
+            </p>
+          ) : null}
           {pageLoading ? (
             <p className="text-center text-sm text-zinc-600">{t('auth.loading')}</p>
           ) : (
             <div className="space-y-3">
-              {AUTH_PROVIDERS.map((provider) => (
+              {providers.map((provider) => (
                 <Button
                   key={provider}
                   variant="secondary"
@@ -91,6 +107,7 @@ export function LoginPage() {
           )}
         </div>
       </main>
+      <AppVersion />
     </div>
   );
 }

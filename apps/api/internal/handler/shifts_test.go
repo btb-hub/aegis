@@ -95,6 +95,11 @@ func (m *shiftsHandlerRepo) ListOnCallSlotsInRange(ctx context.Context, teamID u
 	return m.slots, nil
 }
 
+func (m *shiftsHandlerRepo) EnqueuePublishOnCall(_ context.Context, teamID uuid.UUID) error {
+	m.enqueued = append(m.enqueued, teamID)
+	return nil
+}
+
 type shiftsTestEnv struct {
 	router *gin.Engine
 	repo   *shiftsHandlerRepo
@@ -201,6 +206,12 @@ func TestOnCallCurrent(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	require.Len(t, resp.Items, 1)
+	require.Equal(t, "Alice", resp.Items[0]["display_name"])
+	contacts, ok := resp.Items[0]["contacts"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "mailto:a@example.com", contacts["email"])
+	_, hasSlack := contacts["slack"]
+	require.False(t, hasSlack)
 }
 
 func TestOnCallCalendarRequiresRange(t *testing.T) {
@@ -422,4 +433,63 @@ func TestOnCallCurrentInvalidTeamID(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
 	env.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPublishOnCallRequiresAdmin(t *testing.T) {
+	env := setupShiftsRouter(t)
+	chat := "chat-1"
+	teamID := uuid.New()
+	env.repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	token := env.sessionForRole(t, "member")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams/"+teamID.String()+"/on-call/publish", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestPublishOnCallAccepted(t *testing.T) {
+	env := setupShiftsRouter(t)
+	chat := "chat-1"
+	teamID := uuid.New()
+	env.repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	token := env.sessionForRole(t, "admin")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams/"+teamID.String()+"/on-call/publish", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.Contains(t, env.repo.enqueued, teamID)
+}
+
+func TestPublishOnCallRequiresChannel(t *testing.T) {
+	env := setupShiftsRouter(t)
+	teamID := uuid.New()
+	env.repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform"}
+	token := env.sessionForRole(t, "admin")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams/"+teamID.String()+"/on-call/publish", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPublishOnCallInvalidTeamID(t *testing.T) {
+	env := setupShiftsRouter(t)
+	token := env.sessionForRole(t, "admin")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams/not-a-uuid/on-call/publish", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPublishOnCallTeamNotFound(t *testing.T) {
+	env := setupShiftsRouter(t)
+	token := env.sessionForRole(t, "admin")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams/"+uuid.New().String()+"/on-call/publish", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: token})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusNotFound, w.Code)
 }

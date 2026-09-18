@@ -1,3 +1,4 @@
+import type { ContactLinks, ContactPerson } from './contactTypes';
 import type { Incident, IncidentAlert, TimelineEvent } from './incidentTypes';
 import type { ApiErrorBody } from './apiErrors';
 
@@ -25,6 +26,12 @@ export type ApiIncident = {
   acknowledged_at?: string;
   resolved_at?: string;
   assignee_id?: string;
+  assignee?: {
+    user_id: string;
+    email: string;
+    display_name: string;
+    contacts?: ContactLinks;
+  };
 };
 
 export type ApiTimelineEvent = {
@@ -87,6 +94,18 @@ export function mapApiTimelineEvent(event: ApiTimelineEvent): TimelineEvent {
   };
 }
 
+function mapApiAssignee(assignee?: ApiIncident['assignee']): ContactPerson | undefined {
+  if (!assignee) {
+    return undefined;
+  }
+  return {
+    userId: assignee.user_id,
+    email: assignee.email,
+    displayName: assignee.display_name,
+    contacts: assignee.contacts,
+  };
+}
+
 export function mapApiIncident(
   incident: ApiIncident,
   alerts: IncidentAlert[] = [],
@@ -103,6 +122,7 @@ export function mapApiIncident(
     createdAt: incident.created_at,
     acknowledgedAt: incident.acknowledged_at,
     resolvedAt: incident.resolved_at,
+    assignee: mapApiAssignee(incident.assignee),
     alerts,
     timeline,
   };

@@ -23,6 +23,14 @@ Block Kit message (text from `pkg/i18n` using recipient `users.locale`):
 
 Post to DM using `slack_user_id` on user row (mapped at login or admin link).
 
+## Contact deep links (AEG-107)
+
+When `users.slack_user_id` is set, current on-call and incident-detail assignee JSON include:
+
+`https://slack.com/app_redirect?channel={slack_user_id}`
+
+This opens Slack for the signed-in user without a request-path Slack API call. Native `slack://user?team={T}&id={U}` is not used until a workspace team ID is stored.
+
 ## Inbound ack
 
 - `POST /callbacks/slack/interactive`

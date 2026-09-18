@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createExpressLinkCode, patchAuthMe } from './authTypes';
+import { createExpressLinkCode, fetchAuthProviders, patchAuthMe, parseAuthProviderIds } from './authTypes';
 
 describe('authTypes helpers', () => {
   afterEach(() => {
@@ -31,5 +31,26 @@ describe('authTypes helpers', () => {
     }));
 
     await expect(createExpressLinkCode()).rejects.toThrow('code failed');
+  });
+
+  it('parses configured provider ids and ignores unknown values', () => {
+    expect(parseAuthProviderIds(['google', 'nope', 'slack'])).toEqual(['google', 'slack']);
+    expect(parseAuthProviderIds(null)).toEqual([]);
+  });
+
+  it('returns no providers when the discovery request fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    }));
+    await expect(fetchAuthProviders()).resolves.toEqual([]);
+  });
+
+  it('returns configured providers from discovery', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ providers: ['google'] }),
+    }));
+    await expect(fetchAuthProviders()).resolves.toEqual(['google']);
   });
 });

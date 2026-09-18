@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — руководство пользователя</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a class="on" href="index.html">процесс</a>
+      <a href="setup.html">настройка</a>
+      <a href="routing.html">правила</a>
+      <a href="paths.html">пути</a>
+      <a href="incidents.html">инциденты</a>
+      <a href="connect.html">связь</a>
+      <a href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../index.html">EN</a><a class="on" href="index.html">RU</a></div>
+  </div>
+</header>
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Руководство пользователя</p>
+    <h1>Как настроить процесс дежурств.</h1>
+    <p class="lede">Это руководство по продукту: что нажимать в Aegis, чтобы сработавший алерт
+      стал чужим инцидентом, тикетом в Jira и пэйджем человеку, который сейчас на смене. Это не
+      инструкция по установке. Процесс настраивает <b>администратор</b>; дежурные читают
+      <a href="incidents.html">Работу с инцидентом</a>.</p>
+    <div class="facts">
+      <span class="pill">кто <b>администратор</b></span>
+      <span class="pill">экраны <b>Рабочие области, Команды, Смены</b></span>
+      <span class="pill">затем <b>правила и коннекторы</b></span>
+    </div>
+    <div class="toc">
+      <a href="setup.html">Настроить процесс</a>
+      <a href="routing.html">Правила маршрутизации</a>
+      <a href="paths.html">Пути эскалации</a>
+      <a href="incidents.html">Работа с инцидентом</a>
+      <a href="connect.html">Jira, Slack, eXpress</a>
+      <a href="troubleshooting.html">Если не маршрутизируется</a>
+    </div>
+  </div>
+</div>
+<section id="picture">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Что вы собираете</h2></div>
+    <p class="sec-sub">Рабочая область — это проект (Platform, Data, Payments). Команды в ней
+      принимают пэйджи. Правило маршрутизации решает, какая команда владеет новым алертом. Пути
+      эскалации решают, куда L2 может передать работу.</p>
+    <div class="flow">мониторинг  →  алерт (метки)  →  правило маршрутизации  →  инцидент
+                                              │
+                                              ├─ назначить текущего дежурного целевой команды
+                                              ├─ открыть тикет Jira (если Jira подключена)
+                                              └─ пэйдж в Slack / eXpress (если подключены)
+
+дежурный  →  Принять  →  (по желанию) Передать в L3  →  Закрыть</div>
+    <p style="margin-top:16px;color:var(--ink-soft);font-size:14.5px">Пока нет правила, графика и
+      хотя бы одной команды, алерты могут появиться в <b>Алертах</b> и не стать инцидентом. Так и
+      задумано.</p>
+  </div>
+</section>
+<section id="pick">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Выберите задачу</h2></div>
+    <p class="sec-sub">Новый проект начинайте с настройки. Остальные страницы предполагают, что
+      процесс уже собран.</p>
+    <div class="paths">
+      <a class="path" href="setup.html">
+        <div class="ty">Админ · первый раз</div>
+        <h3>Настроить процесс</h3>
+        <p>Вход, рабочая область, команды L2 и L3, участники, путь эскалации, недельная ротация,
+          правило маршрутизации, тестовый алерт.</p>
+        <div class="go">setup.html →</div>
+      </a>
+      <a class="path" href="routing.html">
+        <div class="ty">Админ · совпадения</div>
+        <h3>Правила маршрутизации с примерами</h3>
+        <p>Заполненные формы: одно правило Platform, два проекта, NOC и L2 по приоритету, общий
+          DevOps. Большее число приоритета проверяется первым.</p>
+        <div class="go">routing.html →</div>
+      </a>
+      <a class="path" href="paths.html">
+        <div class="ty">Админ · передача</div>
+        <h3>Пути эскалации с примерами</h3>
+        <p>Добавить путь на исходной команде. L2→L3, NOC→L1→L2→L3, Data L2 через Platform L3.
+          Почему нет кнопки «Передать».</p>
+        <div class="go">paths.html →</div>
+      </a>
+      <a class="path" href="incidents.html">
+        <div class="ty">Дежурный</div>
+        <h3>Работа с инцидентом</h3>
+        <p>Принять из Slack, eXpress или веба. Разобрать, передать в L3, вернуть, закрыть. Одна
+          лента событий для всех уровней.</p>
+        <div class="go">incidents.html →</div>
+      </a>
+      <a class="path" href="connect.html">
+        <div class="ty">Админ · коннекторы</div>
+        <h3>Подключить Jira, Slack, eXpress</h3>
+        <p>Глобальные учётные данные, Проверить подключение, затем наследовать или свои слоты на
+          рабочей области.</p>
+        <div class="go">connect.html →</div>
+      </a>
+      <a class="path" href="troubleshooting.html">
+        <div class="ty">Застряли</div>
+        <h3>Если процесс неполный</h3>
+        <p>Алерты без инцидентов, пустой «Сейчас на смене», нет кнопки передачи, никто не получает
+          пэйдж.</p>
+        <div class="go">troubleshooting.html →</div>
+      </a>
+    </div>
+  </div>
+</section>
+<section id="order">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Порядок, который работает</h2></div>
+    <p class="sec-sub">Идите по шагам. Если перескочить, алерты не станут инцидентами, а у кнопки
+      передачи не будет целей.</p>
+    <div class="chain">
+      <div class="node"><div class="ty">1</div><h3>Рабочая область</h3><p>Граница проекта для команд и правил.</p></div>
+      <div class="node"><div class="ty">2</div><h3>Команды и уровни</h3><p>L2 принимает пэйдж. L3 — цель передачи.</p></div>
+      <div class="node"><div class="ty">3</div><h3>Участники и смены</h3><p>Кто-то должен дежурить, когда придёт алерт.</p></div>
+      <div class="node"><div class="ty">4</div><h3>Маршрутизация</h3><p>Метка (например <code>team=platform</code>) → L2.</p></div>
+      <div class="node"><div class="ty">5</div><h3>Связь и проверка</h3><p>Jira / чат, затем <b>Отправить тестовый алерт</b>.</p></div>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <b>Мастер настройки необязателен</b>
+      <p>Пункт <b>Мастер настройки</b> в сайдбаре — чеклист. Для одной правки лучше страницы
+        <b>Рабочие области</b>, <b>Команды</b>, <b>Смены</b>, <b>Интеграции</b>.
+        <b>Быстрая настройка (новый проект)</b> создаёт область, L2, L3 и путь L2→L3 одним шагом.</p>
+    </div>
+  </div>
+</section>
+<footer>
+  <div class="wrap">
+    Роли: <a href="../../user-guide.md">docs/user-guide.md</a>.
+    Установка ПО: <a href="../../07-setup-deployment.md">docs/07-setup-deployment.md</a>.
+  </div>
+</footer>
+<script src="../guide.js"></script>
+</body>
+</html>

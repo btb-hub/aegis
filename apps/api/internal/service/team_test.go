@@ -18,6 +18,7 @@ type teamRepoMock struct {
 	teams       map[uuid.UUID]db.Team
 	memberships map[uuid.UUID]map[uuid.UUID]db.TeamMembership
 	users       map[uuid.UUID]db.User
+	channelsErr error
 }
 
 func newTeamRepoMock() *teamRepoMock {
@@ -73,6 +74,21 @@ func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, descr
 	team.Name = name
 	team.Description = description
 	team.SupportTier = supportTier
+	team.UpdatedAt = time.Now()
+	m.teams[id] = team
+	return team, nil
+}
+
+func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+	if m.channelsErr != nil {
+		return db.Team{}, m.channelsErr
+	}
+	team, ok := m.teams[id]
+	if !ok {
+		return db.Team{}, pgx.ErrNoRows
+	}
+	team.ExpressChatID = expressChatID
+	team.SlackChannelID = slackChannelID
 	team.UpdatedAt = time.Now()
 	m.teams[id] = team
 	return team, nil
@@ -643,4 +659,59 @@ func TestMoveTeamsToWorkspaceUnknownWorkspace(t *testing.T) {
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
 	require.Equal(t, "NOT_FOUND", appErr.Code)
+}
+
+func TestUpdateTeamChannels(t *testing.T) {
+	repo := newTeamRepoMock()
+	svc := NewTeamService(repo, nil)
+	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
+	require.NoError(t, err)
+	chat := "group-1"
+	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil)
+	require.NoError(t, err)
+	require.NotNil(t, updated.ExpressChatID)
+	require.Equal(t, "group-1", *updated.ExpressChatID)
+}
+
+func TestUpdateTeamChannelsNotFound(t *testing.T) {
+	svc := NewTeamService(newTeamRepoMock(), nil)
+	chat := "group-1"
+	_, err := svc.UpdateTeamChannels(context.Background(), uuid.New(), &chat, nil)
+	require.Error(t, err)
+	var appErr *apperrors.Error
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, "NOT_FOUND", appErr.Code)
+}
+
+func TestUpdateTeamChannelsClearsWhenEmpty(t *testing.T) {
+	repo := newTeamRepoMock()
+	svc := NewTeamService(repo, nil)
+	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
+	require.NoError(t, err)
+	chat := "group-1"
+	_, err = svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil)
+	require.NoError(t, err)
+	empty := "  "
+	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, &empty, nil)
+	require.NoError(t, err)
+	require.Nil(t, updated.ExpressChatID)
+}
+
+func TestUpdateTeamChannelsRepoError(t *testing.T) {
+	repo := newTeamRepoMock()
+	svc := NewTeamService(repo, nil)
+	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
+	require.NoError(t, err)
+	repo.channelsErr = errors.New("db down")
+	chat := "group-1"
+	_, err = svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil)
+	require.Error(t, err)
+}
+
+func TestTeamJSONIncludesChannels(t *testing.T) {
+	chat := "group-1"
+	slack := "C123"
+	payload := TeamJSON(db.Team{ID: uuid.New(), WorkspaceID: testWorkspaceID, Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack})
+	require.Equal(t, "group-1", payload["express_chat_id"])
+	require.Equal(t, "C123", payload["slack_channel_id"])
 }

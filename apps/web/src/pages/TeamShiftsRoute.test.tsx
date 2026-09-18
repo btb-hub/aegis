@@ -527,4 +527,74 @@ describe('TeamShiftsRoute', () => {
       expect(screen.getByText('Override deleted')).toBeInTheDocument();
     });
   });
+
+  it('publishes current on-call as admin when a channel is set', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 'user-1',
+            email: 'admin@example.com',
+            display_name: 'Admin',
+            role: 'admin',
+            locale: 'en',
+            provider: 'google',
+          }),
+        } as Response;
+      }
+      if (url.match(/\/teams\/team-1$/) || url.endsWith('/teams/team-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 'team-1',
+            name: 'Platform',
+            description: '',
+            express_chat_id: 'group-1',
+            created_at: '',
+            updated_at: '',
+          }),
+        } as Response;
+      }
+      if (url.includes('/on-call/publish') && init?.method === 'POST') {
+        return { ok: true, status: 202, json: async () => ({ result: 'accepted' }) } as Response;
+      }
+      if (url.includes('/members')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: 'm1', team_id: 'team-1', user_id: 'u1', team_role: 'member', email: 'a@x.com', display_name: 'Alice', created_at: '' }],
+          }),
+        } as Response;
+      }
+      if (url.includes('/schedules')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: 'sch-1', name: 'Primary', timezone: 'UTC', layers: [{ handoff_weekday: 1, handoff_time: '09:00', participant_user_ids: ['u1'] }] }],
+          }),
+        } as Response;
+      }
+      if (url.includes('/on-call/current')) {
+        return { ok: true, json: async () => ({ items: [] }) } as Response;
+      }
+      if (url.includes('/on-call/calendar')) {
+        return { ok: true, json: async () => ({ items: [] }) } as Response;
+      }
+      if (url.includes('/overrides')) {
+        return { ok: true, json: async () => ({ items: [] }) } as Response;
+      }
+      return { ok: false, status: 500, json: async () => ({}) } as Response;
+    });
+
+    renderRoute();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Publish now' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Publish now' }));
+    await waitFor(() => {
+      expect(screen.getByText('Published')).toBeInTheDocument();
+    });
+  });
 });

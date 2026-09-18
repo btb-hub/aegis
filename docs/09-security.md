@@ -17,7 +17,8 @@ MVP supports exactly three identity providers:
 ### Flow
 
 1. User chooses provider on the login page ([`docs/features/web-auth.md`](./features/web-auth.md); Phase 3.5).
-2. `GET /auth/{provider}/login` generates state/nonce, redirects to IdP.
+2. `GET /auth/{provider}/login` generates state/nonce, redirects to IdP. Unknown or unconfigured
+   providers redirect to `/login?auth_error=unconfigured&provider={name}` (browser-safe).
 3. Callback validates state, exchanges code for tokens, fetches userinfo.
 4. Upsert `users` on `(provider, provider_sub)`.
 5. Create `sessions` row; set **HttpOnly**, **Secure** (prod), **SameSite=Lax** cookie.
@@ -28,6 +29,14 @@ MVP supports exactly three identity providers:
 - Random session ID stored hashed in `sessions`.
 - TTL configurable (default 7 days sliding).
 - Middleware rejects expired or missing session on protected routes.
+
+### Outer proxy vs Aegis session
+
+If an identity-aware proxy sits in front of the UI, it is not the Aegis session (`aegis_session`)
+or the Aegis OIDC callback (`/auth/{provider}/callback`). oauth2-proxy uses `_oauth2_proxy*` cookies
+and `/oauth2/callback`. Google IAP uses GCP cookies and path exemptions, not that callback. A 403
+HTML page that says "Secured with OAuth2 Proxy" is the oauth2-proxy gate. Diagnose it in
+[`07-setup-deployment.md`](./07-setup-deployment.md#outer-identity-proxy).
 
 ### Slack dual credentials
 
@@ -60,7 +69,10 @@ Enforced in service layer + handler checks.
 
 - Alert webhook: shared secret header `X-Aegis-Webhook-Secret` or HMAC body signature.
 - Slack: verify `X-Slack-Signature` timestamp + signing secret.
-- eXpress: HMAC per BotX documentation.
+- eXpress: BotX JWT (HS256, `secret_key`) on `POST /api/v1/callbacks/express/command`
+  (and `/bot/command`, deprecated `POST …/bot`). `GET …/status` and `GET …/bot/status`
+  verify JWT when `Authorization` is present. These paths are machine ingress
+  (REQ-INT-07) and must not sit behind interactive IAP.
 
 ## Audit (REQ-AUDIT-01)
 

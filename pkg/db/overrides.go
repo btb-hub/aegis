@@ -112,7 +112,7 @@ ORDER BY start_at`
 
 func (s *Store) CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]OnCallUser, error) {
 	const q = `
-SELECT s.user_id, u.email, u.display_name, s.source
+SELECT s.user_id, u.email, u.display_name, s.source, u.slack_user_id, u.express_user_huid
 FROM on_call_slots s
 JOIN users u ON u.id = s.user_id
 WHERE s.team_id = $1 AND s.start_at <= $2 AND s.end_at > $2
@@ -126,7 +126,7 @@ ORDER BY s.source DESC, u.display_name`
 	var users []OnCallUser
 	for rows.Next() {
 		var user OnCallUser
-		if err := rows.Scan(&user.UserID, &user.Email, &user.DisplayName, &user.Source); err != nil {
+		if err := rows.Scan(&user.UserID, &user.Email, &user.DisplayName, &user.Source, &user.SlackUserID, &user.ExpressUserHuid); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
@@ -145,4 +145,28 @@ func (s *Store) EnqueueMaterialiseOnCall(ctx context.Context, teamID uuid.UUID) 
 	payload := []byte(`{"team_id":"` + teamID.String() + `"}`)
 	_, err := s.EnqueueJob(ctx, "materialise_oncall", payload, time.Now())
 	return err
+}
+
+func (s *Store) EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error {
+	payload := []byte(`{"team_id":"` + teamID.String() + `"}`)
+	_, err := s.EnqueueJob(ctx, "publish_oncall", payload, time.Now())
+	return err
+}
+
+func (s *Store) HasPendingPublishOnCall(ctx context.Context, teamID uuid.UUID) (bool, error) {
+	const q = `
+SELECT 1 FROM jobs
+WHERE kind = 'publish_oncall'
+  AND status IN ('pending', 'running')
+  AND payload->>'team_id' = $1
+LIMIT 1`
+	var n int
+	err := s.pool.QueryRow(ctx, q, teamID.String()).Scan(&n)
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

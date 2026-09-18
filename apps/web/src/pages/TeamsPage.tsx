@@ -26,6 +26,8 @@ type TeamFormState = {
   description: string;
   workspace_id: string;
   support_tier: string;
+  express_chat_id: string;
+  slack_channel_id: string;
 };
 
 const emptyForm: TeamFormState = {
@@ -33,6 +35,8 @@ const emptyForm: TeamFormState = {
   description: '',
   workspace_id: DEFAULT_WORKSPACE_ID,
   support_tier: '',
+  express_chat_id: '',
+  slack_channel_id: '',
 };
 
 export function TeamsPage() {
@@ -133,6 +137,8 @@ export function TeamsPage() {
       description: team.description ?? '',
       workspace_id: team.workspace_id,
       support_tier: team.support_tier ?? '',
+      express_chat_id: team.express_chat_id ?? '',
+      slack_channel_id: team.slack_channel_id ?? '',
     });
     setFormOpen(true);
   };
@@ -158,6 +164,8 @@ export function TeamsPage() {
           payload.support_tier = '';
         }
         payload.workspace_id = form.workspace_id;
+        payload.express_chat_id = form.express_chat_id.trim();
+        payload.slack_channel_id = form.slack_channel_id.trim();
       } else {
         payload.workspace_id = form.workspace_id;
         if (form.support_tier) {
@@ -365,6 +373,17 @@ export function TeamsPage() {
           value={form.description}
           onChange={(value) => setForm((f) => ({ ...f, description: value }))}
         />
+        <Input
+          label={t('teams.express_chat_label')}
+          value={form.express_chat_id}
+          onChange={(value) => setForm((f) => ({ ...f, express_chat_id: value }))}
+        />
+        <Input
+          label={t('teams.slack_channel_label')}
+          value={form.slack_channel_id}
+          onChange={(value) => setForm((f) => ({ ...f, slack_channel_id: value }))}
+        />
+        <p className="text-sm text-zinc-600">{t('teams.channels_help')}</p>
       </Modal>
 
       <Modal

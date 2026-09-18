@@ -21,6 +21,28 @@ export type AuthProviderId = 'google' | 'slack' | 'express';
 
 export const AUTH_PROVIDERS: AuthProviderId[] = ['google', 'slack', 'express'];
 
+export function parseAuthProviderIds(raw: unknown): AuthProviderId[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.filter((item): item is AuthProviderId =>
+    AUTH_PROVIDERS.includes(item as AuthProviderId),
+  );
+}
+
+export async function fetchAuthProviders(): Promise<AuthProviderId[]> {
+  try {
+    const response = await fetch('/auth/providers');
+    if (!response.ok) {
+      return [];
+    }
+    const data = (await response.json()) as { providers?: unknown };
+    return parseAuthProviderIds(data.providers);
+  } catch {
+    return [];
+  }
+}
+
 export async function patchAuthMe(body: { locale?: string; display_name?: string }): Promise<AuthUser> {
   const response = await fetch('/auth/me', {
     method: 'PATCH',

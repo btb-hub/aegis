@@ -219,6 +219,9 @@ func (r *teamLookupRepo) CreateTeam(_ context.Context, workspaceID uuid.UUID, na
 func (r *teamLookupRepo) UpdateTeam(context.Context, uuid.UUID, string, string, *string) (db.Team, error) {
 	return db.Team{}, nil
 }
+func (r *teamLookupRepo) UpdateTeamChannels(context.Context, uuid.UUID, *string, *string) (db.Team, error) {
+	return db.Team{}, nil
+}
 func (r *teamLookupRepo) MoveTeamsToWorkspace(context.Context, uuid.UUID, []uuid.UUID) error { return nil }
 func (r *teamLookupRepo) DeleteTeam(context.Context, uuid.UUID) error { return nil }
 func (r *teamLookupRepo) ListTeamMembers(context.Context, uuid.UUID) ([]db.TeamMember, error) {

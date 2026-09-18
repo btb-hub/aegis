@@ -45,6 +45,8 @@ export function TeamShiftsRoute() {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [canPublish, setCanPublish] = useState(false);
 
   const primarySchedule = schedules[0] ?? null;
   const nameByUserId = useMemo(() => memberNameMap(members), [members]);
@@ -62,6 +64,7 @@ export function TeamShiftsRoute() {
         Promise.resolve(monthRangeUTC(month)),
       ]);
       setTeamName(team.name);
+      setCanPublish(Boolean(team.express_chat_id || team.slack_channel_id));
       setMembers(teamMembers);
       setSchedules(teamSchedules);
       setOverrides(teamOverrides);
@@ -168,6 +171,27 @@ export function TeamShiftsRoute() {
     [refreshCalendar, t, teamId],
   );
 
+  const publishOnCall = useCallback(async () => {
+    setPublishing(true);
+    setToast(null);
+    try {
+      const response = await fetch(`/api/v1/teams/${teamId}/on-call/publish`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const body = (await response.json()) as { message?: string };
+        throw new Error(body.message ?? t('shifts.publish_failed'));
+      }
+      setToast({ message: t('shifts.published'), variant: 'success' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('shifts.publish_failed');
+      setToast({ message, variant: 'default' });
+    } finally {
+      setPublishing(false);
+    }
+  }, [t, teamId]);
+
   if (loading) {
     return <p className="text-sm text-zinc-600">{t('shifts.loading')}</p>;
   }
@@ -221,6 +245,11 @@ export function TeamShiftsRoute() {
           <Button variant="secondary" onClick={() => setOverrideModalOpen(true)}>
             {t('override.create')}
           </Button>
+          {canPublish ? (
+            <Button variant="secondary" disabled={publishing} onClick={() => void publishOnCall()}>
+              {t('shifts.publish_now')}
+            </Button>
+          ) : null}
         </div>
       ) : null}
       <TeamShiftsPage

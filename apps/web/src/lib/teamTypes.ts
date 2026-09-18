@@ -70,6 +70,8 @@ export type Team = {
   name: string;
   description: string;
   support_tier?: SupportTier;
+  express_chat_id?: string;
+  slack_channel_id?: string;
   created_at: string;
   updated_at: string;
 };

@@ -110,6 +110,18 @@ func TestConfigCompleteUsesProviderRequirements(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "jira bearer without email",
+			kind: "jira",
+			raw:  []byte(`{"base_url":"https://jira.example.com","api_token":"pat","project_key":"OPS"}`),
+			want: true,
+		},
+		{
+			name: "jira basic without email",
+			kind: "jira",
+			raw:  []byte(`{"base_url":"https://jira.example.com","api_token":"pat","project_key":"OPS","auth_type":"basic"}`),
+			want: false,
+		},
+		{
 			name: "slack",
 			kind: "slack",
 			raw:  []byte(`{"bot_token":"token","signing_secret":"secret"}`),

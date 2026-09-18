@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAuthConfiguredProviders(t *testing.T) {
+	svc, _, _ := testAuthService(t)
+	require.Equal(t, []string{"google"}, svc.ConfiguredProviders())
+}
+
 func TestAuthLoginStateFailure(t *testing.T) {
 	svc, _, _ := testAuthService(t)
 	svc.newState = func() (string, error) { return "", errors.New("state failed") }

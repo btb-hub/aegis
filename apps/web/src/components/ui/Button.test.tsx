@@ -28,4 +28,15 @@ describe('Button', () => {
     );
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/google/login');
   });
+
+  it('opens external hrefs in a new tab', () => {
+    render(
+      <Button href="https://example.com" target="_blank" rel="noopener noreferrer">
+        Open
+      </Button>,
+    );
+    const link = screen.getByRole('link', { name: 'Open' });
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
 });

@@ -3,6 +3,15 @@
 Local source builds run on **Docker Compose** — Postgres, API, worker, web. Production deploys use
 the all-in-one GHCR image with external Postgres. No Redis.
 
+**User how-tos:** [`how-to/README.md`](./how-to/README.md) — how to set up the on-call
+workflow in the product ([setup](./how-to/setup.md),
+[routing](./how-to/routing.md),
+[paths](./how-to/paths.md),
+[incidents](./how-to/incidents.md),
+[connectors](./how-to/connect.md),
+[stuck states](./how-to/troubleshooting.md)).
+This page remains the authoritative env, migration, and production checklist.
+
 ## Production image (GHCR)
 
 Third parties and Kubernetes deploy from a **single public image** — API, worker, and web in one
@@ -36,6 +45,44 @@ across replicas is not supported yet.
 See [`deploy/k8s/aegis.yaml`](../deploy/k8s/aegis.yaml). Create a Secret named `aegis-env` with the
 same keys as `.env`, point Ingress at Service port 80, and set `PUBLIC_URL` to the Ingress URL.
 OIDC redirect URIs must match that host. Helm remains out of scope.
+
+### Outer identity proxy
+
+Aegis does not ship an interactive identity-aware proxy. oauth2-proxy and Google IAP are optional
+ops layers in front of the UI. They are separate Google logins from Aegis OIDC, and they are not
+the same product: IAP uses GCP cookies and BackendConfig path exemptions, not `/oauth2/callback`.
+
+| Layer | Callback | Typical failure |
+|-------|----------|-----------------|
+| oauth2-proxy | `/oauth2/callback` | HTML 403 with footer "Secured with OAuth2 Proxy" |
+| Aegis OIDC | `/auth/{provider}/callback` | JSON 400; cookie `aegis_oauth_state` |
+
+The proxy does not replace Aegis OIDC. After the outer gate, humans still sign in with Google,
+Slack, or eXpress on the Aegis login page. Register a **second** Google OAuth client (or a second
+authorized redirect URI) for `https://<ui-host>/oauth2/callback`. Do not point any Aegis
+`*_OIDC_REDIRECT_URL` at `/oauth2/callback`.
+
+If a normal browser profile fails instantly and Incognito succeeds, or if both fail with the proxy
+403 page, fix the proxy.
+
+Two competing diagnoses for “Incognito works”:
+
+1. **Stale `_oauth2_proxy` cookies.** Delete every cookie for the host whose name starts with
+   `_oauth2_proxy`. Clicking Sign in on the 403 page is not enough. Expand **More Info** if you see
+   CSRF token missing or mismatch.
+2. **Wrong Google account.** Chrome reused a personal Gmail session outside the proxy email
+   allowlist (`email_domains` / `--email-domain`). Expand **More Info** for "email not authorized".
+   Use the Google account chooser, or set `prompt = "select_account"` in the proxy config.
+
+Copy [`deploy/oauth2-proxy.example.cfg`](../deploy/oauth2-proxy.example.cfg) (oauth2-proxy v7.15.3).
+Set CSRF-per-request, SameSite Lax, and an **exact-host** cookie domain that matches `redirect_url`
+(or omit `cookie_domains` for a host-only cookie). A parent domain such as `.example.com` leaves
+duplicate CSRF cookies in Chrome and reproduces the Incognito-only success.
+
+Keep `/api/v1/callbacks/`, `/api/v1/alerts/webhook`, `/healthz`, `/readyz`, and `/metrics` off the
+interactive proxy (REQ-INT-07: path skip or a second public host). Kube probes should hit the
+in-cluster Service, not the public proxy host. Do not leave `/metrics` reachable on the public
+internet without a network policy.
 
 ### Publishing (maintainers)
 
@@ -365,7 +412,8 @@ Do **not** start the `alert-simulator` service in production (`--profile dev` on
 ### Pre-flight
 
 1. Provision TLS at a reverse proxy (nginx, Caddy, cloud LB). Point DNS at the proxy; set
-   `PUBLIC_URL` to that HTTPS origin.
+   `PUBLIC_URL` to that HTTPS origin. If that proxy is oauth2-proxy (or similar), read
+   [Outer identity proxy](#outer-identity-proxy) before pointing Aegis OIDC redirects at it.
 2. Create `.env` from [`deploy/.env.example`](../deploy/.env.example) (or equivalent secrets in
    your platform). Required for a usable install:
    - `SESSION_SECRET`, `WEBHOOK_SECRET` — long random values
@@ -420,6 +468,7 @@ make migrate-down
 | Secret rotation | Update `.env` (or secret store), recreate `api`/`worker` containers |
 | Connector secrets | Prefer admin UI `/integrations` + workspace slots after go-live; env vars remain optional bootstrap |
 | Alert intake | External systems POST to `{PUBLIC_URL}/api/v1/alerts/webhook` with configured secret |
+| Machine ingress | Do not put interactive IAP in front of `/api/v1/callbacks/` (including eXpress `/status` and `/command`), `/api/v1/alerts/webhook`, `/healthz`, `/readyz`, or `/metrics`. BotX admin URL is the **base** `{PUBLIC_URL}/api/v1/callbacks/express` |
 | Hardening | TLS at proxy; do not expose Postgres publicly; disable dev auth and the `dev` Compose profile |
 
 ### Rollback

@@ -325,8 +325,8 @@ describe('IntegrationsPage', () => {
     expect(save).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText('Jira base URL'), { target: { value: 'https://jira.example.com' } });
-    fireEvent.change(screen.getByLabelText('Jira email'), { target: { value: 'ops@example.com' } });
-    fireEvent.change(screen.getByLabelText('Jira API token'), { target: { value: 'token' } });
+    fireEvent.change(screen.getByLabelText(/^Jira email/), { target: { value: 'ops@example.com' } });
+    fireEvent.change(screen.getByLabelText(/^Jira API token/), { target: { value: 'token' } });
     fireEvent.change(screen.getByLabelText('Jira project key'), { target: { value: 'OPS' } });
 
     await waitFor(() => {
@@ -349,6 +349,7 @@ describe('IntegrationsPage', () => {
       email: 'ops@example.com',
       api_token: 'token',
       project_key: 'OPS',
+      auth_type: 'bearer',
     });
   });
 

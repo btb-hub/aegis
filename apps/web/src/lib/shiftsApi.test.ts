@@ -16,6 +16,7 @@ describe('shiftsApi', () => {
         email: 'a@example.com',
         display_name: 'Alice',
         source: 'rotation',
+        contacts: { email: 'mailto:a@example.com', slack: 'https://slack.com/app_redirect?channel=U1' },
       },
     ]);
     expect(users[0]).toEqual({
@@ -23,6 +24,7 @@ describe('shiftsApi', () => {
       email: 'a@example.com',
       displayName: 'Alice',
       source: 'rotation',
+      contacts: { email: 'mailto:a@example.com', slack: 'https://slack.com/app_redirect?channel=U1' },
     });
   });
 

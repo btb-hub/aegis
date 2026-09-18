@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — настройка процесса дежурств</title>
+<link rel="stylesheet" href="../guide.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">процесс</a>
+      <a class="on" href="setup.html">настройка</a>
+      <a href="routing.html">правила</a>
+      <a href="paths.html">пути</a>
+      <a href="incidents.html">инциденты</a>
+      <a href="connect.html">связь</a>
+      <a href="troubleshooting.html">сбой</a>
+    </nav>
+    <div class="lang"><a href="../setup.html">EN</a><a class="on" href="setup.html">RU</a></div>
+  </div>
+</header>
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">Админ · первый проект</p>
+    <h1>Соберите процесс, чтобы у алерта был владелец.</h1>
+    <p class="lede">Идите по экранам по порядку. Сквозной пример — проект <b>Platform</b>: L2
+      принимает пэйдж, L3 принимает передачу. Нужна роль <b>Администратор</b> (смотрите
+      <b>Аккаунт</b> в шапке). Участник и наблюдатель команды, графики и правила создать не могут.</p>
+    <div class="toc">
+      <a href="#signin">Вход</a>
+      <a href="#workspace">Рабочая область</a>
+      <a href="#teams">Команды</a>
+      <a href="#members">Участники</a>
+      <a href="#path">Эскалация</a>
+      <a href="#shifts">Смены</a>
+      <a href="#routing">Маршрутизация</a>
+      <a href="routing.html">Правила (примеры)</a>
+      <a href="paths.html">Пути (примеры)</a>
+      <a href="#prove">Тестовый алерт</a>
+    </div>
+  </div>
+</div>
+<section id="signin">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Войдите как администратор</h2></div>
+    <p class="sec-sub">Страница входа одна на всех. Что можно менять, зависит от роли в аккаунте, а
+      не от кнопки провайдера.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Откройте приложение и выберите провайдера</h3>
+          <p>Страница входа: <b>Google</b>, <b>Slack</b> или <b>eXpress</b>. После редиректа вы в приложении.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Проверьте, что вы администратор</h3>
+          <p>Шапка → <b>Аккаунт</b>. Бейдж роли — <b>Администратор</b>. Если «Участник» или
+            «Наблюдатель», это руководство не закончить: попросите админа повысить вас в
+            <b>Пользователи</b>.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout info">
+      <b>Сначала люди должны войти, потом вы добавите их в команду</b>
+      <p>Aegis не приглашает по почте. Каждый дежурный входит один раз, затем вы жмёте
+        <b>Добавить участника</b>. Для пэйджа в Slack нужен вход через Slack. eXpress — привязка в
+        <b>Аккаунт</b>, см. <a href="connect.html#paging">связь</a>.</p>
+    </div>
+  </div>
+</section>
+<section id="workspace">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Создайте рабочую область</h2></div>
+    <p class="sec-sub">Рабочая область — проект. В ней команды, правила маршрутизации и в какой
+      проект Jira падают тикеты. В одном Aegis может быть несколько областей (Platform и Data рядом).</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Сайдбар → Рабочие области</h3>
+          <p><b>Создать рабочую область</b>. <b>Название</b> — например Platform. Slug необязателен.
+            <b>Сохранить</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Откройте область</h3>
+          <p>На карточке потом будут команды, интеграции и правила. Вернётесь к правилам, когда
+            появятся команды.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout info">
+      <b>Короткий путь: Мастер → Быстрая настройка</b>
+      <p>В <b>Мастер настройки</b> пункт <b>Быстрая настройка (новый проект)</b> создаёт область, L2, L3
+        и путь L2→L3 сразу. Дальше — <a href="#members">участники</a> и <a href="#shifts">смены</a>.</p>
+    </div>
+  </div>
+</section>
+<section id="teams">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Создайте команды и задайте уровни</h2></div>
+    <p class="sec-sub">Уровень поддержки живёт на <b>команде</b>, не на человеке. Он определяет,
+      какие кнопки эскалации будут на инциденте.</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Уровень</th><th>Типичное имя</th><th>Роль в цепочке</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>NOC</td><td>Platform NOC</td><td>Первый взгляд на мониторинг; эскалация в L1 или L2</td></tr>
+        <tr><td>L1</td><td>Хелпдеск</td><td>Пользовательские обращения; эскалация в L2</td></tr>
+        <tr><td>L2</td><td>Platform L2</td><td>Большинство продовых инцидентов; передача в L3</td></tr>
+        <tr><td>L3</td><td>Platform L3</td><td>Специалисты; могут вернуть в L2 с комментарием</td></tr>
+      </tbody>
+    </table>
+    <div class="steps" style="margin-top:18px">
+      <div class="step">
+        <div>
+          <h3>Сайдбар → Команды → Создать команду</h3>
+          <p>Название <b>Platform L2</b>. <b>Рабочая область</b> — Platform. <b>Уровень поддержки</b> —
+            <b>L2</b>. Сохранить. Повторите для <b>Platform L3</b> с уровнем <b>L3</b>.</p>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">Минимум: одна L2 и одна L3 в
+      одной области. NOC и L1 добавите, если так устроен разбор.</p>
+  </div>
+</section>
+<section id="members">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Добавьте участников</h2></div>
+    <p class="sec-sub">Участники попадают в ротацию и могут быть назначены, когда команда владеет
+      инцидентом.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Откройте команду L2</h3>
+          <p>Блок <b>Участники</b> → <b>Добавить участника</b>. Поиск по имени или email. Роль
+            <b>Участник</b> или <b>Лид</b> (лид не заменяет администратора).</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout warn">
+      <b>Пустой поиск людей</b>
+      <p>Значит, они ещё ни разу не входили. Попросите открыть вход один раз, затем снова
+        <b>Добавить участника</b>.</p>
+    </div>
+  </div>
+</section>
+<section id="path">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Разрешите L2 передать в L3</h2></div>
+    <p class="sec-sub">Бейджа уровня мало. Путь добавляют на команде, которая нажмёт кнопку.
+      Развёрнутые примеры: <a href="paths.html">пути эскалации</a>.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Команды → Platform L2 → Пути эскалации</h3>
+          <p>Откройте <b>исходную</b> команду (L2), не L3. <b>Исходящие пути</b> → <b>Добавить путь</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Заполните форму</h3>
+          <div class="ex">
+            <div class="hd">Добавить путь · команда <b>Platform L2</b></div>
+            <dl>
+              <dt>Разрешить команду из другой области</dt><dd>Выкл.</dd>
+              <dt>В команду</dt><dd>Platform L3</dd>
+            </dl>
+            <p class="why">Сохраните. У L2 в исходящих — Platform L3. У Platform L3 во входящих —
+              Platform L2. На инциденте L2 появится <b>Передать в L3</b>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:14px;color:var(--ink-soft);font-size:14.5px">Только пары: NOC→L1 или L2,
+      L1→L2, L2→L3. Пустой список — нет L3 или не задан уровень, см.
+      <a href="paths.html#empty">пустой пикер</a>.</p>
+  </div>
+</section>
+<section id="shifts">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">06</span><h2>Поставьте кого-то на смену</h2></div>
+    <p class="sec-sub">Маршрутизация отдаёт инцидент команде. Пэйдж уходит текущему дежурному. Без
+      графика инцидент может появиться, но пэйджить некого.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Смены команды L2</h3>
+          <p>Сайдбар <b>Смены</b> → Platform L2. Если видите <b>У этой команды пока нет графика дежурств</b> —
+            продолжайте.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Создать график</h3>
+          <p><b>Создать график</b>: название, <b>Часовой пояс (IANA)</b> (например
+            <code>Europe/Moscow</code>), <b>День передачи смены</b>, <b>Время передачи смены</b>,
+            <b>Участники (порядок ротации)</b>. <b>Сохранить график</b>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Проверьте «Сейчас на смене»</h3>
+          <p>Баннер должен назвать человека. Если <b>Сейчас никто не дежурит</b> — ротация не
+            покрывает этот момент: <b>Добавить подмену</b> на сегодня или поправьте день/время передачи.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="routing">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Направьте алерты в команду L2</h2></div>
+    <p class="sec-sub">Правило создают на <b>рабочей области</b>: Рабочие области → Platform →
+      <b>Правила маршрутизации</b> → <b>Добавить правило</b>. Одна форма = одно совпадение метки.
+      Больше примеров: <a href="routing.html">правила маршрутизации</a>.</p>
+    <div class="ex">
+      <div class="hd">Добавить правило · область <b>Platform</b></div>
+      <dl>
+        <dt>Разрешить команду из другой области</dt><dd>Выкл.</dd>
+        <dt>Целевая команда</dt><dd>Platform L2</dd>
+        <dt>Ключ метки</dt><dd><code>team</code></dd>
+        <dt>Значение метки</dt><dd><code>platform</code></dd>
+        <dt>Приоритет</dt><dd><code>100</code> (большее число проверяется первым, если подошли два правила)</dd>
+      </dl>
+      <p class="why">Grafana/Alertmanager должен прислать именно эту пару (регистр важен). Лишние
+        метки не мешают. Алерты есть, инцидентов нет — скопируйте ключ и значение с карточки алерта
+        в эту форму.</p>
+    </div>
+    <p style="margin-top:14px;color:var(--ink-soft);font-size:14.5px">URL вебхука:
+      <code>{адрес Aegis}/api/v1/alerts/webhook</code>. Новые алерты не направляйте сразу в L3 —
+      L3 получает работу по пути, не из этого правила.</p>
+  </div>
+</section>
+<section id="prove">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">08</span><h2>Проверьте цепочку</h2></div>
+    <p class="sec-sub">Коннекторы для этой проверки не обязательны. Тикеты и пэйджи —
+      <a href="connect.html">подключение Jira, Slack, eXpress</a>.</p>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Отправить тестовый алерт</h3>
+          <p>Сайдбар <b>Мастер настройки</b> → <b>Тестовый алерт</b> → <b>Отправить тестовый алерт</b>.
+            Должен быть тост с id алерта.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Откройте Инциденты</h3>
+          <p>Новый инцидент у Platform L2, назначен на того, кого показал баннер. В карточке —
+            лента, связанный алерт и (если подключено) ссылка Jira.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout ok">
+      <b>Первый проект готов, когда</b>
+      <p>У каждой пэйджинговой команды график покрывает «сейчас». У каждой области есть хотя бы одно
+        правило. У L2 есть путь на L3. Если нужны Jira и чат — <b>Проверить подключение</b> на
+        <b>Интеграции</b> прошло.</p>
+    </div>
+    <h3 style="margin-top:28px;font-size:18px">Потом добавите второй проект</h3>
+    <ol class="plain">
+      <li><b>Рабочие области</b> → Создать <b>Data</b>.</li>
+      <li>Команды <b>Data L2</b> и <b>Data L3</b> с нужными уровнями.</li>
+      <li>На Data L2 путь в Data L3.</li>
+      <li>Правило: <code>project=data</code> → Data L2.</li>
+      <li>В области Data Jira: наследовать глобальное, ключ проекта <code>DATA</code>.</li>
+      <li>График Data L2.</li>
+    </ol>
+  </div>
+</section>
+<footer>
+  <div class="wrap">
+    Дальше: <a href="incidents.html">работа с инцидентом</a> или
+    <a href="connect.html">подключить Jira и чат</a>.
+  </div>
+</footer>
+<script src="../guide.js"></script>
+</body>
+</html>

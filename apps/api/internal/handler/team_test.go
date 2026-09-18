@@ -109,6 +109,17 @@ func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, descr
 	return team, nil
 }
 
+func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+	team, ok := m.teams[id]
+	if !ok {
+		return db.Team{}, pgx.ErrNoRows
+	}
+	team.ExpressChatID = expressChatID
+	team.SlackChannelID = slackChannelID
+	m.teams[id] = team
+	return team, nil
+}
+
 func (m *teamRepoMock) MoveTeamsToWorkspace(_ context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
 	for _, teamID := range teamIDs {
 		team, ok := m.teams[teamID]
@@ -934,6 +945,33 @@ func TestDeleteTeamInvalidID(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
 	env.router.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestPatchTeamChannels(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+	var team map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &team))
+	teamID := team["id"].(string)
+
+	patchBody, _ := json.Marshal(map[string]string{"express_chat_id": "group-1", "slack_channel_id": "C123"})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+teamID, bytes.NewReader(patchBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var updated map[string]any
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &updated))
+	require.Equal(t, "group-1", updated["express_chat_id"])
+	require.Equal(t, "C123", updated["slack_channel_id"])
 }
 
 func sessionTokenPair() (string, string, error) {

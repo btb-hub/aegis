@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — when the workflow is incomplete</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">workflow</a>
+      <a href="setup.html">set-up</a>
+      <a href="routing.html">rules</a>
+      <a href="paths.html">paths</a>
+      <a href="incidents.html">incidents</a>
+      <a href="connect.html">connect</a>
+      <a class="on" href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="troubleshooting.html">EN</a><a href="ru/troubleshooting.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">User · stuck states</p>
+    <h1>When the workflow is incomplete.</h1>
+    <p class="lede">Match what you see in the product. Most “Aegis is broken” reports are a missing
+      routing rule, an empty rotation, or a person who never signed in. Software install problems
+      (Docker, ports, <code>.env</code>) are in
+      <a href="../07-setup-deployment.md">07-setup-deployment.md</a>, not here.</p>
+  </div>
+</div>
+
+<section id="table">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Symptom → what to fix</h2></div>
+    <div class="table-wrap">
+    <table class="ref">
+      <thead>
+        <tr><th>You see</th><th>What it means</th><th>Where to click</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Rows in <b>Alerts</b>, nothing in <b>Incidents</b></td>
+          <td>Webhook worked. No routing rule matched the labels.</td>
+          <td><b>Workspaces</b> → the project → <b>Add routing rule</b>. Compare label key/value to the alert. On Alerts you can also open <b>Configure routing</b>.</td>
+        </tr>
+        <tr>
+          <td>Incident exists, <b>On call now</b> is empty</td>
+          <td>Team has no schedule covering this moment.</td>
+          <td><b>Shifts</b> for that team → <b>Create schedule</b> or <b>Add override</b>.</td>
+        </tr>
+        <tr>
+          <td>No <b>Hand off to L3</b> (or escalate) button</td>
+          <td>Owning team has no outgoing escalation path.</td>
+          <td><b>Teams</b> → owning team → <b>Escalation paths</b> → <b>Add path</b>.</td>
+        </tr>
+        <tr>
+          <td>Handoff picker is empty</td>
+          <td>Path exists but the target team is gone, wrong tier, or in another workspace without the cross-workspace checkbox.</td>
+          <td>Fix the path on the source team. Enable <b>Allow team from another workspace</b> only if you intend a shared L3.</td>
+        </tr>
+        <tr>
+          <td>Member picker finds nobody</td>
+          <td>Those people have never signed in.</td>
+          <td>Ask them to use <b>Login</b> once, then <b>Add member</b> again.</td>
+        </tr>
+        <tr>
+          <td>You are not admin and cannot create teams</td>
+          <td>Your access role is Member or Viewer.</td>
+          <td><b>Account</b> shows the role. An admin promotes you on <b>Users</b>.</td>
+        </tr>
+        <tr>
+          <td>Incident, but no Jira ticket</td>
+          <td>Jira slot not ready for that workspace (or skipped).</td>
+          <td><b>Integrations</b> and the workspace <b>Integrations</b> panel. Timeline may show <code>integration_skipped</code>.</td>
+        </tr>
+        <tr>
+          <td>Incident, but no Slack / eXpress page</td>
+          <td>Connector skipped, or the on-call user has no paging identity.</td>
+          <td>Test connection. User opens <b>Account</b> and links Slack or eXpress.</td>
+        </tr>
+        <tr>
+          <td>Test alert toast succeeds, still no incident</td>
+          <td>Test payload labels do not match your rule.</td>
+          <td>Open the new row on <b>Alerts</b>, read labels, align the routing matcher. Worker must be running — if alerts never move, ask whoever operates the host.</td>
+        </tr>
+        <tr>
+          <td>Wrong Jira project</td>
+          <td>Workspace still using the global project key.</td>
+          <td>Workspace → Integrations → Jira <b>Inherit</b> with a project key override, or Custom.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section id="alerts">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Alerts are not incidents</h2></div>
+    <p class="sec-sub">This distinction is the whole product.</p>
+    <table class="ref">
+      <thead>
+        <tr><th></th><th>Alerts</th><th>Incidents</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>What</td><td>Raw monitoring signals</td><td>Owned work items</td></tr>
+        <tr><td>Who creates them</td><td>Grafana, Alertmanager, Zabbix, test alert</td><td>Aegis, after a routing rule matches</td></tr>
+        <tr><td>Your job</td><td>Search, noise, CSV</td><td>Ack, resolve, escalate</td></tr>
+        <tr><td>Page</td><td><b>Alerts</b></td><td><b>Incidents</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="checklist">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Admin go-live checklist</h2></div>
+    <ol class="plain">
+      <li>Each project has a <b>workspace</b>.</li>
+      <li>L2 and L3 teams exist with the correct <b>support tier</b>.</li>
+      <li>Paging teams have <b>members</b> who have signed in.</li>
+      <li>L2 has an <b>escalation path</b> to L3.</li>
+      <li><b>On call now</b> names a person on every paging team.</li>
+      <li>Each workspace has at least one <b>routing rule</b> that matches real alert labels.</li>
+      <li><b>Test connection</b> passed for every connector you rely on.</li>
+      <li>On-call people have Slack and/or eXpress IDs on <b>Account</b>.</li>
+    </ol>
+    <div class="callout info" style="margin-top:18px">
+      <b>Still installing the app?</b>
+      <p>This manual assumes you can already open Aegis in a browser. Host, Docker, secrets, and
+        OIDC app registration: <a href="../07-setup-deployment.md">Setup &amp; deployment</a>.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Walk the happy path again: <a href="setup.html">set up the workflow</a>.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

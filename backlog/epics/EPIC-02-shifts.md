@@ -100,3 +100,19 @@
 **Plan:** `OnCallBanner`, `ShiftsCalendar`, `TeamShiftsPage` with i18n; Vitest coverage for banner + calendar.
 
 **Post-MVP (EPIC-09):** Presentational components from AEG-015 are wired to live APIs and admin schedule/override UI in [AEG-068](../EPIC-09-teams-users-shifts.md)–[AEG-069](../EPIC-09-teams-users-shifts.md); demo fixtures removed from the `/shifts` route.
+
+---
+
+### AEG-107 — On-call and assignee contact deep links
+
+- **Status:** In Review
+- **Depends on:** AEG-015, AEG-031, AEG-068, AEG-078
+- **PRD:** REQ-SHIFT-09, REQ-INC-12
+- **Acceptance:**
+  - [x] `GET /teams/{id}/on-call/current` includes `contacts` URLs (mailto, Slack, eXpress) when identities exist
+  - [x] `GET /incidents/{id}` embeds `assignee` with the same contacts; list stays `assignee_id` only
+  - [x] Shared PersonContacts strip on OnCallBanner and IncidentDetail; omit missing channels
+  - [x] en + ru copy; Storybook story for PersonContacts
+  - [x] `make lint type test` green
+
+**Plan:** `ContactLinks` helper; join `slack_user_id`/`express_user_huid` on current on-call; load assignee on incident GET; PersonContacts + banner/detail UI. No Slack login mapping, no workspace team ID.

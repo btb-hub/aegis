@@ -222,6 +222,9 @@ func (e *emptyTeamRepo) CreateTeam(ctx context.Context, workspaceID uuid.UUID, n
 func (e *emptyTeamRepo) UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error) {
 	return db.Team{}, nil
 }
+func (e *emptyTeamRepo) UpdateTeamChannels(context.Context, uuid.UUID, *string, *string) (db.Team, error) {
+	return db.Team{}, nil
+}
 func (e *emptyTeamRepo) MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error {
 	return nil
 }
@@ -394,7 +397,8 @@ func TestAuthLoginUnknownProvider(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/auth/unknown/login", nil)
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/login?auth_error=unconfigured&provider=unknown", w.Header().Get("Location"))
 }
 
 func TestCallbackJSONFormat(t *testing.T) {

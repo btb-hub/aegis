@@ -45,6 +45,7 @@ func TestProviderValidation(t *testing.T) {
 	provider, err := cfg.Provider("google")
 	require.NoError(t, err)
 	require.Equal(t, "id", provider.ClientID)
+	require.Equal(t, []string{"google"}, cfg.ConfiguredProviders())
 }
 
 func TestParsePort(t *testing.T) {

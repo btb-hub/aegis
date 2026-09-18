@@ -231,9 +231,11 @@ unless a human parallelizes; later IDs stay `Ready` so the loop can take them in
         origin (BotX/Slack/webhooks), not the IAP-wrapped UI origin. Copyable URLs use that value
         (API may expose it; do not use `window.location.origin` if that is the IAP host)
   - [ ] Given [`docs/integrations/express.md`](../docs/integrations/express.md) (and Slack equivalent),
-        when the BotX webhook URL is documented, then it is `{PUBLIC_URL}/api/v1/callbacks/express/bot`
-        (Slack: `{PUBLIC_URL}/api/v1/callbacks/slack/interactive`) and must not sit behind IAP.
-        Gin already verifies BotX JWT / Slack signing secret / webhook secret
+        when the BotX webhook URL is documented, then it is the **base**
+        `{PUBLIC_URL}/api/v1/callbacks/express` (CTS appends `/status` and `/command`; `/bot` is a
+        deprecated alias). Slack: `{PUBLIC_URL}/api/v1/callbacks/slack/interactive`. Must not sit
+        behind IAP. Gin already verifies BotX JWT / Slack signing secret / webhook secret. Path skip
+        must include `/api/v1/callbacks/express/status` and `/command` as well as `/bot`
   - [ ] Given [`docs/09-security.md`](../docs/09-security.md), when public vs session routes are
         listed, then callbacks/webhook/health/metrics are called out as machine ingress
   - [ ] Given `/integrations`, when a Slack or eXpress **row exists**, then the admin sees those

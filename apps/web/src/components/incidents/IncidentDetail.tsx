@@ -5,6 +5,7 @@ import type { Incident } from '../../lib/incidentTypes';
 import { bounceLabelKey, handoffLabelKey, handoffTeamLabelKey } from '../../lib/teamTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
+import { PersonContacts } from '../ui/PersonContacts';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { SeverityTag } from '../ui/SeverityTag';
@@ -180,6 +181,17 @@ export function IncidentDetail({
           </Button>
         </section>
       ) : null}
+
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          {t('incidents.assignee_heading')}
+        </h3>
+        {incident.assignee ? (
+          <PersonContacts displayName={incident.assignee.displayName} contacts={incident.assignee.contacts} />
+        ) : (
+          <p className="text-sm text-zinc-600">{t('incidents.no_assignee')}</p>
+        )}
+      </section>
 
       <section className="space-y-2">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">

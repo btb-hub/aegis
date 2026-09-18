@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,87 @@ func TestLoginRedirect(t *testing.T) {
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusFound, w.Code)
 	require.Contains(t, w.Header().Get("Location"), "authorize")
+}
+
+func TestLoginStoresSafeRedirectAndCallbackHonorsIt(t *testing.T) {
+	r, _ := setupRouter(t)
+
+	login := httptest.NewRecorder()
+	loginReq := httptest.NewRequest(http.MethodGet, "/auth/google/login?redirect=/account", nil)
+	r.ServeHTTP(login, loginReq)
+	require.Equal(t, http.StatusFound, login.Code)
+
+	stateCookie := findCookie(login, oauthStateCookie)
+	redirectCookie := findCookie(login, oauthRedirectCookie)
+	require.NotNil(t, stateCookie)
+	require.NotNil(t, redirectCookie)
+	decodedRedirect, err := url.QueryUnescape(redirectCookie.Value)
+	require.NoError(t, err)
+	require.Equal(t, "/account", decodedRedirect)
+
+	w := httptest.NewRecorder()
+	cbReq := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state="+stateCookie.Value+"&code=xyz", nil)
+	cbReq.AddCookie(stateCookie)
+	cbReq.AddCookie(redirectCookie)
+	r.ServeHTTP(w, cbReq)
+
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/account?connected=google", w.Header().Get("Location"))
+	cleared := findCookie(w, oauthRedirectCookie)
+	require.NotNil(t, cleared)
+	require.Less(t, cleared.MaxAge, 1)
+}
+
+func TestCallbackHonorsNonAccountRedirect(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: oauthStateCookie, Value: "abc"})
+	req.AddCookie(&http.Cookie{Name: oauthRedirectCookie, Value: "/dashboard"})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/dashboard", w.Header().Get("Location"))
+}
+
+func TestCallbackAccountRedirectKeepsExistingQuery(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz", nil)
+	req.AddCookie(&http.Cookie{Name: oauthStateCookie, Value: "abc"})
+	req.AddCookie(&http.Cookie{Name: oauthRedirectCookie, Value: "/account?tab=sso"})
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/account?tab=sso&connected=google", w.Header().Get("Location"))
+}
+
+func TestAppRedirectURLWithoutPublicURL(t *testing.T) {
+	h := &AuthHandler{publicURL: ""}
+	require.Equal(t, "/account", h.appRedirectURL("/account"))
+	require.Equal(t, "/", h.appRedirectURL(""))
+	require.Equal(t, "/", h.appRedirectURL("//evil.test"))
+	require.Equal(t, "/login?auth_error=unconfigured&provider=slack", h.unconfiguredProviderURL("slack"))
+}
+
+func TestLoginRejectsUnsafeRedirect(t *testing.T) {
+	r, _ := setupRouter(t)
+
+	login := httptest.NewRecorder()
+	loginReq := httptest.NewRequest(http.MethodGet, "/auth/google/login?redirect=//evil.test", nil)
+	r.ServeHTTP(login, loginReq)
+	require.Equal(t, http.StatusFound, login.Code)
+	unsafe := findCookie(login, oauthRedirectCookie)
+	if unsafe != nil {
+		require.NotEqual(t, "//evil.test", unsafe.Value)
+	}
+
+	w := httptest.NewRecorder()
+	cbReq := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=abc&code=xyz", nil)
+	cbReq.AddCookie(&http.Cookie{Name: oauthStateCookie, Value: "abc"})
+	cbReq.AddCookie(&http.Cookie{Name: oauthRedirectCookie, Value: "//evil.test"})
+	r.ServeHTTP(w, cbReq)
+
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000", w.Header().Get("Location"))
 }
 
 func TestCallbackInvalidState(t *testing.T) {
@@ -68,7 +150,17 @@ func TestLoginUnknownProviderHTTP(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/auth/unknown/login", nil)
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/login?auth_error=unconfigured&provider=unknown", w.Header().Get("Location"))
+}
+
+func TestLoginUnconfiguredProviderRedirectsToLogin(t *testing.T) {
+	r, _ := setupRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/auth/slack/login?redirect=/account", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusFound, w.Code)
+	require.Equal(t, "http://localhost:3000/login?auth_error=unconfigured&provider=slack", w.Header().Get("Location"))
 }
 
 func TestPatchMeInvalidJSON(t *testing.T) {

@@ -30,7 +30,9 @@ func TestVerifyJWTExpired(t *testing.T) {
 }
 
 func TestParseCommandEventMissingHuid(t *testing.T) {
-	_, err := ParseCommandEvent([]byte(`{"command":{"body":"/link x"}}`))
+	event, err := ParseCommandEvent([]byte(`{"command":{"body":"/link x"}}`))
+	require.NoError(t, err)
+	_, _, err = ParseLinkCommand(event)
 	require.Error(t, err)
 }
 

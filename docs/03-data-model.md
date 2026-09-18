@@ -92,7 +92,9 @@ Index: `(status, run_at) WHERE status = 'pending'` for worker claims.
 
 Standard org structure. Membership links `users` to `teams` with optional team role (`member`, `lead`).
 
-**teams:** `id`, `name` (unique), `description`, `created_at`, `updated_at`.
+**teams:** `id`, `name` (unique), `description`, `workspace_id`, `support_tier`, `express_chat_id`, `slack_channel_id`, `oncall_announced_user_ids`, `created_at`, `updated_at`.
+
+`express_chat_id` and `slack_channel_id` are optional team channel IDs used to publish who is on call. `oncall_announced_user_ids` stores the last published on-call user-id fingerprint for rotation change detection.
 
 **team_memberships:** `id`, `team_id`, `user_id`, `team_role`, `created_at`; unique `(team_id, user_id)`.
 

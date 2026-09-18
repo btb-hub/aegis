@@ -28,6 +28,13 @@ type PageRecipient struct {
 	ExpressUserHuid *string
 }
 
+type OnCallPerson struct {
+	DisplayName     string
+	Locale          string
+	SlackUserID     *string
+	ExpressUserHuid *string
+}
+
 type TicketProvider interface {
 	Kind() string
 	CreateTicket(ctx context.Context, incident IncidentRef) (externalKey string, err error)

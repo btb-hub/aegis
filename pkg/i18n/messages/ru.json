@@ -1,4 +1,6 @@
 {
   "page.acknowledge_button": "Подтвердить",
-  "page.incident_title": "Инцидент {{id}}"
+  "page.incident_title": "Инцидент {{id}}",
+  "oncall.announce": "Сейчас дежурят в {{team}}: {{people}}",
+  "oncall.announce_empty": "В {{team}} сейчас никто не дежурит."
 }

@@ -178,7 +178,7 @@ func (m *alertMockStore) CurrentOnCallUsers(context.Context, uuid.UUID, time.Tim
 }
 
 func TestWorkerNoJob(t *testing.T) {
-	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
+	w := NewWorker(nil, &mockStore{claim: false}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident(), nil)
 	err := w.RunOnce(context.Background())
 	require.NoError(t, err)
 }
@@ -250,7 +250,7 @@ func TestWorkerProcessesJob(t *testing.T) {
 		alert:          db.Alert{ID: alertID, Status: "firing", Labels: []byte(`{"team":"platform"}`)},
 		manualErr:      db.ErrAlertAlreadyLinked,
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, alertStore, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident(), nil)
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -264,7 +264,7 @@ func TestWorkerProcessesMaterialiseJob(t *testing.T) {
 			Payload: json.RawMessage(`{"team_id":"` + teamID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), NewMaterialiseProcessor(nil, &materialiseMockStore{}), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), NewMaterialiseProcessor(nil, &materialiseMockStore{}), noopEscalate(), noopHandoffNotify(), noopNotifyIncident(), nil)
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -277,7 +277,7 @@ func (m *claimErrorStore) ClaimNextJob(ctx context.Context) (bool, Job, error) {
 }
 
 func TestWorkerClaimError(t *testing.T) {
-	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
+	w := NewWorker(nil, &claimErrorStore{}, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident(), nil)
 	err := w.RunOnce(context.Background())
 	require.Error(t, err)
 }
@@ -345,7 +345,7 @@ func TestWorkerProcessesNotifyIncidentJob(t *testing.T) {
 			Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), noopEscalate(), noopHandoffNotify(), noopNotifyIncident(), nil)
 	require.NoError(t, w.RunOnce(context.Background()))
 }
 
@@ -359,6 +359,6 @@ func TestWorkerProcessesEscalateJob(t *testing.T) {
 			Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 		},
 	}
-	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), NewEscalateProcessor(nil, escalateMockStore{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, ""), noopHandoffNotify(), noopNotifyIncident())
+	w := NewWorker(nil, store, NewAlertProcessor(nil, &alertMockStore{}, time.Hour, time.Minute), noopMaterialise(), NewEscalateProcessor(nil, escalateMockStore{incident: db.Incident{ID: incidentID, Status: "acknowledged"}}, ""), noopHandoffNotify(), noopNotifyIncident(), nil)
 	require.NoError(t, w.RunOnce(context.Background()))
 }

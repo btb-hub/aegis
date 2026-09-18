@@ -6,10 +6,10 @@ import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
 import { LoginPage } from './LoginPage';
 
-function renderLoginPage() {
+function renderLoginPage(path = '/login') {
   return render(
     <I18nextProvider i18n={i18n}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AuthProvider>
           <LoginPage />
         </AuthProvider>
@@ -18,7 +18,7 @@ function renderLoginPage() {
   );
 }
 
-function mockAuthFetches(devEnabled: boolean) {
+function mockAuthFetches(devEnabled: boolean, providers: string[] = ['google', 'slack', 'express']) {
   vi.mocked(fetch).mockImplementation(async (input) => {
     const url = String(input);
     if (url.includes('/auth/dev/status')) {
@@ -26,6 +26,13 @@ function mockAuthFetches(devEnabled: boolean) {
         ok: true,
         status: 200,
         json: async () => ({ enabled: devEnabled }),
+      } as Response;
+    }
+    if (url.includes('/auth/providers')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ providers }),
       } as Response;
     }
     return {
@@ -43,6 +50,16 @@ describe('LoginPage', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('shows the build version at the bottom of the login page', () => {
+    vi.stubEnv('VITE_APP_VERSION', 'v9.8.7');
+    mockAuthFetches(false);
+
+    renderLoginPage();
+
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('Aegis v9.8.7');
   });
 
   it('renders provider sign-in links when unsigned', async () => {
@@ -67,6 +84,18 @@ describe('LoginPage', () => {
     expect(screen.queryByRole('link', { name: 'Dev sign in' })).not.toBeInTheDocument();
   });
 
+  it('hides unconfigured OIDC providers', async () => {
+    mockAuthFetches(false, ['google']);
+
+    renderLoginPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('link', { name: 'Sign in with Slack' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Sign in with eXpress' })).not.toBeInTheDocument();
+  });
+
   it('shows dev sign-in when dev auth is enabled', async () => {
     mockAuthFetches(true);
 
@@ -79,5 +108,19 @@ describe('LoginPage', () => {
       );
     });
     expect(screen.getByText('Local development only. Do not enable in production.')).toBeInTheDocument();
+  });
+
+  it('shows unconfigured provider error from query params', async () => {
+    mockAuthFetches(false, ['google']);
+
+    renderLoginPage('/login?auth_error=unconfigured&provider=slack');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Slack is not configured for this deployment.',
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('link', { name: 'Sign in with Slack' })).not.toBeInTheDocument();
   });
 });

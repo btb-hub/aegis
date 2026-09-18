@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
-import { AUTH_PROVIDERS, createExpressLinkCode, patchAuthMe, type AuthProviderId } from '../lib/authTypes';
+import {
+  AUTH_PROVIDERS,
+  createExpressLinkCode,
+  fetchAuthProviders,
+  patchAuthMe,
+  type AuthProviderId,
+} from '../lib/authTypes';
 import i18n, { persistLocale } from '../i18n';
 
 function initials(name: string): string {
@@ -24,6 +30,8 @@ function initials(name: string): string {
 export function AccountPage() {
   const { t } = useTranslation();
   const { user, refresh } = useAuth();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState('');
   const [locale, setLocale] = useState<'en' | 'ru'>('en');
   const [savingProfile, setSavingProfile] = useState(false);
@@ -34,6 +42,26 @@ export function AccountPage() {
   const [expressError, setExpressError] = useState<string | null>(null);
   const [generatingCode, setGeneratingCode] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
+  const [ssoProviders, setSsoProviders] = useState<AuthProviderId[]>([]);
+  const [ssoLoaded, setSsoLoaded] = useState(false);
+
+  useEffect(() => {
+    void fetchAuthProviders()
+      .then(setSsoProviders)
+      .finally(() => setSsoLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    if (!connected || !AUTH_PROVIDERS.includes(connected as AuthProviderId)) {
+      return;
+    }
+    setToast({
+      message: t('account.connected_toast', { provider: t(`account.provider.${connected}`) }),
+      variant: 'success',
+    });
+    navigate('/account', { replace: true });
+  }, [navigate, searchParams, t]);
 
   useEffect(() => {
     if (!user) {
@@ -176,18 +204,15 @@ export function AccountPage() {
         <h2 className="text-lg font-semibold">{t('account.connected_title')}</h2>
         <p className="text-sm text-zinc-600">{t('account.connected_body')}</p>
         <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
-          {AUTH_PROVIDERS.map((provider) => (
+          {ssoProviders.map((provider) => (
             <li key={provider} className="flex items-center justify-between px-4 py-3 text-sm">
               <span className="font-medium capitalize">{provider}</span>
               {linkedProviders.has(provider) ? (
                 <span className="text-zinc-600">{t('account.connected')}</span>
               ) : (
-                <Link
-                  to={`/auth/${provider}/login?redirect=/account`}
-                  className="text-accent hover:underline"
-                >
-                  {t('account.connect_provider', { provider: t(`account.provider.${provider as AuthProviderId}`) })}
-                </Link>
+                <a href={`/auth/${provider}/login?redirect=/account`} className="text-accent hover:underline">
+                  {t('account.connect_provider', { provider: t(`account.provider.${provider}`) })}
+                </a>
               )}
             </li>
           ))}
@@ -196,10 +221,14 @@ export function AccountPage() {
 
       <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="text-lg font-semibold">{t('account.paging_title')}</h2>
+        <p className="text-sm text-zinc-600">{t('account.paging_body')}</p>
         <div className="space-y-2 text-sm">
           <p>
             <span className="font-medium">{t('account.slack_id_label')}:</span>{' '}
-            {user.slack_user_id ?? t('account.slack_id_empty')}
+            {user.slack_user_id ??
+              (!ssoLoaded || ssoProviders.includes('slack')
+                ? t('account.slack_id_empty')
+                : t('account.slack_id_unconfigured'))}
           </p>
           <p>
             <span className="font-medium">{t('account.express_id_label')}:</span>{' '}

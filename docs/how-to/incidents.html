@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — work an incident</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a href="index.html">workflow</a>
+      <a href="setup.html">set-up</a>
+      <a href="routing.html">rules</a>
+      <a href="paths.html">paths</a>
+      <a class="on" href="incidents.html">incidents</a>
+      <a href="connect.html">connect</a>
+      <a href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="incidents.html">EN</a><a href="ru/incidents.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">On-call · member</p>
+    <h1>Work an incident from the page to resolve.</h1>
+    <p class="lede">You do not configure workspaces on this path. You acknowledge, investigate,
+      hand off when you need a higher tier, and resolve. Admin setup lives in
+      <a href="setup.html">Set up the workflow</a>.</p>
+    <div class="facts">
+      <span class="pill">need <b>member or admin</b></span>
+      <span class="pill">viewers <b>cannot ack</b></span>
+    </div>
+    <div class="toc">
+      <a href="#page">Get the page</a>
+      <a href="#ack">Acknowledge</a>
+      <a href="#handoff">Hand off</a>
+      <a href="#bounce">Bounce</a>
+      <a href="#roles">What each role can do</a>
+    </div>
+  </div>
+</div>
+
+<section id="page">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Get the page</h2></div>
+    <p class="sec-sub">When you are primary on a team, a new incident for that team pages you in chat
+      and appears under <b>Incidents</b>.</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Channel</th><th>What you see</th><th>How you ack</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Slack</td><td>DM (and team channel, if configured)</td><td><b>Acknowledge</b> on the message</td></tr>
+        <tr><td>eXpress</td><td>BotX direct message</td><td>Bubble action</td></tr>
+        <tr><td>Web</td><td><b>Incidents</b> list</td><td><b>Acknowledge</b> on the incident</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">If you never get a DM, your
+      Slack user ID or eXpress huid is missing — open <b>Account</b>. That is identity, not SSO.
+      See <a href="connect.html#paging">paging identity</a>.</p>
+  </div>
+</section>
+
+<section id="ack">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Acknowledge, then investigate</h2></div>
+    <div class="steps">
+      <div class="step">
+        <div>
+          <h3>Acknowledge</h3>
+          <p>Click <b>Acknowledge</b> in chat or on the incident. The timeline records who and when.
+            Use the chat button when you are on a phone or in a war room.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Read the same facts everyone else sees</h3>
+          <p>Incident detail: linked <b>alerts</b>, Jira ticket (if connected), and the
+            <b>timeline</b>. There are no hidden L3-only rows. L2 and L3 see the same history.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div>
+          <h3>Resolve when it is fixed</h3>
+          <p>Click <b>Resolve</b>. Prefer resolving in Aegis so MTTA/MTTR on <b>Dashboard</b> stay
+            honest. Jira can stay your write-up surface.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="handoff">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Hand off to the next tier</h2></div>
+    <p class="sec-sub">The button label follows the owning team’s tier. You only see teams an admin
+      put on that team’s <b>Escalation paths</b>.</p>
+    <table class="ref">
+      <thead>
+        <tr><th>Owning team tier</th><th>Button</th><th>Typical target</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>NOC</td><td>Escalate to L1 / Escalate to L2</td><td>Helpdesk or Platform L2</td></tr>
+        <tr><td>L1</td><td>Escalate to L2</td><td>Platform L2</td></tr>
+        <tr><td>L2</td><td>Hand off to L3</td><td>Platform L3</td></tr>
+        <tr><td>L3</td><td>Bounce to L2</td><td>Prior L2 owner</td></tr>
+      </tbody>
+    </table>
+    <div class="steps" style="margin-top:18px">
+      <div class="step">
+        <div>
+          <h3>Hand off to L3</h3>
+          <p>On an L2-owned incident, click <b>Hand off to L3</b>, pick the configured L3 team,
+            confirm <b>Hand off</b>. Aegis reassigns, pages that team’s on-call, and (when Jira
+            is mapped) can update the ticket assignee.</p>
+        </div>
+      </div>
+    </div>
+    <div class="callout warn">
+      <b>No handoff button</b>
+      <p>The owning team has no outgoing path. Ask an admin to add one on
+        <b>Teams</b> → that team → <b>Escalation paths</b>. You cannot invent a target from the incident
+        screen.</p>
+    </div>
+  </div>
+</section>
+
+<section id="bounce">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Bounce back</h2></div>
+    <p class="sec-sub">When L3 cannot take it or needs L2 context, click <b>Bounce to L2</b>
+      (or bounce to L1 when that is the path). A note is required. The incident returns to the prior
+      owner; the note is on the shared timeline.</p>
+  </div>
+</section>
+
+<section id="roles">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Who can change what</h2></div>
+    <table class="ref">
+      <thead>
+        <tr><th>Action</th><th>Admin</th><th>Member</th><th>Viewer</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Ack / resolve / hand off / bounce</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+        <tr><td>View incidents, alerts, dashboard, shifts</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+        <tr><td>Create teams, schedules, routing, integrations</td><td>Yes</td><td>No</td><td>No</td></tr>
+      </tbody>
+    </table>
+    <p style="margin-top:14px;color:var(--ink-soft);font-size:14.5px">Managers: use <b>Dashboard</b>
+      for MTTA, MTTR, noise, on-call load, and L2→L3 handoff time. Drill-down opens the filtered list.
+      Full role tables: <a href="../user-guide.md">user-guide.md</a>.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Alerts vs incidents: raw signals live on <b>Alerts</b>; incidents are the work items you ack.
+    If you have alerts and no incidents, the workflow is not fully set up —
+    <a href="troubleshooting.html">fix-it</a>.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

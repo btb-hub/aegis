@@ -8,8 +8,9 @@ OpenAPI schema generated from code in `apps/api` (future story).
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`) |
-| GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`). Pass `?format=json` for JSON user body instead. |
+| GET | `/auth/providers` | — | `{ "providers": ["google", …] }` — OIDC providers configured in this deployment |
+| GET | `/auth/{provider}/login` | — | Redirect to OIDC (`google`, `slack`, `express`). Optional query: `redirect` (same-origin relative path, stored and used after callback). Unknown or unconfigured providers redirect to `{PUBLIC_URL}/login?auth_error=unconfigured&provider={name}` (browser-safe; not JSON 400). |
+| GET | `/auth/{provider}/callback` | — | OIDC callback; sets session cookie; redirects to `PUBLIC_URL` (`302`), or to the stored `redirect` path when present. Pass `?format=json` for JSON user body instead. |
 | POST | `/auth/logout` | session | Invalidate session |
 | GET | `/auth/me` | session | Current user profile (see below) |
 | PATCH | `/auth/me` | session | Update profile fields (`locale`: `en` \| `ru`, `display_name`: non-empty string) |
@@ -112,7 +113,7 @@ Query params for list: `severity`, `status`, `team_id`, `from`, `to`, `q` (searc
 | GET | `/teams` | session | List teams |
 | POST | `/teams` | session + admin | Create team |
 | GET | `/teams/{id}` | session | Team detail |
-| PATCH | `/teams/{id}` | session + admin | Update team (optional `workspace_id` to move team) |
+| PATCH | `/teams/{id}` | session + admin | Update team (optional `workspace_id` to move team; optional `express_chat_id`, `slack_channel_id`) |
 | DELETE | `/teams/{id}` | session + admin | Delete team |
 | GET | `/teams/{id}/members` | session | List memberships |
 | POST | `/teams/{id}/members` | session + admin | Add member |
@@ -125,8 +126,8 @@ Add member body: `{"user_id": "uuid", "team_role": "member" | "lead"}` (defaults
 
 Member response includes `user_id`, `team_role`, `email`, `display_name`.
 
-Update team body: `{"name": "Platform", "description": "optional", "support_tier": "l2" | "l3", "workspace_id": "uuid"}`.
-Moving a team to another workspace is blocked with `409` when escalation paths would cross workspaces without `cross_workspace: true`. Response `details.blocked_teams` lists conflicting paths per team.
+Update team body: `{"name": "Platform", "description": "optional", "support_tier": "l2" | "l3", "workspace_id": "uuid", "express_chat_id": "optional", "slack_channel_id": "optional"}`.
+Empty channel IDs clear the stored value. Moving a team to another workspace is blocked with `409` when escalation paths would cross workspaces without `cross_workspace: true`. Response `details.blocked_teams` lists conflicting paths per team.
 
 ## Workspaces (Phase 11)
 
@@ -200,11 +201,22 @@ Create/update schedule body:
 | GET/POST | `/teams/{id}/overrides` | List/create overrides (create: admin) |
 | DELETE | `/teams/{id}/overrides/{oid}` | Delete override (admin) |
 | GET | `/teams/{id}/on-call/current` | Current on-call user(s) |
+
+**Implemented (AEG-107):** each item is `{ user_id, email, display_name, source, contacts }`. `contacts` is an object of optional URL strings:
+
+- `email` — `mailto:{email}` when email is set
+- `slack` — `https://slack.com/app_redirect?channel={slack_user_id}` when `slack_user_id` is set
+- `express` — `https://xlnk.ms/open/profile/{express_user_huid}` when huid is set
+
+Raw Slack / eXpress IDs are not returned. Missing channels are omitted. Empty `contacts` is `{}` when no channel is available.
 | GET | `/teams/{id}/on-call/calendar` | Materialised slots in range (`from`, `to` RFC3339) |
+| POST | `/teams/{id}/on-call/publish` | Enqueue `publish_oncall` for this team (admin; **202** `{ "result": "accepted" }`). Requires `express_chat_id` or `slack_channel_id`. |
 
 Create override body: `{"user_id": "uuid", "start_at": "RFC3339", "end_at": "RFC3339"}`. `user_id` must be a team member; `end_at` must be after `start_at`.
 
 Schedule and override changes materialise on-call slots synchronously for the team. The worker also runs a nightly `materialise_oncall` job for all teams with schedules.
+
+The worker publishes current on-call to team channels via `publish_oncall` (daily at 03:00 UTC, on rotation change, and from **Publish now**). eXpress uses a group notification with `@mention` by huid; Slack posts to `slack_channel_id` with `<@U…>` when `slack_user_id` is set. Teams with neither channel ID are skipped.
 
 | GET/PATCH/DELETE | `/teams/{id}/schedules/{sid}` | Schedule CRUD (mutations: admin) |
 
@@ -223,6 +235,8 @@ matching remains global by labels/priority across workspaces; the matched team's
 supplies integrations.
 | GET | `/incidents` | List with filters |
 | GET | `/incidents/{id}` | Detail + timeline |
+
+**Implemented (AEG-107):** `incident` keeps `assignee_id`. When the assignee user exists, `incident.assignee` is `{ user_id, email, display_name, contacts }` using the same `contacts` shape as current on-call. Unassigned incidents and unknown assignee IDs omit `assignee`. `GET /incidents` list does not embed `assignee`.
 | POST | `/incidents` | Create incident from a firing alert (admin or member). Body: `{ "alert_id": "uuid", "team_id": "uuid", "assignee_id": "uuid" | omitted }`. Returns `200` with `IncidentJSON`. Enqueues notify and escalation jobs; does not call Jira/Slack/eXpress directly. |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |
 | POST | `/incidents/{id}/resolve` | Resolve |
@@ -301,8 +315,14 @@ continues the Aegis incident lifecycle and other provider deliveries.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
+| GET | `/callbacks/express/status` | BotX JWT optional | Bot alive + `/link`, `/ack_incident` |
+| GET | `/callbacks/express/bot/status` | BotX JWT optional | Same as `/status` (when admin URL ends in `/bot`) |
+| POST | `/callbacks/express/command` | BotX JWT | Commands (`/link`, ack); **202** `{"result":"accepted"}` |
+| POST | `/callbacks/express/bot/command` | BotX JWT | Same as `/command` |
+| POST | `/callbacks/express/bot` | BotX JWT | Deprecated alias of `/command` |
 | POST | `/callbacks/slack/interactive` | Slack signature | Ack button |
-| POST | `/callbacks/express/bot` | HMAC | eXpress bot events |
+
+BotX admin URL is a **base**. Paste `{PUBLIC_URL}/api/v1/callbacks/express` or `{PUBLIC_URL}/api/v1/callbacks/express/bot`. CTS appends `/status` and `/command`.
 
 ## Handoffs (Phase 5)
 

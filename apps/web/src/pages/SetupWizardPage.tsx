@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Select } from '../components/ui/Select';
 import { Toast } from '../components/ui/Toast';
 import { DEFAULT_WORKSPACE_ID } from '../lib/teamTypes';
 import { addEscalationPath, fetchWorkspaces } from '../lib/workspacesApi';
@@ -36,6 +37,7 @@ export function SetupWizardPage() {
     email: '',
     api_token: '',
     project_key: '',
+    auth_type: 'bearer',
   });
   const [slackConfig, setSlackConfig] = useState({ bot_token: '', signing_secret: '' });
   const [expressConfig, setExpressConfig] = useState({ bot_id: '', host: '', secret_key: '' });
@@ -390,8 +392,17 @@ export function SetupWizardPage() {
             <div className="space-y-3 rounded-md border border-zinc-200 p-4">
               <h3 className="font-medium text-zinc-900">Jira</h3>
               <Input label={t('setup.integrations.jira.base_url')} value={jiraConfig.base_url} onChange={(value) => setJiraConfig((c) => ({ ...c, base_url: value }))} />
-              <Input label={t('setup.integrations.jira.email')} value={jiraConfig.email} onChange={(value) => setJiraConfig((c) => ({ ...c, email: value }))} />
-              <Input label={t('setup.integrations.jira.api_token')} value={jiraConfig.api_token} onChange={(value) => setJiraConfig((c) => ({ ...c, api_token: value }))} />
+              <Select
+                label={t('setup.integrations.jira.auth_type')}
+                value={jiraConfig.auth_type}
+                options={[
+                  { value: 'bearer', label: t('setup.integrations.jira.auth_type_bearer') },
+                  { value: 'basic', label: t('setup.integrations.jira.auth_type_basic') },
+                ]}
+                onChange={(value) => setJiraConfig((c) => ({ ...c, auth_type: value === 'basic' ? 'basic' : 'bearer' }))}
+              />
+              <Input label={t('setup.integrations.jira.email')} value={jiraConfig.email} onChange={(value) => setJiraConfig((c) => ({ ...c, email: value }))} hint={t('setup.integrations.jira.email_hint')} />
+              <Input label={t('setup.integrations.jira.api_token')} value={jiraConfig.api_token} onChange={(value) => setJiraConfig((c) => ({ ...c, api_token: value }))} hint={t('setup.integrations.jira.api_token_hint')} />
               <Input label={t('setup.integrations.jira.project_key')} value={jiraConfig.project_key} onChange={(value) => setJiraConfig((c) => ({ ...c, project_key: value }))} />
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={savingKind === 'jira'} onClick={() => void upsertIntegration('jira', 'Jira', jiraConfig)}>

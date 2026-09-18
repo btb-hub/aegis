@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aegis — user how-to</title>
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><b>Aegis</b> &middot; how-to</div>
+    <nav class="jump">
+      <a class="on" href="index.html">workflow</a>
+      <a href="setup.html">set-up</a>
+      <a href="routing.html">rules</a>
+      <a href="paths.html">paths</a>
+      <a href="incidents.html">incidents</a>
+      <a href="connect.html">connect</a>
+      <a href="troubleshooting.html">fix-it</a>
+    </nav>
+    <div class="lang"><a class="on" href="index.html">EN</a><a href="ru/index.html">RU</a></div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <p class="kicker">User manual</p>
+    <h1>How to set up the on-call workflow.</h1>
+    <p class="lede">This is the product manual — what you click in Aegis so a firing alert becomes
+      an owned incident, a Jira ticket, and a page to the person who is actually on call. It is not
+      a developer install guide. You need an <b>admin</b> account to configure the workflow; on-call
+      engineers use <a href="incidents.html">Work an incident</a>.</p>
+    <div class="facts">
+      <span class="pill">who <b>admin</b></span>
+      <span class="pill">pages <b>Workspaces, Teams, Shifts</b></span>
+      <span class="pill">then <b>routing + connectors</b></span>
+    </div>
+    <div class="toc">
+      <a href="setup.html">Set up the workflow</a>
+      <a href="routing.html">Routing rules</a>
+      <a href="paths.html">Escalation paths</a>
+      <a href="incidents.html">Work an incident</a>
+      <a href="connect.html">Jira, Slack, eXpress</a>
+      <a href="troubleshooting.html">When it does not route</a>
+    </div>
+  </div>
+</div>
+
+<section id="picture">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">01</span><h2>What you are building</h2></div>
+    <p class="sec-sub">One workspace is one project (Platform, Data, Payments). Teams in that
+      workspace take the pages. A routing rule decides which team owns a new alert. Escalation paths
+      decide where L2 can hand off.</p>
+    <div class="flow">monitoring  →  alert (labels)  →  routing rule  →  incident
+                                              │
+                                              ├─ assign current on-call on the target team
+                                              ├─ open Jira ticket (if Jira is connected)
+                                              └─ page Slack / eXpress (if connected)
+
+on-call  →  Acknowledge  →  (optional) Hand off to L3  →  Resolve</div>
+    <p style="margin-top:16px;color:var(--ink-soft);font-size:14.5px">Until routing, a schedule, and
+      at least one team exist, alerts can land in <b>Alerts</b> without ever becoming an incident.
+      That is expected — not a bug.</p>
+  </div>
+</section>
+
+<section id="pick">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Pick the job</h2></div>
+    <p class="sec-sub">Start with set-up if this is a new project. The other pages assume that work
+      is already done.</p>
+    <div class="paths">
+      <a class="path" href="setup.html">
+        <div class="ty">Admin · first time</div>
+        <h3>Set up the workflow</h3>
+        <p>Sign in, create a workspace, L2 and L3 teams, members, an escalation path, a weekly
+          rotation, a routing rule, then prove it with a test alert.</p>
+        <div class="go">setup.html →</div>
+      </a>
+      <a class="path" href="routing.html">
+        <div class="ty">Admin · matchers</div>
+        <h3>Routing rules with examples</h3>
+        <p>Filled-in forms: one Platform rule, two projects, NOC vs L2 by priority, shared DevOps
+          in another workspace. Higher priority number is tried first.</p>
+        <div class="go">routing.html →</div>
+      </a>
+      <a class="path" href="paths.html">
+        <div class="ty">Admin · handoff</div>
+        <h3>Escalation paths with examples</h3>
+        <p>Add path on the source team. L2→L3, NOC→L1→L2→L3, Data L2 using Platform L3. Why the
+          Hand off button is missing.</p>
+        <div class="go">paths.html →</div>
+      </a>
+      <a class="path" href="incidents.html">
+        <div class="ty">On-call</div>
+        <h3>Work an incident</h3>
+        <p>Acknowledge from Slack, eXpress, or the web. Investigate, hand off to L3, bounce back,
+          resolve. Same timeline for every tier.</p>
+        <div class="go">incidents.html →</div>
+      </a>
+      <a class="path" href="connect.html">
+        <div class="ty">Admin · connectors</div>
+        <h3>Connect Jira, Slack, eXpress</h3>
+        <p>Save global credentials, Test connection, then inherit or customise per workspace
+          (Jira project key, Slack channel).</p>
+        <div class="go">connect.html →</div>
+      </a>
+      <a class="path" href="troubleshooting.html">
+        <div class="ty">Stuck</div>
+        <h3>When the workflow is incomplete</h3>
+        <p>Alerts without incidents, empty on-call banner, missing Hand off button, nobody getting
+          paged.</p>
+        <div class="go">troubleshooting.html →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="order">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">03</span><h2>The order that works</h2></div>
+    <p class="sec-sub">Do it in this order. Skipping ahead is how you get alerts that never become
+      incidents, or a handoff picker with no targets.</p>
+    <div class="chain">
+      <div class="node"><div class="ty">1</div><h3>Workspace</h3><p>A project boundary for teams and routing.</p></div>
+      <div class="node"><div class="ty">2</div><h3>Teams + tiers</h3><p>L2 owns the page. L3 is the handoff target.</p></div>
+      <div class="node"><div class="ty">3</div><h3>Members + shifts</h3><p>Someone must be on call when an alert fires.</p></div>
+      <div class="node"><div class="ty">4</div><h3>Routing</h3><p>Match a label (for example <code>team=platform</code>) to L2.</p></div>
+      <div class="node"><div class="ty">5</div><h3>Connect + test</h3><p>Jira / chat, then <b>Send test alert</b>.</p></div>
+    </div>
+    <div class="callout info" style="margin-top:20px">
+      <b>Setup wizard is optional</b>
+      <p>Sidebar <b>Setup</b> walks the same ground as a checklist. Prefer the dedicated pages —
+        <b>Workspaces</b>, <b>Teams</b>, <b>Shifts</b>, <b>Integrations</b> — when you need to change
+        one thing later. <b>Quick setup</b> on the wizard creates a workspace, L2, L3, and the
+        default L2→L3 path in one step.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    Role reference (what admin vs member can change):
+    <a href="../user-guide.md">docs/user-guide.md</a>.
+    Installing the software itself:
+    <a href="../07-setup-deployment.md">docs/07-setup-deployment.md</a>.
+  </div>
+</footer>
+
+<script src="guide.js"></script>
+</body>
+</html>

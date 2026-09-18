@@ -512,6 +512,91 @@ func TestIncidentsGetAndResolve(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestIncidentGetIncludesAssigneeContacts(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	assigneeID := uuid.New()
+	slackID := "U123"
+	huid := uuid.MustParse("83fbf1c7-f14b-5176-bd32-ca15cf00d4b7")
+	repo.users[assigneeID] = db.User{
+		ID:              assigneeID,
+		Email:           "alice@example.com",
+		DisplayName:     "Alice",
+		SlackUserID:     &slackID,
+		ExpressUserHuid: db.ExpressHuidToPg(huid),
+	}
+	incidentID := uuid.New()
+	repo.incidents[incidentID] = db.Incident{
+		ID: incidentID, TeamID: uuid.New(), AssigneeID: &assigneeID,
+		Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp",
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incidentID.String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Incident map[string]any `json:"incident"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, assigneeID.String(), resp.Incident["assignee_id"])
+	assignee, ok := resp.Incident["assignee"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "Alice", assignee["display_name"])
+	contacts, ok := assignee["contacts"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "mailto:alice@example.com", contacts["email"])
+	require.Equal(t, "https://slack.com/app_redirect?channel=U123", contacts["slack"])
+	require.Equal(t, "https://xlnk.ms/open/profile/"+huid.String(), contacts["express"])
+}
+
+func TestIncidentGetOmitsAssigneeWhenUnassigned(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	incidentID := uuid.New()
+	repo.incidents[incidentID] = db.Incident{ID: incidentID, TeamID: uuid.New(), Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp"}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incidentID.String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Incident map[string]any `json:"incident"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	_, hasAssignee := resp.Incident["assignee"]
+	require.False(t, hasAssignee)
+}
+
+func TestIncidentGetOmitsAssigneeWhenUserMissing(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	assigneeID := uuid.New()
+	incidentID := uuid.New()
+	repo.incidents[incidentID] = db.Incident{
+		ID: incidentID, TeamID: uuid.New(), AssigneeID: &assigneeID,
+		Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp",
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incidentID.String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Incident map[string]any `json:"incident"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, assigneeID.String(), resp.Incident["assignee_id"])
+	_, hasAssignee := resp.Incident["assignee"]
+	require.False(t, hasAssignee)
+}
+
 func TestIntegrationsUpsert(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	admin := seedAdmin(t, r, repo)
