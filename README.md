@@ -184,6 +184,7 @@ Production image: `ghcr.io/btb-hub/aegis` — see
 | 11 | [`docs/11-localization.md`](./docs/11-localization.md) | English + Russian i18n rules |
 | 12 | [`docs/12-design-system.md`](./docs/12-design-system.md) | UI tokens, components, patterns |
 | — | [`docs/user-guide.md`](./docs/user-guide.md) | Day-to-day use by role |
+| 13 | [`docs/13-on-call-runbook.md`](./docs/13-on-call-runbook.md) | Действия дежурного инженера и первичная диагностика Aegis |
 | — | [`backlog/roadmap.md`](./backlog/roadmap.md) | Phases and milestones |
 | — | [`backlog/epics/`](./backlog/epics/) | Epics → stories → acceptance criteria |
 | — | [`docs/overview.md`](./docs/overview.md) | Scannable map of the whole plan |
