@@ -100,10 +100,8 @@ export function buildConfigPayload(
   const out: Record<string, string> = {
     bot_id: form.bot_id.trim(),
     host: form.host.trim(),
+    oncall_group_chat_id: form.oncall_group_chat_id.trim(),
   };
-  if (form.oncall_group_chat_id.trim()) {
-    out.oncall_group_chat_id = form.oncall_group_chat_id.trim();
-  }
   const secret = form.secret_key.trim();
   if (secret || !opts.keepBlankSecrets) {
     out.secret_key = secret;

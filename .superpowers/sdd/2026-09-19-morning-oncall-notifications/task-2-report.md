@@ -33,3 +33,11 @@ GREEN: Implemented the minimal form, payload, and rendering changes. The focused
 - No worker routing, database schema, or Slack behavior was changed.
 - Blank on-call chat IDs are omitted from payloads, preserving optional connector configuration semantics.
 - No concerns identified.
+
+## Review fix
+
+The review identified that omitting a blank `oncall_group_chat_id` prevented PATCH from clearing a previously configured destination. The payload now always includes this non-secret field, including as an explicit empty string, while secret omission behavior remains unchanged.
+
+TDD RED: The new clearing regression test failed because the payload omitted the empty field.
+
+GREEN: The payload and existing expectation were updated; focused integration tests passed (22 tests) and TypeScript typecheck passed.

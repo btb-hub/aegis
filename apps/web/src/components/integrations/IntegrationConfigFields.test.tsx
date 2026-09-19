@@ -73,7 +73,14 @@ describe('IntegrationConfigFields helpers', () => {
         { ...emptyIntegrationConfigForm(), bot_id: 'bot', host: 'https://cts', secret_key: '' },
         { workspaceOnly: false, keepBlankSecrets: true },
       ),
-    ).toEqual({ bot_id: 'bot', host: 'https://cts' });
+    ).toEqual({ bot_id: 'bot', host: 'https://cts', oncall_group_chat_id: '' });
+    expect(
+      buildConfigPayload(
+        'express',
+        { ...emptyIntegrationConfigForm(), bot_id: 'bot', host: 'https://cts', oncall_group_chat_id: '' },
+        { workspaceOnly: false, keepBlankSecrets: true },
+      ),
+    ).toEqual({ bot_id: 'bot', host: 'https://cts', oncall_group_chat_id: '' });
     expect(
       buildConfigPayload('jira', { ...form, project_key: 'OPS' }, { workspaceOnly: true, keepBlankSecrets: false }),
     ).toEqual({ project_key: 'OPS' });
