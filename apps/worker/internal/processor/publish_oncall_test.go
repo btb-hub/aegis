@@ -266,14 +266,16 @@ func TestPublishOnCallListError(t *testing.T) {
 }
 
 type rotationMockStore struct {
-	teams      []db.Team
-	onCall     []db.OnCallUser
-	pending    bool
-	enqueued   []uuid.UUID
-	listErr    error
-	onCallErr  error
-	pendingErr error
-	enqueueErr error
+	teams          []db.Team
+	onCall         []db.OnCallUser
+	pending        bool
+	enqueued       []uuid.UUID
+	listErr        error
+	onCallErr      error
+	pendingErr     error
+	enqueueErr     error
+	integration    db.Integration
+	integrationErr error
 }
 
 func (m *rotationMockStore) ListTeams(context.Context) ([]db.Team, error) {
@@ -301,14 +303,45 @@ func (m *rotationMockStore) EnqueuePublishOnCall(_ context.Context, teamID uuid.
 	m.enqueued = append(m.enqueued, teamID)
 	return nil
 }
+func (m *rotationMockStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
+	if m.integrationErr != nil {
+		return db.Integration{}, m.integrationErr
+	}
+	return m.integration, nil
+}
+
+func TestEnqueueOnCallRotationPublishesSkipsTeamsWithoutDestinations(t *testing.T) {
+	userID := uuid.New()
+	for _, tc := range []struct {
+		name           string
+		integration    db.Integration
+		integrationErr error
+	}{
+		{name: "missing global express", integrationErr: pgx.ErrNoRows},
+		{name: "disabled global express", integration: db.Integration{Kind: "express", Enabled: false}},
+		{name: "blank global express group", integration: db.Integration{Kind: "express", Enabled: true, Config: []byte(`{"oncall_group_chat_id":"  "}`)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &rotationMockStore{
+				teams:          []db.Team{{ID: uuid.New()}},
+				onCall:         []db.OnCallUser{{UserID: userID}},
+				integration:    tc.integration,
+				integrationErr: tc.integrationErr,
+			}
+
+			require.NoError(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
+			require.Empty(t, store.enqueued)
+		})
+	}
+}
 
 func TestEnqueueOnCallRotationPublishesOnChange(t *testing.T) {
 	userID := uuid.New()
-	chat := "chat-1"
 	teamID := uuid.New()
 	store := &rotationMockStore{
-		teams:  []db.Team{{ID: teamID, ExpressChatID: &chat}},
-		onCall: []db.OnCallUser{{UserID: userID}},
+		teams:       []db.Team{{ID: teamID}},
+		onCall:      []db.OnCallUser{{UserID: userID}},
+		integration: globalExpressIntegration("group-1"),
 	}
 	require.NoError(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 	require.Equal(t, []uuid.UUID{teamID}, store.enqueued)
@@ -319,8 +352,9 @@ func TestEnqueueOnCallRotationPublishesSkipsUnchanged(t *testing.T) {
 	fp := userID.String()
 	chat := "chat-1"
 	store := &rotationMockStore{
-		teams:  []db.Team{{ID: uuid.New(), ExpressChatID: &chat, OnCallAnnouncedUserIDs: &fp}},
-		onCall: []db.OnCallUser{{UserID: userID}},
+		teams:       []db.Team{{ID: uuid.New(), ExpressChatID: &chat, OnCallAnnouncedUserIDs: &fp}},
+		onCall:      []db.OnCallUser{{UserID: userID}},
+		integration: globalExpressIntegration("group-1"),
 	}
 	require.NoError(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 	require.Empty(t, store.enqueued)
@@ -411,7 +445,7 @@ func TestPublishOnCallSlackOnlyFailure(t *testing.T) {
 
 func TestEnqueueOnCallRotationPublishesSkipsEmpty(t *testing.T) {
 	chat := "chat-1"
-	store := &rotationMockStore{teams: []db.Team{{ID: uuid.New(), ExpressChatID: &chat}}}
+	store := &rotationMockStore{teams: []db.Team{{ID: uuid.New(), ExpressChatID: &chat}}, integration: globalExpressIntegration("group-1")}
 	require.NoError(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 	require.Empty(t, store.enqueued)
 }
@@ -420,9 +454,10 @@ func TestEnqueueOnCallRotationPublishesSkipsPending(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"
 	store := &rotationMockStore{
-		teams:   []db.Team{{ID: uuid.New(), ExpressChatID: &chat}},
-		onCall:  []db.OnCallUser{{UserID: userID}},
-		pending: true,
+		teams:       []db.Team{{ID: uuid.New(), ExpressChatID: &chat}},
+		onCall:      []db.OnCallUser{{UserID: userID}},
+		pending:     true,
+		integration: globalExpressIntegration("group-1"),
 	}
 	require.NoError(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 	require.Empty(t, store.enqueued)
@@ -435,7 +470,7 @@ func TestEnqueueOnCallRotationPublishesListError(t *testing.T) {
 
 func TestEnqueueOnCallRotationPublishesOnCallError(t *testing.T) {
 	chat := "chat-1"
-	store := &rotationMockStore{teams: []db.Team{{ID: uuid.New(), ExpressChatID: &chat}}, onCallErr: context.Canceled}
+	store := &rotationMockStore{teams: []db.Team{{ID: uuid.New(), ExpressChatID: &chat}}, onCallErr: context.Canceled, integration: globalExpressIntegration("group-1")}
 	require.Error(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 }
 
@@ -443,9 +478,10 @@ func TestEnqueueOnCallRotationPublishesPendingError(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"
 	store := &rotationMockStore{
-		teams:      []db.Team{{ID: uuid.New(), ExpressChatID: &chat}},
-		onCall:     []db.OnCallUser{{UserID: userID}},
-		pendingErr: context.Canceled,
+		teams:       []db.Team{{ID: uuid.New(), ExpressChatID: &chat}},
+		onCall:      []db.OnCallUser{{UserID: userID}},
+		pendingErr:  context.Canceled,
+		integration: globalExpressIntegration("group-1"),
 	}
 	require.Error(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 }
@@ -454,9 +490,10 @@ func TestEnqueueOnCallRotationPublishesEnqueueError(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"
 	store := &rotationMockStore{
-		teams:      []db.Team{{ID: uuid.New(), ExpressChatID: &chat}},
-		onCall:     []db.OnCallUser{{UserID: userID}},
-		enqueueErr: context.Canceled,
+		teams:       []db.Team{{ID: uuid.New(), ExpressChatID: &chat}},
+		onCall:      []db.OnCallUser{{UserID: userID}},
+		enqueueErr:  context.Canceled,
+		integration: globalExpressIntegration("group-1"),
 	}
 	require.Error(t, EnqueueOnCallRotationPublishes(context.Background(), store, time.Now()))
 }

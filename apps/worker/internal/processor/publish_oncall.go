@@ -37,6 +37,11 @@ type RotationPublishStore interface {
 	CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error)
 	HasPendingPublishOnCall(ctx context.Context, teamID uuid.UUID) (bool, error)
 	EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error
+	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
+}
+
+type globalExpressIntegrationStore interface {
+	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
 }
 
 type PublishOnCallProcessor struct {
@@ -165,23 +170,10 @@ func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID u
 		}
 	}
 
-	globalExpress, err := p.store.GetIntegrationByKind(ctx, "express")
+	globalExpress, expressChatID, err := globalExpressOnCallDestination(ctx, p.store)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return slack, nil, "", nil
-		}
 		return nil, nil, "", err
 	}
-	if !globalExpress.Enabled {
-		return slack, nil, "", nil
-	}
-	var expressConfig struct {
-		OnCallGroupChatID string `json:"oncall_group_chat_id"`
-	}
-	if err := json.Unmarshal(globalExpress.Config, &expressConfig); err != nil {
-		return nil, nil, "", fmt.Errorf("decode global express config: %w", err)
-	}
-	expressChatID = strings.TrimSpace(expressConfig.OnCallGroupChatID)
 	if expressChatID == "" {
 		return slack, nil, "", nil
 	}
@@ -195,12 +187,39 @@ func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID u
 	return slack, expressProvider, expressChatID, nil
 }
 
+func globalExpressOnCallDestination(ctx context.Context, store globalExpressIntegrationStore) (db.Integration, string, error) {
+	globalExpress, err := store.GetIntegrationByKind(ctx, "express")
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Integration{}, "", nil
+		}
+		return db.Integration{}, "", err
+	}
+	if !globalExpress.Enabled {
+		return db.Integration{}, "", nil
+	}
+	var expressConfig struct {
+		OnCallGroupChatID string `json:"oncall_group_chat_id"`
+	}
+	if err := json.Unmarshal(globalExpress.Config, &expressConfig); err != nil {
+		return db.Integration{}, "", fmt.Errorf("decode global express config: %w", err)
+	}
+	return globalExpress, strings.TrimSpace(expressConfig.OnCallGroupChatID), nil
+}
+
 func EnqueueOnCallRotationPublishes(ctx context.Context, store RotationPublishStore, now time.Time) error {
 	teams, err := store.ListTeams(ctx)
 	if err != nil {
 		return err
 	}
+	_, expressChatID, err := globalExpressOnCallDestination(ctx, store)
+	if err != nil {
+		return err
+	}
 	for _, team := range teams {
+		if stringValue(team.SlackChannelID) == "" && expressChatID == "" {
+			continue
+		}
 		users, err := store.CurrentOnCallUsers(ctx, team.ID, now)
 		if err != nil {
 			return err
