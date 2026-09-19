@@ -79,7 +79,7 @@ func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, descr
 	return team, nil
 }
 
-func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID, slackUserGroupID *string) (db.Team, error) {
 	if m.channelsErr != nil {
 		return db.Team{}, m.channelsErr
 	}
@@ -89,6 +89,7 @@ func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expre
 	}
 	team.ExpressChatID = expressChatID
 	team.SlackChannelID = slackChannelID
+	team.SlackUserGroupID = slackUserGroupID
 	team.UpdatedAt = time.Now()
 	m.teams[id] = team
 	return team, nil
@@ -667,16 +668,33 @@ func TestUpdateTeamChannels(t *testing.T) {
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	chat := "group-1"
-	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil)
+	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, updated.ExpressChatID)
 	require.Equal(t, "group-1", *updated.ExpressChatID)
 }
 
+func TestUpdateTeamChannelsNormalizesSlackUserGroupID(t *testing.T) {
+	repo := newTeamRepoMock()
+	svc := NewTeamService(repo, nil)
+	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
+	require.NoError(t, err)
+	tag := " S012TAG "
+	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, nil, nil, &tag)
+	require.NoError(t, err)
+	require.NotNil(t, updated.SlackUserGroupID)
+	require.Equal(t, "S012TAG", *updated.SlackUserGroupID)
+
+	empty := "  "
+	updated, err = svc.UpdateTeamChannels(context.Background(), team.ID, nil, nil, &empty)
+	require.NoError(t, err)
+	require.Nil(t, updated.SlackUserGroupID)
+}
+
 func TestUpdateTeamChannelsNotFound(t *testing.T) {
 	svc := NewTeamService(newTeamRepoMock(), nil)
 	chat := "group-1"
-	_, err := svc.UpdateTeamChannels(context.Background(), uuid.New(), &chat, nil)
+	_, err := svc.UpdateTeamChannels(context.Background(), uuid.New(), &chat, nil, nil)
 	require.Error(t, err)
 	var appErr *apperrors.Error
 	require.ErrorAs(t, err, &appErr)
@@ -689,10 +707,10 @@ func TestUpdateTeamChannelsClearsWhenEmpty(t *testing.T) {
 	team, err := svc.CreateTeam(context.Background(), testWorkspaceID, "Platform", "", nil)
 	require.NoError(t, err)
 	chat := "group-1"
-	_, err = svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil)
+	_, err = svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil, nil)
 	require.NoError(t, err)
 	empty := "  "
-	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, &empty, nil)
+	updated, err := svc.UpdateTeamChannels(context.Background(), team.ID, &empty, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, updated.ExpressChatID)
 }
@@ -704,14 +722,16 @@ func TestUpdateTeamChannelsRepoError(t *testing.T) {
 	require.NoError(t, err)
 	repo.channelsErr = errors.New("db down")
 	chat := "group-1"
-	_, err = svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil)
+	_, err = svc.UpdateTeamChannels(context.Background(), team.ID, &chat, nil, nil)
 	require.Error(t, err)
 }
 
 func TestTeamJSONIncludesChannels(t *testing.T) {
 	chat := "group-1"
 	slack := "C123"
-	payload := TeamJSON(db.Team{ID: uuid.New(), WorkspaceID: testWorkspaceID, Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack})
+	tag := "S012TAG"
+	payload := TeamJSON(db.Team{ID: uuid.New(), WorkspaceID: testWorkspaceID, Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack, SlackUserGroupID: &tag})
 	require.Equal(t, "group-1", payload["express_chat_id"])
 	require.Equal(t, "C123", payload["slack_channel_id"])
+	require.Equal(t, "S012TAG", payload["slack_user_group_id"])
 }

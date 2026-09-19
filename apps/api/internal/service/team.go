@@ -17,7 +17,7 @@ type TeamRepository interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
 	CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, description string, supportTier *string) (db.Team, error)
 	UpdateTeam(ctx context.Context, id uuid.UUID, name, description string, supportTier *string) (db.Team, error)
-	UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error)
+	UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID, slackUserGroupID *string) (db.Team, error)
 	MoveTeamsToWorkspace(ctx context.Context, workspaceID uuid.UUID, teamIDs []uuid.UUID) error
 	DeleteTeam(ctx context.Context, id uuid.UUID) error
 	ListTeamMembers(ctx context.Context, teamID uuid.UUID) ([]db.TeamMember, error)
@@ -101,7 +101,7 @@ func (s *TeamService) UpdateTeam(ctx context.Context, id uuid.UUID, name, descri
 	return team, nil
 }
 
-func (s *TeamService) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+func (s *TeamService) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID, slackUserGroupID *string) (db.Team, error) {
 	current, err := s.repo.GetTeam(ctx, id)
 	if err != nil {
 		return db.Team{}, mapTeamError(err)
@@ -114,7 +114,11 @@ func (s *TeamService) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expr
 	if slackChannelID != nil {
 		slack = normalizeOptionalString(slackChannelID)
 	}
-	team, err := s.repo.UpdateTeamChannels(ctx, id, express, slack)
+	tag := current.SlackUserGroupID
+	if slackUserGroupID != nil {
+		tag = normalizeOptionalString(slackUserGroupID)
+	}
+	team, err := s.repo.UpdateTeamChannels(ctx, id, express, slack, tag)
 	if err != nil {
 		return db.Team{}, mapTeamError(err)
 	}
@@ -338,6 +342,9 @@ func TeamJSON(team db.Team) map[string]any {
 	}
 	if team.SlackChannelID != nil {
 		out["slack_channel_id"] = *team.SlackChannelID
+	}
+	if team.SlackUserGroupID != nil {
+		out["slack_user_group_id"] = *team.SlackUserGroupID
 	}
 	return out
 }

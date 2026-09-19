@@ -72,6 +72,7 @@ export type Team = {
   support_tier?: SupportTier;
   express_chat_id?: string;
   slack_channel_id?: string;
+  slack_user_group_id?: string;
   created_at: string;
   updated_at: string;
 };

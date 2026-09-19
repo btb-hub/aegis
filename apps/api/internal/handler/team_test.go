@@ -109,13 +109,14 @@ func (m *teamRepoMock) UpdateTeam(ctx context.Context, id uuid.UUID, name, descr
 	return team, nil
 }
 
-func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+func (m *teamRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID, slackUserGroupID *string) (db.Team, error) {
 	team, ok := m.teams[id]
 	if !ok {
 		return db.Team{}, pgx.ErrNoRows
 	}
 	team.ExpressChatID = expressChatID
 	team.SlackChannelID = slackChannelID
+	team.SlackUserGroupID = slackUserGroupID
 	m.teams[id] = team
 	return team, nil
 }
@@ -972,6 +973,31 @@ func TestPatchTeamChannels(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &updated))
 	require.Equal(t, "group-1", updated["express_chat_id"])
 	require.Equal(t, "C123", updated["slack_channel_id"])
+}
+
+func TestTeamHandlerUpdatesSlackUserGroupID(t *testing.T) {
+	env := setupTeamRouter(t)
+	adminToken := env.sessionForRole(t, "admin")
+	createBody, _ := json.Marshal(map[string]string{"workspace_id": "00000000-0000-0000-0000-000000000001", "name": "Platform"})
+	wCreate := httptest.NewRecorder()
+	reqCreate := httptest.NewRequest(http.MethodPost, "/api/v1/teams", bytes.NewReader(createBody))
+	reqCreate.Header.Set("Content-Type", "application/json")
+	reqCreate.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wCreate, reqCreate)
+	require.Equal(t, http.StatusCreated, wCreate.Code)
+	var created map[string]any
+	require.NoError(t, json.Unmarshal(wCreate.Body.Bytes(), &created))
+
+	patchBody := bytes.NewBufferString(`{"slack_user_group_id":"S012TAG"}`)
+	wPatch := httptest.NewRecorder()
+	reqPatch := httptest.NewRequest(http.MethodPatch, "/api/v1/teams/"+created["id"].(string), patchBody)
+	reqPatch.Header.Set("Content-Type", "application/json")
+	reqPatch.AddCookie(&http.Cookie{Name: sessionCookie, Value: adminToken})
+	env.router.ServeHTTP(wPatch, reqPatch)
+	require.Equal(t, http.StatusOK, wPatch.Code)
+	var updated map[string]any
+	require.NoError(t, json.Unmarshal(wPatch.Body.Bytes(), &updated))
+	require.Equal(t, "S012TAG", updated["slack_user_group_id"])
 }
 
 func sessionTokenPair() (string, string, error) {

@@ -131,7 +131,7 @@ func (s *Store) DeleteEscalationPath(ctx context.Context, id uuid.UUID) error {
 
 func (s *Store) ListHandoffTargetTeams(ctx context.Context, fromTeamID uuid.UUID) ([]Team, error) {
 	const q = `
-SELECT t.id, t.workspace_id, t.name, t.description, t.support_tier, t.express_chat_id, t.slack_channel_id, t.oncall_announced_user_ids, t.created_at, t.updated_at
+SELECT t.id, t.workspace_id, t.name, t.description, t.support_tier, t.express_chat_id, t.slack_channel_id, t.slack_user_group_id, t.oncall_announced_user_ids, t.created_at, t.updated_at
 FROM escalation_paths ep
 JOIN teams t ON t.id = ep.to_team_id
 WHERE ep.from_team_id = $1
@@ -163,7 +163,7 @@ func scanTeam(row interface {
 	var team Team
 	err := row.Scan(
 		&team.ID, &team.WorkspaceID, &team.Name, &team.Description, &team.SupportTier,
-		&team.ExpressChatID, &team.SlackChannelID, &team.OnCallAnnouncedUserIDs,
+		&team.ExpressChatID, &team.SlackChannelID, &team.SlackUserGroupID, &team.OnCallAnnouncedUserIDs,
 		&team.CreatedAt, &team.UpdatedAt,
 	)
 	return team, err

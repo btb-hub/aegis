@@ -80,6 +80,7 @@ type Team struct {
 	SupportTier            *string    `json:"support_tier,omitempty"`
 	ExpressChatID          *string    `json:"express_chat_id,omitempty"`
 	SlackChannelID         *string    `json:"slack_channel_id,omitempty"`
+	SlackUserGroupID       *string    `json:"slack_user_group_id,omitempty"`
 	OnCallAnnouncedUserIDs *string    `json:"-"`
 	CreatedAt              time.Time  `json:"created_at"`
 	UpdatedAt              time.Time  `json:"updated_at"`

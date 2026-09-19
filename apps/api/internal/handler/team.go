@@ -105,12 +105,13 @@ func (h *TeamHandler) updateTeam(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name           *string `json:"name"`
-		Description    *string `json:"description"`
-		SupportTier    *string `json:"support_tier"`
-		WorkspaceID    *string `json:"workspace_id"`
-		ExpressChatID  *string `json:"express_chat_id"`
-		SlackChannelID *string `json:"slack_channel_id"`
+		Name             *string `json:"name"`
+		Description      *string `json:"description"`
+		SupportTier      *string `json:"support_tier"`
+		WorkspaceID      *string `json:"workspace_id"`
+		ExpressChatID    *string `json:"express_chat_id"`
+		SlackChannelID   *string `json:"slack_channel_id"`
+		SlackUserGroupID *string `json:"slack_user_group_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
@@ -147,8 +148,8 @@ func (h *TeamHandler) updateTeam(c *gin.Context) {
 		WriteError(c, err)
 		return
 	}
-	if body.ExpressChatID != nil || body.SlackChannelID != nil {
-		team, err = h.teams.UpdateTeamChannels(c.Request.Context(), id, body.ExpressChatID, body.SlackChannelID)
+	if body.ExpressChatID != nil || body.SlackChannelID != nil || body.SlackUserGroupID != nil {
+		team, err = h.teams.UpdateTeamChannels(c.Request.Context(), id, body.ExpressChatID, body.SlackChannelID, body.SlackUserGroupID)
 		if err != nil {
 			WriteError(c, err)
 			return
