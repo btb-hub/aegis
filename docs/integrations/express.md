@@ -15,6 +15,7 @@ Integration `config` JSON:
 - `bot_id` — BotX bot UUID
 - `host` — BotX CTS base URL (e.g. `https://cts.example.com`)
 - `secret_key` — bot secret for HMAC token signing and JWT verification
+- `oncall_group_chat_id` — optional global eXpress group chat ID; the sole eXpress destination for on-call announcements
 
 BotX webhook **base** (paste this in the BotX admin; CTS appends `/status` and `/command`):
 
@@ -58,7 +59,8 @@ That is the documented eXpress user-contact link. The client can start a DM from
 
 ## Outbound on-call announce
 
-- `POST /api/v4/botx/notifications` with `group_chat_id` = `teams.express_chat_id`.
+- `POST /api/v4/botx/notifications` with `group_chat_id` = global `oncall_group_chat_id`.
+- `teams.express_chat_id` is retained for rollback compatibility but is not used for on-call publication.
 - Body mentions on-call users with `@{mention:<mention_id>}` and `mentions[]` (`mention_type: "user"`, `mention_data.user_huid`). Users without a huid are listed by name only.
 - Worker job `publish_oncall` (daily, rotation change, or `POST /api/v1/teams/{id}/on-call/publish`). Do not reuse incident DM `SendPage`.
 
