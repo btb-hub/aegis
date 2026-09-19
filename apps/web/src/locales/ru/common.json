@@ -475,6 +475,7 @@
   "setup.integrations.slack.signing_secret": "Signing secret Slack",
   "setup.integrations.express.bot_id": "ID бота eXpress",
   "setup.integrations.express.host": "Хост бота eXpress",
+  "setup.integrations.express.oncall_group_chat_id": "ID группового чата дежурств eXpress",
   "setup.integrations.express.secret_key": "Секретный ключ eXpress",
   "setup.test_alert.title": "Отправить тестовый алерт",
   "setup.test_alert.body": "Отправляет пример на webhook алертов с серверными учётными данными.",

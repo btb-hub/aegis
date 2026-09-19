@@ -475,6 +475,7 @@
   "setup.integrations.slack.signing_secret": "Slack signing secret",
   "setup.integrations.express.bot_id": "eXpress bot ID",
   "setup.integrations.express.host": "eXpress bot host",
+  "setup.integrations.express.oncall_group_chat_id": "eXpress on-call group chat ID",
   "setup.integrations.express.secret_key": "eXpress secret key",
   "setup.test_alert.title": "Send test alert",
   "setup.test_alert.body": "Posts a sample payload through the alert webhook using server credentials.",
