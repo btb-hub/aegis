@@ -124,7 +124,7 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 	return parsed.TS, nil
 }
 
-func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, teamName string, people []integrations.OnCallPerson, locale string) error {
+func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, slackUserGroupID, teamName string, people []integrations.OnCallPerson, locale string) error {
 	if strings.TrimSpace(channelID) == "" {
 		return fmt.Errorf("slack channel id is required")
 	}
@@ -133,6 +133,9 @@ func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, teamName strin
 	}
 
 	names := make([]string, 0, len(people))
+	if strings.TrimSpace(slackUserGroupID) != "" {
+		names = append(names, "<!subteam^"+strings.TrimSpace(slackUserGroupID)+">")
+	}
 	for _, person := range people {
 		if person.SlackUserID != nil && strings.TrimSpace(*person.SlackUserID) != "" {
 			names = append(names, "<@"+strings.TrimSpace(*person.SlackUserID)+">")

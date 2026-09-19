@@ -8,21 +8,26 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
+	intexpress "github.com/aegis/aegis/pkg/integrations/express"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
 )
 
 type publishMockStore struct {
-	team      db.Team
-	teams     []db.Team
-	onCall    []db.OnCallUser
-	users     map[uuid.UUID]db.User
-	announced string
-	listErr   error
-	getErr    error
-	onCallErr error
-	userErr   error
-	setErr    error
+	team           db.Team
+	teams          []db.Team
+	onCall         []db.OnCallUser
+	users          map[uuid.UUID]db.User
+	announced      string
+	listErr        error
+	getErr         error
+	onCallErr      error
+	userErr        error
+	setErr         error
+	integration    db.Integration
+	integrationErr error
+	listCalls      int
 }
 
 func (m *publishMockStore) GetTeam(context.Context, uuid.UUID) (db.Team, error) {
@@ -31,7 +36,8 @@ func (m *publishMockStore) GetTeam(context.Context, uuid.UUID) (db.Team, error) 
 	}
 	return m.team, nil
 }
-func (m *publishMockStore) ListTeamsWithChatChannels(context.Context) ([]db.Team, error) {
+func (m *publishMockStore) ListTeams(context.Context) ([]db.Team, error) {
+	m.listCalls++
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -67,7 +73,10 @@ func (m *publishMockStore) GetWorkspaceIntegration(context.Context, uuid.UUID, s
 	return db.Integration{}, nil
 }
 func (m *publishMockStore) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
-	return db.Integration{}, nil
+	if m.integrationErr != nil {
+		return db.Integration{}, m.integrationErr
+	}
+	return m.integration, nil
 }
 
 type mockAnnouncer struct {
@@ -75,9 +84,17 @@ type mockAnnouncer struct {
 	err   error
 }
 
-func (m *mockAnnouncer) AnnounceOnCall(_ context.Context, channelID, teamName string, people []integrations.OnCallPerson, locale string) error {
+func (m *mockAnnouncer) AnnounceOnCall(_ context.Context, channelID, slackUserGroupID, teamName string, people []integrations.OnCallPerson, locale string) error {
 	m.calls = append(m.calls, channelID+":"+teamName)
 	return m.err
+}
+
+func globalExpressIntegration(chatID string) db.Integration {
+	return db.Integration{
+		Kind:    "express",
+		Enabled: true,
+		Config:  []byte(`{"bot_id":"bot","host":"https://express.example","secret_key":"secret","oncall_group_chat_id":"` + chatID + `"}`),
+	}
 }
 
 func TestPublishOnCallSkipsTeamWithoutChannels(t *testing.T) {
@@ -103,6 +120,7 @@ func TestPublishOnCallPostsAndRecordsFingerprint(t *testing.T) {
 		users: map[uuid.UUID]db.User{
 			userID: {ID: userID, DisplayName: "Alice", Locale: "en"},
 		},
+		integration: globalExpressIntegration("group-1"),
 	}
 	slackAnn := &mockAnnouncer{}
 	expressAnn := &mockAnnouncer{}
@@ -118,14 +136,99 @@ func TestPublishOnCallPostsAndRecordsFingerprint(t *testing.T) {
 	require.Len(t, expressAnn.calls, 1)
 }
 
+func TestPublishOnCallUsesGlobalExpressChatForTeamWithoutSlack(t *testing.T) {
+	userID := uuid.New()
+	store := &publishMockStore{
+		team:        db.Team{ID: uuid.New(), Name: "Platform"},
+		integration: globalExpressIntegration("group-1"),
+		onCall:      []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
+		users:       map[uuid.UUID]db.User{userID: {ID: userID, DisplayName: "Alice"}},
+	}
+	expressAnnouncer := &mockAnnouncer{}
+	p := NewPublishOnCallProcessor(nil, store, "")
+	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
+		return nil, expressAnnouncer, nil
+	}
+
+	err := p.Handle(context.Background(), Job{Payload: json.RawMessage(`{"team_id":"` + store.team.ID.String() + `"}`)})
+	require.NoError(t, err)
+	require.Equal(t, []string{"group-1:Platform"}, expressAnnouncer.calls)
+	require.Equal(t, userID.String(), store.announced)
+}
+
+func TestPublishOnCallSkipsLegacyExpressChatWithoutGlobalDestination(t *testing.T) {
+	legacyChatID := "legacy-team-chat"
+	store := &publishMockStore{team: db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &legacyChatID}}
+	expressAnnouncer := &mockAnnouncer{}
+	p := NewPublishOnCallProcessor(nil, store, "")
+	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
+		return nil, expressAnnouncer, nil
+	}
+
+	err := p.Handle(context.Background(), Job{Payload: json.RawMessage(`{"team_id":"` + store.team.ID.String() + `"}`)})
+	require.NoError(t, err)
+	require.Empty(t, expressAnnouncer.calls)
+	require.Empty(t, store.announced)
+}
+
+func TestPublishOnCallUsesSlackWhenGlobalExpressIsMissing(t *testing.T) {
+	slackChannelID := "C123"
+	store := &publishMockStore{
+		team:           db.Team{ID: uuid.New(), Name: "Platform", SlackChannelID: &slackChannelID},
+		integrationErr: pgx.ErrNoRows,
+	}
+	slackAnnouncer := &mockAnnouncer{}
+	p := NewPublishOnCallProcessor(nil, store, "")
+	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
+		return slackAnnouncer, nil, nil
+	}
+
+	err := p.Handle(context.Background(), Job{Payload: json.RawMessage(`{"team_id":"` + store.team.ID.String() + `"}`)})
+	require.NoError(t, err)
+	require.Equal(t, []string{"C123:Platform"}, slackAnnouncer.calls)
+}
+
+func TestPublishOnCallSkipsBlankGlobalExpressGroup(t *testing.T) {
+	store := &publishMockStore{
+		team: db.Team{ID: uuid.New(), Name: "Platform"},
+		integration: db.Integration{
+			Kind:    "express",
+			Enabled: true,
+			Config:  []byte(`{"oncall_group_chat_id":"  "}`),
+		},
+	}
+	expressAnnouncer := &mockAnnouncer{}
+	p := NewPublishOnCallProcessor(nil, store, "")
+	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
+		return nil, expressAnnouncer, nil
+	}
+
+	err := p.Handle(context.Background(), Job{Payload: json.RawMessage(`{"team_id":"` + store.team.ID.String() + `"}`)})
+	require.NoError(t, err)
+	require.Empty(t, expressAnnouncer.calls)
+	require.Empty(t, store.announced)
+}
+
+func TestResolveAnnouncersConstructsGlobalExpressProvider(t *testing.T) {
+	store := &publishMockStore{integration: globalExpressIntegration("group-1")}
+	p := NewPublishOnCallProcessor(nil, store, "")
+
+	slackAnnouncer, expressAnnouncer, chatID, err := p.resolveAnnouncers(context.Background(), uuid.New(), "")
+	require.NoError(t, err)
+	require.Nil(t, slackAnnouncer)
+	require.IsType(t, &intexpress.Provider{}, expressAnnouncer)
+	require.Equal(t, "group-1", chatID)
+}
+
 func TestPublishOnCallSoftFailsOneProvider(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"
 	slack := "C123"
 	store := &publishMockStore{
-		team:   db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack},
-		onCall: []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
-		users:  map[uuid.UUID]db.User{userID: {ID: userID, DisplayName: "Alice"}},
+		team:        db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack},
+		onCall:      []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
+		users:       map[uuid.UUID]db.User{userID: {ID: userID, DisplayName: "Alice"}},
+		integration: globalExpressIntegration("group-1"),
 	}
 	p := NewPublishOnCallProcessor(nil, store, "")
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
@@ -137,18 +240,17 @@ func TestPublishOnCallSoftFailsOneProvider(t *testing.T) {
 }
 
 func TestPublishOnCallEmptyPayloadListsTeams(t *testing.T) {
-	chat := "chat-1"
-	team := db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat}
-	store := &publishMockStore{teams: []db.Team{team}, team: team}
+	team := db.Team{ID: uuid.New(), Name: "Platform"}
+	store := &publishMockStore{teams: []db.Team{team}, team: team, integration: globalExpressIntegration("group-1")}
 	p := NewPublishOnCallProcessor(nil, store, "")
-	called := 0
+	expressAnnouncer := &mockAnnouncer{}
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
-		called++
-		return nil, &mockAnnouncer{}, nil
+		return nil, expressAnnouncer, nil
 	}
 	err := p.Handle(context.Background(), Job{Payload: json.RawMessage(`{}`)})
 	require.NoError(t, err)
-	require.Equal(t, 1, called)
+	require.Equal(t, 1, store.listCalls)
+	require.Equal(t, []string{"group-1:Platform"}, expressAnnouncer.calls)
 }
 
 func TestPublishOnCallInvalidPayload(t *testing.T) {
@@ -174,7 +276,7 @@ type rotationMockStore struct {
 	enqueueErr error
 }
 
-func (m *rotationMockStore) ListTeamsWithChatChannels(context.Context) ([]db.Team, error) {
+func (m *rotationMockStore) ListTeams(context.Context) ([]db.Team, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -229,9 +331,10 @@ func TestPublishOnCallBothProvidersFail(t *testing.T) {
 	chat := "chat-1"
 	slack := "C123"
 	store := &publishMockStore{
-		team:   db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack},
-		onCall: []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
-		users:  map[uuid.UUID]db.User{userID: {ID: userID, DisplayName: "Alice"}},
+		team:        db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat, SlackChannelID: &slack},
+		onCall:      []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
+		users:       map[uuid.UUID]db.User{userID: {ID: userID, DisplayName: "Alice"}},
+		integration: globalExpressIntegration("group-1"),
 	}
 	p := NewPublishOnCallProcessor(nil, store, "")
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
@@ -250,7 +353,7 @@ func TestPublishOnCallGetTeamError(t *testing.T) {
 
 func TestPublishOnCallUsersError(t *testing.T) {
 	chat := "chat-1"
-	store := &publishMockStore{team: db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat}, onCallErr: context.Canceled}
+	store := &publishMockStore{team: db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat}, onCallErr: context.Canceled, integration: globalExpressIntegration("group-1")}
 	p := NewPublishOnCallProcessor(nil, store, "")
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
 		return nil, &mockAnnouncer{}, nil
@@ -262,9 +365,10 @@ func TestPublishOnCallUserLookupErrorStillPublishes(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"
 	store := &publishMockStore{
-		team:    db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat},
-		onCall:  []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
-		userErr: context.Canceled,
+		team:        db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat},
+		onCall:      []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
+		userErr:     context.Canceled,
+		integration: globalExpressIntegration("group-1"),
 	}
 	p := NewPublishOnCallProcessor(nil, store, "")
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
@@ -276,7 +380,7 @@ func TestPublishOnCallUserLookupErrorStillPublishes(t *testing.T) {
 
 func TestPublishOnCallExpressOnlyFailure(t *testing.T) {
 	chat := "chat-1"
-	store := &publishMockStore{team: db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat}}
+	store := &publishMockStore{team: db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat}, integration: globalExpressIntegration("group-1")}
 	p := NewPublishOnCallProcessor(nil, store, "")
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
 		return nil, &mockAnnouncer{err: context.Canceled}, nil
@@ -371,9 +475,10 @@ func TestPublishOnCallSetAnnouncedError(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"
 	store := &publishMockStore{
-		team:   db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat},
-		onCall: []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
-		setErr: context.Canceled,
+		team:        db.Team{ID: uuid.New(), Name: "Platform", ExpressChatID: &chat},
+		onCall:      []db.OnCallUser{{UserID: userID, DisplayName: "Alice"}},
+		setErr:      context.Canceled,
+		integration: globalExpressIntegration("group-1"),
 	}
 	p := NewPublishOnCallProcessor(nil, store, "")
 	p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {

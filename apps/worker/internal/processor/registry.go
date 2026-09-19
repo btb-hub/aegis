@@ -38,6 +38,7 @@ func loadWorkspaceRegistry(
 	store workspaceRegistryStore,
 	teamID uuid.UUID,
 	publicURL string,
+	kinds ...string,
 ) (*workspaceRegistry, []skipNotice, error) {
 	workspaceID, err := store.GetTeamWorkspaceID(ctx, teamID)
 	if err != nil {
@@ -46,7 +47,10 @@ func loadWorkspaceRegistry(
 
 	rows := make([]integrations.IntegrationRow, 0, 3)
 	notices := make([]skipNotice, 0, 3)
-	for _, kind := range []string{"jira", "slack", "express"} {
+	if len(kinds) == 0 {
+		kinds = []string{"jira", "slack", "express"}
+	}
+	for _, kind := range kinds {
 		var slot *resolve.Slot
 		workspaceIntegration, slotErr := store.GetWorkspaceIntegration(ctx, workspaceID, kind)
 		if slotErr == nil {
