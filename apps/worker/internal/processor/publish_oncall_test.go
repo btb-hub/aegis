@@ -105,6 +105,44 @@ func TestPublishOnCallSkipsTeamWithoutChannels(t *testing.T) {
 	require.Empty(t, store.announced)
 }
 
+func TestPublishOnCallInvalidExpressStillPublishesSlack(t *testing.T) {
+	for _, config := range []string{`{"oncall_group_chat_id":123}`, `{"oncall_group_chat_id":"group-1"}`, `{`} {
+		t.Run(config, func(t *testing.T) {
+			userID := uuid.New()
+			channel := "C123"
+			store := &publishMockStore{
+				team:        db.Team{ID: uuid.New(), Name: "Platform", SlackChannelID: &channel},
+				onCall:      []db.OnCallUser{{UserID: userID}},
+				integration: db.Integration{Kind: "express", Enabled: true, Config: []byte(config)},
+			}
+			slackAnnouncer := &mockAnnouncer{}
+			p := NewPublishOnCallProcessor(nil, store, "")
+			p.announcers = func(context.Context, uuid.UUID) (onCallAnnouncer, onCallAnnouncer, error) {
+				return slackAnnouncer, nil, nil
+			}
+			require.NoError(t, p.Handle(t.Context(), Job{Payload: json.RawMessage(`{"team_id":"` + store.team.ID.String() + `"}`)}))
+			require.Equal(t, []string{"C123:Platform"}, slackAnnouncer.calls)
+			require.Equal(t, userID.String(), store.announced)
+		})
+	}
+}
+
+func TestEnqueueOnCallRotationPublishesInvalidExpressOnlyQueuesSlack(t *testing.T) {
+	for _, config := range []string{`{"oncall_group_chat_id":123}`, `{"oncall_group_chat_id":"group-1"}`, `{`} {
+		t.Run(config, func(t *testing.T) {
+			channel := "C123"
+			slackTeam := uuid.New()
+			store := &rotationMockStore{
+				teams:       []db.Team{{ID: uuid.New()}, {ID: slackTeam, SlackChannelID: &channel}},
+				onCall:      []db.OnCallUser{{UserID: uuid.New()}},
+				integration: db.Integration{Kind: "express", Enabled: true, Config: []byte(config)},
+			}
+			require.NoError(t, EnqueueOnCallRotationPublishes(t.Context(), store, time.Now()))
+			require.Equal(t, []uuid.UUID{slackTeam}, store.enqueued)
+		})
+	}
+}
+
 func TestPublishOnCallPostsAndRecordsFingerprint(t *testing.T) {
 	userID := uuid.New()
 	chat := "chat-1"

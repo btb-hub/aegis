@@ -172,7 +172,8 @@ func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID u
 
 	globalExpress, expressChatID, err := globalExpressOnCallDestination(ctx, p.store)
 	if err != nil {
-		return nil, nil, "", err
+		p.log.Error("publish_oncall global express unavailable", "team_id", teamID.String(), "error", err)
+		return slack, nil, "", nil
 	}
 	if expressChatID == "" {
 		return slack, nil, "", nil
@@ -182,7 +183,8 @@ func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID u
 	}
 	expressProvider, err := intexpress.NewFromJSON(globalExpress.Config)
 	if err != nil {
-		return nil, nil, "", fmt.Errorf("load global express provider: %w", err)
+		p.log.Error("publish_oncall global express initialization failed", "team_id", teamID.String(), "error", err)
+		return slack, nil, "", nil
 	}
 	return slack, expressProvider, expressChatID, nil
 }
@@ -204,7 +206,13 @@ func globalExpressOnCallDestination(ctx context.Context, store globalExpressInte
 	if err := json.Unmarshal(globalExpress.Config, &expressConfig); err != nil {
 		return db.Integration{}, "", fmt.Errorf("decode global express config: %w", err)
 	}
-	return globalExpress, strings.TrimSpace(expressConfig.OnCallGroupChatID), nil
+	chatID := strings.TrimSpace(expressConfig.OnCallGroupChatID)
+	if chatID != "" {
+		if _, err := intexpress.NewFromJSON(globalExpress.Config); err != nil {
+			return db.Integration{}, "", fmt.Errorf("load global express provider: %w", err)
+		}
+	}
+	return globalExpress, chatID, nil
 }
 
 func EnqueueOnCallRotationPublishes(ctx context.Context, store RotationPublishStore, now time.Time) error {
@@ -214,7 +222,8 @@ func EnqueueOnCallRotationPublishes(ctx context.Context, store RotationPublishSt
 	}
 	_, expressChatID, err := globalExpressOnCallDestination(ctx, store)
 	if err != nil {
-		return err
+		slog.Error("rotation publish global express unavailable", "error", err)
+		expressChatID = ""
 	}
 	for _, team := range teams {
 		if stringValue(team.SlackChannelID) == "" && expressChatID == "" {

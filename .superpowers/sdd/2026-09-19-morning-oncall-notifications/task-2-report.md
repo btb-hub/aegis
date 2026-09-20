@@ -3,7 +3,7 @@
 ## Implementation
 
 - Added optional `oncall_group_chat_id` to the global eXpress integration editor form.
-- Prefills the field from existing integration configuration and serializes a trimmed, non-blank value as `oncall_group_chat_id`.
+- Prefills the field from existing integration configuration and serializes its trimmed value as `oncall_group_chat_id`, including an explicit empty string to clear a saved destination.
 - Renders the field only for the global editor (`workspaceOnly === false`); workspace eXpress settings cannot configure a competing destination.
 - Kept connector readiness unchanged: the field is optional and does not affect validation.
 - Added English and Russian labels.
@@ -31,7 +31,7 @@ GREEN: Implemented the minimal form, payload, and rendering changes. The focused
 ## Self-review and concerns
 
 - No worker routing, database schema, or Slack behavior was changed.
-- Blank on-call chat IDs are omitted from payloads, preserving optional connector configuration semantics.
+- Blank on-call chat IDs are serialized as an explicit empty string so PATCH can clear a saved destination; the field remains optional for connector readiness.
 - No concerns identified.
 
 ## Review fix

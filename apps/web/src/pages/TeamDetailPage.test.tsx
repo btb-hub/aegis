@@ -658,13 +658,15 @@ describe('TeamDetailPage', () => {
         return jsonResponse({ ...team, slack_user_group_id: 'S012TAG' });
       }
       const mocked = mockTeamDetailFetch(url, init);
-      if (mocked) return mocked;
+      if (mocked) {
+        return mocked;
+      }
       return jsonResponse({}, 404);
     });
 
     renderPage();
-    await waitFor(() => expect(screen.getByLabelText('Slack user group ID')).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText('Slack user group ID'), { target: { value: 'S012TAG' } });
+    await waitFor(() => expect(screen.getByLabelText('Slack team tag ID (optional)')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Slack team tag ID (optional)'), { target: { value: 'S012TAG' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save tier' }));
     await waitFor(() => expect(patchBody).toMatchObject({ slack_user_group_id: 'S012TAG' }));
   });

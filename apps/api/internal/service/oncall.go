@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/aegis/aegis/pkg/apperrors"
@@ -13,6 +15,7 @@ import (
 
 type OnCallRepository interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
+	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
 	CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error)
 	ListOnCallSlotsInRange(ctx context.Context, teamID uuid.UUID, from, to time.Time) ([]db.OnCallSlot, error)
 	EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error
@@ -62,8 +65,17 @@ func (s *OnCallService) EnqueuePublish(ctx context.Context, teamID uuid.UUID) er
 	if err != nil {
 		return mapOnCallError(err)
 	}
-	if !team.HasChatChannel() {
-		return apperrors.Validation("set a Slack channel or eXpress chat before publishing", nil)
+	if team.SlackChannelID == nil || strings.TrimSpace(*team.SlackChannelID) == "" {
+		global, err := s.repo.GetIntegrationByKind(ctx, "express")
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		var config struct {
+			OnCallGroupChatID string `json:"oncall_group_chat_id"`
+		}
+		if !global.Enabled || json.Unmarshal(global.Config, &config) != nil || strings.TrimSpace(config.OnCallGroupChatID) == "" {
+			return apperrors.Validation("set a Slack channel or global eXpress on-call group chat before publishing", nil)
+		}
 	}
 	return s.repo.EnqueuePublishOnCall(ctx, teamID)
 }

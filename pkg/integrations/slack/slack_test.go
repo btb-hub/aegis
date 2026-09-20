@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -139,7 +140,7 @@ func TestAnnounceOnCallMentionsConfiguredSlackUserGroupAndEngineers(t *testing.T
 	require.NoError(t, provider.AnnounceOnCall(t.Context(), "C999", "S012TAG", "Platform", []integrations.OnCallPerson{
 		{DisplayName: "Alice", SlackUserID: &slackID},
 	}, "en"))
-	require.Contains(t, got["text"], "<!subteam^S012TAG>")
+	require.True(t, strings.HasPrefix(got["text"].(string), "<!subteam^S012TAG> "), "team tag must prefix the complete message: %s", got["text"])
 	require.Contains(t, got["text"], "<@U123>")
 }
 
@@ -159,8 +160,10 @@ func TestAnnounceOnCallEmptyPeople(t *testing.T) {
 	defer server.Close()
 	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
 	provider.client = server.Client()
-	require.NoError(t, provider.AnnounceOnCall(t.Context(), "C1", "", "Platform", nil, ""))
-	require.Contains(t, got["text"], "No one is on call")
+	for _, tag := range []string{"", "S012TAG"} {
+		require.NoError(t, provider.AnnounceOnCall(t.Context(), "C1", tag, "Platform", nil, ""))
+		require.Contains(t, got["text"], "No one is on call")
+	}
 }
 
 func TestAnnounceOnCallSlackError(t *testing.T) {

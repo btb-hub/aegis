@@ -133,9 +133,6 @@ func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, slackUserGroup
 	}
 
 	names := make([]string, 0, len(people))
-	if strings.TrimSpace(slackUserGroupID) != "" {
-		names = append(names, "<!subteam^"+strings.TrimSpace(slackUserGroupID)+">")
-	}
 	for _, person := range people {
 		if person.SlackUserID != nil && strings.TrimSpace(*person.SlackUserID) != "" {
 			names = append(names, "<@"+strings.TrimSpace(*person.SlackUserID)+">")
@@ -154,6 +151,9 @@ func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, slackUserGroup
 			"team":   teamName,
 			"people": strings.Join(names, ", "),
 		})
+		if tag := strings.TrimSpace(slackUserGroupID); tag != "" {
+			text = "<!subteam^" + tag + "> " + text
+		}
 	}
 
 	payload := map[string]any{

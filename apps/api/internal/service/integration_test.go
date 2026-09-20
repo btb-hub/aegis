@@ -1,12 +1,12 @@
 package service
 
 import (
-	"time"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/db"
@@ -93,6 +93,21 @@ func TestIntegrationServiceList(t *testing.T) {
 	items, err := svc.List(context.Background())
 	require.NoError(t, err)
 	require.Len(t, items, 1)
+}
+
+func TestIntegrationServiceRejectsNonStringOnCallGroupChatID(t *testing.T) {
+	for _, invalid := range []string{"123", "true", "null", "[]", "{}"} {
+		t.Run(invalid, func(t *testing.T) {
+			repo := &integrationMockRepo{}
+			svc := NewIntegrationService(repo, "")
+			_, err := svc.Upsert(t.Context(), "express", "eXpress", json.RawMessage(`{"bot_id":"bot","host":"https://cts.example.com","secret_key":"secret","oncall_group_chat_id":`+invalid+`}`), true, nil)
+			require.Error(t, err)
+			var appErr *apperrors.Error
+			require.ErrorAs(t, err, &appErr)
+			require.Equal(t, "VALIDATION_ERROR", appErr.Code)
+			require.Empty(t, repo.items)
+		})
+	}
 }
 
 func TestIntegrationServiceDelete(t *testing.T) {
