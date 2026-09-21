@@ -75,9 +75,12 @@ escalation buttons appear on an incident.
    Name **Platform L2**. Set **Workspace** to Platform. Set **Support tier** to
    **L2**. Save. Repeat for **Platform L3** with tier **L3**.
 
-2. **Optional chat channels**
-   On the team, **Slack channel ID** and **eXpress chat ID** are where Aegis can
-   announce who is on call. They are not required for the first routed incident.
+2. **Optional chat destinations**
+   On the team, set a **Slack channel ID** and, optionally, a **Slack user-group ID**
+   for on-call announcements. Configure one global eXpress **oncall_group_chat_id**
+   in the eXpress integration for the group destination. The legacy team **eXpress chat ID**
+   remains stored for rollback but does not route on-call announcements. These settings are
+   not required for the first routed incident.
 
 Minimum for this manual: one L2
 team and one L3 team in the same workspace. Add NOC or L1 later if that is how you triage.

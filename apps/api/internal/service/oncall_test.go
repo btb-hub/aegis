@@ -13,13 +13,39 @@ import (
 )
 
 type onCallRepoMock struct {
-	teams      map[uuid.UUID]db.Team
-	users      []db.OnCallUser
-	slots      []db.OnCallSlot
-	published  []uuid.UUID
-	usersErr   error
-	slotsErr   error
-	enqueueErr error
+	teams       map[uuid.UUID]db.Team
+	users       []db.OnCallUser
+	slots       []db.OnCallSlot
+	published   []uuid.UUID
+	usersErr    error
+	slotsErr    error
+	enqueueErr  error
+	integration db.Integration
+}
+
+func (m *onCallRepoMock) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
+	if m.integration.Kind == "" {
+		return db.Integration{}, pgx.ErrNoRows
+	}
+	return m.integration, nil
+}
+
+func TestOnCallServiceEnqueuePublishGlobalExpress(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	repo.teams[teamID] = db.Team{ID: teamID}
+	repo.integration = db.Integration{Kind: "express", Enabled: true, Config: []byte(`{"oncall_group_chat_id":"group-1"}`)}
+	require.NoError(t, NewOnCallService(repo).EnqueuePublish(t.Context(), teamID))
+	require.Equal(t, []uuid.UUID{teamID}, repo.published)
+}
+
+func TestOnCallServiceEnqueuePublishRejectsLegacyExpressOnly(t *testing.T) {
+	repo := newOnCallRepoMock()
+	teamID := uuid.New()
+	legacy := "legacy-chat"
+	repo.teams[teamID] = db.Team{ID: teamID, ExpressChatID: &legacy}
+	require.Error(t, NewOnCallService(repo).EnqueuePublish(t.Context(), teamID))
+	require.Empty(t, repo.published)
 }
 
 func newOnCallRepoMock() *onCallRepoMock {
@@ -188,7 +214,7 @@ func TestOnCallServiceEnqueuePublish(t *testing.T) {
 	repo := newOnCallRepoMock()
 	teamID := uuid.New()
 	chat := "chat-1"
-	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", SlackChannelID: &chat}
 	svc := NewOnCallService(repo)
 	require.NoError(t, svc.EnqueuePublish(context.Background(), teamID))
 	require.Equal(t, []uuid.UUID{teamID}, repo.published)
@@ -238,7 +264,7 @@ func TestOnCallServiceEnqueuePublishRepoError(t *testing.T) {
 	repo := newOnCallRepoMock()
 	teamID := uuid.New()
 	chat := "chat-1"
-	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", SlackChannelID: &chat}
 	repo.enqueueErr = context.Canceled
 	svc := NewOnCallService(repo)
 	require.Error(t, svc.EnqueuePublish(context.Background(), teamID))

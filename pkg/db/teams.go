@@ -18,13 +18,13 @@ func (s *Store) ListTeamsFiltered(ctx context.Context, workspaceID uuid.UUID) ([
 	)
 	if workspaceID == uuid.Nil {
 		const q = `
-SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 ORDER BY name`
 		rows, err = s.pool.Query(ctx, q)
 	} else {
 		const q = `
-SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 WHERE workspace_id = $1
 ORDER BY name`
@@ -39,7 +39,7 @@ ORDER BY name`
 
 func (s *Store) GetTeam(ctx context.Context, id uuid.UUID) (Team, error) {
 	const q = `
-SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 WHERE id = $1`
 	return scanTeam(s.pool.QueryRow(ctx, q, id))
@@ -49,7 +49,7 @@ func (s *Store) CreateTeam(ctx context.Context, workspaceID uuid.UUID, name, des
 	const q = `
 INSERT INTO teams (workspace_id, name, description, support_tier)
 VALUES ($1, $2, $3, $4)
-RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at`
+RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at`
 	return scanTeam(s.pool.QueryRow(ctx, q, workspaceID, name, description, supportTier))
 }
 
@@ -58,17 +58,17 @@ func (s *Store) UpdateTeam(ctx context.Context, id uuid.UUID, name, description 
 UPDATE teams
 SET name = $2, description = $3, support_tier = $4, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at`
+RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at`
 	return scanTeam(s.pool.QueryRow(ctx, q, id, name, description, supportTier))
 }
 
-func (s *Store) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (Team, error) {
+func (s *Store) UpdateTeamChannels(ctx context.Context, id uuid.UUID, expressChatID, slackChannelID, slackUserGroupID *string) (Team, error) {
 	const q = `
 UPDATE teams
-SET express_chat_id = $2, slack_channel_id = $3, updated_at = now()
+SET express_chat_id = $2, slack_channel_id = $3, slack_user_group_id = $4, updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at`
-	return scanTeam(s.pool.QueryRow(ctx, q, id, expressChatID, slackChannelID))
+RETURNING id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at`
+	return scanTeam(s.pool.QueryRow(ctx, q, id, expressChatID, slackChannelID, slackUserGroupID))
 }
 
 func (s *Store) SetTeamOnCallAnnounced(ctx context.Context, id uuid.UUID, fingerprint string) error {
@@ -84,7 +84,7 @@ func (s *Store) SetTeamOnCallAnnounced(ctx context.Context, id uuid.UUID, finger
 
 func (s *Store) ListTeamsWithChatChannels(ctx context.Context) ([]Team, error) {
 	const q = `
-SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, oncall_announced_user_ids, created_at, updated_at
+SELECT id, workspace_id, name, description, support_tier, express_chat_id, slack_channel_id, slack_user_group_id, oncall_announced_user_ids, created_at, updated_at
 FROM teams
 WHERE (express_chat_id IS NOT NULL AND btrim(express_chat_id) <> '')
    OR (slack_channel_id IS NOT NULL AND btrim(slack_channel_id) <> '')

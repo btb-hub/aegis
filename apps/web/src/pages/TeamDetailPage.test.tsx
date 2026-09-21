@@ -643,4 +643,31 @@ describe('TeamDetailPage', () => {
       expect(screen.getByText('Published')).toBeInTheDocument();
     });
   });
+
+  it('saves the Slack team tag ID', async () => {
+    let patchBody: Record<string, unknown> | undefined;
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes('/auth/me')) {
+        return jsonResponse({
+          id: 'admin-1', email: 'admin@example.com', display_name: 'Admin', role: 'admin', locale: 'en', provider: 'google',
+        });
+      }
+      if (url === '/api/v1/teams/team-1' && init?.method === 'PATCH') {
+        patchBody = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return jsonResponse({ ...team, slack_user_group_id: 'S012TAG' });
+      }
+      const mocked = mockTeamDetailFetch(url, init);
+      if (mocked) {
+        return mocked;
+      }
+      return jsonResponse({}, 404);
+    });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByLabelText('Slack team tag ID (optional)')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Slack team tag ID (optional)'), { target: { value: 'S012TAG' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save tier' }));
+    await waitFor(() => expect(patchBody).toMatchObject({ slack_user_group_id: 'S012TAG' }));
+  });
 });

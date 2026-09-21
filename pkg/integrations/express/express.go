@@ -25,10 +25,10 @@ type Config struct {
 }
 
 type Provider struct {
-	cfg    Config
-	client *http.Client
-	mu     sync.Mutex
-	token  string
+	cfg      Config
+	client   *http.Client
+	mu       sync.Mutex
+	token    string
 	tokenExp time.Time
 }
 
@@ -129,7 +129,7 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 	return uuid.New().String(), nil
 }
 
-func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, teamName string, people []integrations.OnCallPerson, locale string) error {
+func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, _ string, teamName string, people []integrations.OnCallPerson, locale string) error {
 	if strings.TrimSpace(channelID) == "" {
 		return fmt.Errorf("express chat id is required")
 	}

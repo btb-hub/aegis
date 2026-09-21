@@ -192,13 +192,14 @@ func (m *workspaceEscalationRepoMock) UpdateTeam(_ context.Context, id uuid.UUID
 	return team, nil
 }
 
-func (m *workspaceEscalationRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID *string) (db.Team, error) {
+func (m *workspaceEscalationRepoMock) UpdateTeamChannels(_ context.Context, id uuid.UUID, expressChatID, slackChannelID, slackUserGroupID *string) (db.Team, error) {
 	team, ok := m.teams[id]
 	if !ok {
 		return db.Team{}, pgx.ErrNoRows
 	}
 	team.ExpressChatID = expressChatID
 	team.SlackChannelID = slackChannelID
+	team.SlackUserGroupID = slackUserGroupID
 	m.teams[id] = team
 	return team, nil
 }

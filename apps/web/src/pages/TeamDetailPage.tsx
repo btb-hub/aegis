@@ -57,6 +57,7 @@ export function TeamDetailPage() {
   const [pendingTier, setPendingTier] = useState('');
   const [expressChatId, setExpressChatId] = useState('');
   const [slackChannelId, setSlackChannelId] = useState('');
+  const [slackUserGroupId, setSlackUserGroupId] = useState('');
   const [savingTier, setSavingTier] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [targetTeamId, setTargetTeamId] = useState('');
@@ -159,6 +160,7 @@ export function TeamDetailPage() {
       setPendingTier(teamData.support_tier ?? '');
       setExpressChatId(teamData.express_chat_id ?? '');
       setSlackChannelId(teamData.slack_channel_id ?? '');
+      setSlackUserGroupId(teamData.slack_user_group_id ?? '');
       setTargetTeamId('');
       setCrossWorkspace(false);
     } catch {
@@ -284,6 +286,7 @@ export function TeamDetailPage() {
           support_tier: pendingTier,
           express_chat_id: expressChatId,
           slack_channel_id: slackChannelId,
+          slack_user_group_id: slackUserGroupId,
         }),
       });
       if (response.status === 401) {
@@ -462,6 +465,13 @@ export function TeamDetailPage() {
                     label={t('teams.slack_channel_label')}
                     value={slackChannelId}
                     onChange={setSlackChannelId}
+                  />
+                </div>
+                <div className="min-w-[16rem]">
+                  <Input
+                    label={t('teams.slack_user_group_label')}
+                    value={slackUserGroupId}
+                    onChange={setSlackUserGroupId}
                   />
                 </div>
                 <Button variant="secondary" disabled={publishing} onClick={() => void publishOnCall()}>

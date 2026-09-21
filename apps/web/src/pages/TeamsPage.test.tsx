@@ -372,7 +372,7 @@ describe('TeamsPage', () => {
       expect(screen.getByRole('link', { name: 'Platform' })).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: 'Edit team' }));
-    fireEvent.change(screen.getByLabelText('eXpress chat ID'), { target: { value: 'group-1' } });
+    fireEvent.change(screen.getByLabelText('Legacy eXpress chat ID (unused for announcements)'), { target: { value: 'group-1' } });
     fireEvent.change(screen.getByLabelText('Slack channel ID'), { target: { value: 'C123' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 

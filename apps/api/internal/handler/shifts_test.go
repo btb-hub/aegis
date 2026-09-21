@@ -100,6 +100,10 @@ func (m *shiftsHandlerRepo) EnqueuePublishOnCall(_ context.Context, teamID uuid.
 	return nil
 }
 
+func (m *shiftsHandlerRepo) GetIntegrationByKind(context.Context, string) (db.Integration, error) {
+	return db.Integration{}, pgx.ErrNoRows
+}
+
 type shiftsTestEnv struct {
 	router *gin.Engine
 	repo   *shiftsHandlerRepo
@@ -452,7 +456,7 @@ func TestPublishOnCallAccepted(t *testing.T) {
 	env := setupShiftsRouter(t)
 	chat := "chat-1"
 	teamID := uuid.New()
-	env.repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", ExpressChatID: &chat}
+	env.repo.teams[teamID] = db.Team{ID: teamID, Name: "Platform", SlackChannelID: &chat}
 	token := env.sessionForRole(t, "admin")
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teams/"+teamID.String()+"/on-call/publish", nil)

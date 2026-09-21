@@ -16,6 +16,7 @@ export type IntegrationConfigForm = {
   signing_secret: string;
   bot_id: string;
   host: string;
+  oncall_group_chat_id: string;
   secret_key: string;
 };
 
@@ -29,6 +30,7 @@ export const emptyIntegrationConfigForm = (): IntegrationConfigForm => ({
   signing_secret: '',
   bot_id: '',
   host: '',
+  oncall_group_chat_id: '',
   secret_key: '',
 });
 
@@ -56,6 +58,7 @@ export function configFormFromItem(
   if (kind === 'express') {
     form.bot_id = read('bot_id');
     form.host = read('host');
+    form.oncall_group_chat_id = read('oncall_group_chat_id');
   }
   return form;
 }
@@ -97,6 +100,7 @@ export function buildConfigPayload(
   const out: Record<string, string> = {
     bot_id: form.bot_id.trim(),
     host: form.host.trim(),
+    oncall_group_chat_id: form.oncall_group_chat_id.trim(),
   };
   const secret = form.secret_key.trim();
   if (secret || !opts.keepBlankSecrets) {
@@ -232,6 +236,13 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
         value={form.host}
         onChange={(value) => onChange({ ...form, host: value })}
       />
+      {!workspaceOnly && (
+        <Input
+          label={t('setup.integrations.express.oncall_group_chat_id')}
+          value={form.oncall_group_chat_id}
+          onChange={(value) => onChange({ ...form, oncall_group_chat_id: value })}
+        />
+      )}
       <Input
         label={t('setup.integrations.express.secret_key')}
         value={form.secret_key}

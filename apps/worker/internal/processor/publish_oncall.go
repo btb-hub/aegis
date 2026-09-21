@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -11,16 +12,18 @@ import (
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
+	intexpress "github.com/aegis/aegis/pkg/integrations/express"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type onCallAnnouncer interface {
-	AnnounceOnCall(ctx context.Context, channelID, teamName string, people []integrations.OnCallPerson, locale string) error
+	AnnounceOnCall(ctx context.Context, channelID, slackUserGroupID, teamName string, people []integrations.OnCallPerson, locale string) error
 }
 
 type PublishOnCallStore interface {
 	GetTeam(ctx context.Context, id uuid.UUID) (db.Team, error)
-	ListTeamsWithChatChannels(ctx context.Context) ([]db.Team, error)
+	ListTeams(ctx context.Context) ([]db.Team, error)
 	CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (db.User, error)
 	SetTeamOnCallAnnounced(ctx context.Context, id uuid.UUID, fingerprint string) error
@@ -30,10 +33,15 @@ type PublishOnCallStore interface {
 }
 
 type RotationPublishStore interface {
-	ListTeamsWithChatChannels(ctx context.Context) ([]db.Team, error)
+	ListTeams(ctx context.Context) ([]db.Team, error)
 	CurrentOnCallUsers(ctx context.Context, teamID uuid.UUID, at time.Time) ([]db.OnCallUser, error)
 	HasPendingPublishOnCall(ctx context.Context, teamID uuid.UUID) (bool, error)
 	EnqueuePublishOnCall(ctx context.Context, teamID uuid.UUID) error
+	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
+}
+
+type globalExpressIntegrationStore interface {
+	GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error)
 }
 
 type PublishOnCallProcessor struct {
@@ -58,7 +66,7 @@ func (p *PublishOnCallProcessor) Handle(ctx context.Context, job Job) error {
 		return fmt.Errorf("decode payload: %w", err)
 	}
 	if payload.TeamID == "" {
-		teams, err := p.store.ListTeamsWithChatChannels(ctx)
+		teams, err := p.store.ListTeams(ctx)
 		if err != nil {
 			return err
 		}
@@ -82,7 +90,16 @@ func (p *PublishOnCallProcessor) Handle(ctx context.Context, job Job) error {
 }
 
 func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team) error {
-	if !team.HasChatChannel() {
+	slackChannelID := stringValue(team.SlackChannelID)
+	slackUserGroupID := stringValue(team.SlackUserGroupID)
+	slackAnnouncer, expressAnnouncer, expressChatID, err := p.resolveAnnouncers(ctx, team.ID, slackChannelID)
+	if err != nil {
+		return err
+	}
+
+	attemptedSlack := slackChannelID != "" && slackAnnouncer != nil
+	attemptedExpress := expressChatID != "" && expressAnnouncer != nil
+	if !attemptedSlack && !attemptedExpress {
 		return nil
 	}
 
@@ -110,30 +127,20 @@ func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team) 
 		})
 	}
 
-	slackAnnouncer, expressAnnouncer, err := p.resolveAnnouncers(ctx, team.ID)
-	if err != nil {
-		return err
-	}
-
 	var slackErr, expressErr error
-	if nonemptyPtr(team.SlackChannelID) && slackAnnouncer != nil {
-		slackErr = slackAnnouncer.AnnounceOnCall(ctx, *team.SlackChannelID, team.Name, people, locale)
+	if attemptedSlack {
+		slackErr = slackAnnouncer.AnnounceOnCall(ctx, slackChannelID, slackUserGroupID, team.Name, people, locale)
 		if slackErr != nil {
 			p.log.Error("publish_oncall slack failed", "team_id", team.ID.String(), "error", slackErr)
 		}
 	}
-	if nonemptyPtr(team.ExpressChatID) && expressAnnouncer != nil {
-		expressErr = expressAnnouncer.AnnounceOnCall(ctx, *team.ExpressChatID, team.Name, people, locale)
+	if attemptedExpress {
+		expressErr = expressAnnouncer.AnnounceOnCall(ctx, expressChatID, "", team.Name, people, locale)
 		if expressErr != nil {
 			p.log.Error("publish_oncall express failed", "team_id", team.ID.String(), "error", expressErr)
 		}
 	}
 
-	attemptedSlack := nonemptyPtr(team.SlackChannelID) && slackAnnouncer != nil
-	attemptedExpress := nonemptyPtr(team.ExpressChatID) && expressAnnouncer != nil
-	if !attemptedSlack && !attemptedExpress {
-		return nil
-	}
 	if attemptedSlack && slackErr != nil && attemptedExpress && expressErr != nil {
 		return fmt.Errorf("publish_oncall both providers failed: slack: %v; express: %v", slackErr, expressErr)
 	}
@@ -147,29 +154,81 @@ func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team) 
 	return p.store.SetTeamOnCallAnnounced(ctx, team.ID, onCallFingerprint(onCall))
 }
 
-func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID uuid.UUID) (slack onCallAnnouncer, express onCallAnnouncer, err error) {
+func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID uuid.UUID, slackChannelID string) (slack onCallAnnouncer, express onCallAnnouncer, expressChatID string, err error) {
 	if p.announcers != nil {
-		return p.announcers(ctx, teamID)
+		slack, express, err = p.announcers(ctx, teamID)
+		if err != nil {
+			return nil, nil, "", err
+		}
+	} else if slackChannelID != "" {
+		reg, _, err := loadWorkspaceRegistry(ctx, p.store, teamID, p.publicURL, "slack")
+		if err != nil {
+			return nil, nil, "", err
+		}
+		if provider, ok := reg.Chat("slack"); ok {
+			slack, _ = provider.(onCallAnnouncer)
+		}
 	}
-	reg, _, err := loadWorkspaceRegistry(ctx, p.store, teamID, p.publicURL)
+
+	globalExpress, expressChatID, err := globalExpressOnCallDestination(ctx, p.store)
 	if err != nil {
-		return nil, nil, err
+		p.log.Error("publish_oncall global express unavailable", "team_id", teamID.String(), "error", err)
+		return slack, nil, "", nil
 	}
-	if provider, ok := reg.Chat("slack"); ok {
-		slack, _ = provider.(onCallAnnouncer)
+	if expressChatID == "" {
+		return slack, nil, "", nil
 	}
-	if provider, ok := reg.Chat("express"); ok {
-		express, _ = provider.(onCallAnnouncer)
+	if express != nil {
+		return slack, express, expressChatID, nil
 	}
-	return slack, express, nil
+	expressProvider, err := intexpress.NewFromJSON(globalExpress.Config)
+	if err != nil {
+		p.log.Error("publish_oncall global express initialization failed", "team_id", teamID.String(), "error", err)
+		return slack, nil, "", nil
+	}
+	return slack, expressProvider, expressChatID, nil
+}
+
+func globalExpressOnCallDestination(ctx context.Context, store globalExpressIntegrationStore) (db.Integration, string, error) {
+	globalExpress, err := store.GetIntegrationByKind(ctx, "express")
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Integration{}, "", nil
+		}
+		return db.Integration{}, "", err
+	}
+	if !globalExpress.Enabled {
+		return db.Integration{}, "", nil
+	}
+	var expressConfig struct {
+		OnCallGroupChatID string `json:"oncall_group_chat_id"`
+	}
+	if err := json.Unmarshal(globalExpress.Config, &expressConfig); err != nil {
+		return db.Integration{}, "", fmt.Errorf("decode global express config: %w", err)
+	}
+	chatID := strings.TrimSpace(expressConfig.OnCallGroupChatID)
+	if chatID != "" {
+		if _, err := intexpress.NewFromJSON(globalExpress.Config); err != nil {
+			return db.Integration{}, "", fmt.Errorf("load global express provider: %w", err)
+		}
+	}
+	return globalExpress, chatID, nil
 }
 
 func EnqueueOnCallRotationPublishes(ctx context.Context, store RotationPublishStore, now time.Time) error {
-	teams, err := store.ListTeamsWithChatChannels(ctx)
+	teams, err := store.ListTeams(ctx)
 	if err != nil {
 		return err
 	}
+	_, expressChatID, err := globalExpressOnCallDestination(ctx, store)
+	if err != nil {
+		slog.Error("rotation publish global express unavailable", "error", err)
+		expressChatID = ""
+	}
 	for _, team := range teams {
+		if stringValue(team.SlackChannelID) == "" && expressChatID == "" {
+			continue
+		}
 		users, err := store.CurrentOnCallUsers(ctx, team.ID, now)
 		if err != nil {
 			return err
@@ -206,4 +265,11 @@ func onCallFingerprint(users []db.OnCallUser) string {
 
 func nonemptyPtr(value *string) bool {
 	return value != nil && strings.TrimSpace(*value) != ""
+}
+
+func stringValue(value *string) string {
+	if !nonemptyPtr(value) {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }

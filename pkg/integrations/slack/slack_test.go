@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,7 +113,7 @@ func TestAnnounceOnCallPostsToChannel(t *testing.T) {
 	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
 	provider.client = server.Client()
 	slackID := "U123"
-	err := provider.AnnounceOnCall(t.Context(), "C999", "Platform", []integrations.OnCallPerson{
+	err := provider.AnnounceOnCall(t.Context(), "C999", "", "Platform", []integrations.OnCallPerson{
 		{DisplayName: "Alice", SlackUserID: &slackID},
 		{DisplayName: "Bob"},
 	}, "en")
@@ -122,9 +123,30 @@ func TestAnnounceOnCallPostsToChannel(t *testing.T) {
 	require.Contains(t, got["text"], "Bob")
 }
 
+func TestAnnounceOnCallMentionsConfiguredSlackUserGroupAndEngineers(t *testing.T) {
+	i18n.ResetForTests()
+	require.NoError(t, i18n.LoadMessages(filepath.Join("..", "..", "..", "pkg", "i18n", "messages")))
+
+	var got map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}))
+	defer server.Close()
+
+	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
+	provider.client = server.Client()
+	slackID := "U123"
+	require.NoError(t, provider.AnnounceOnCall(t.Context(), "C999", "S012TAG", "Platform", []integrations.OnCallPerson{
+		{DisplayName: "Alice", SlackUserID: &slackID},
+	}, "en"))
+	require.True(t, strings.HasPrefix(got["text"].(string), "<!subteam^S012TAG> "), "team tag must prefix the complete message: %s", got["text"])
+	require.Contains(t, got["text"], "<@U123>")
+}
+
 func TestAnnounceOnCallRequiresChannel(t *testing.T) {
 	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret"})
-	require.Error(t, provider.AnnounceOnCall(t.Context(), "", "Platform", nil, "en"))
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "", "", "Platform", nil, "en"))
 }
 
 func TestAnnounceOnCallEmptyPeople(t *testing.T) {
@@ -138,8 +160,10 @@ func TestAnnounceOnCallEmptyPeople(t *testing.T) {
 	defer server.Close()
 	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
 	provider.client = server.Client()
-	require.NoError(t, provider.AnnounceOnCall(t.Context(), "C1", "Platform", nil, ""))
-	require.Contains(t, got["text"], "No one is on call")
+	for _, tag := range []string{"", "S012TAG"} {
+		require.NoError(t, provider.AnnounceOnCall(t.Context(), "C1", tag, "Platform", nil, ""))
+		require.Contains(t, got["text"], "No one is on call")
+	}
 }
 
 func TestAnnounceOnCallSlackError(t *testing.T) {
@@ -151,5 +175,5 @@ func TestAnnounceOnCallSlackError(t *testing.T) {
 	defer server.Close()
 	provider := New(Config{BotToken: "xoxb-test", SigningSecret: "secret", APIBaseURL: server.URL})
 	provider.client = server.Client()
-	require.Error(t, provider.AnnounceOnCall(t.Context(), "C1", "Platform", nil, "en"))
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "C1", "", "Platform", nil, "en"))
 }

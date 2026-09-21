@@ -163,7 +163,7 @@ func TestAnnounceOnCallUsesGroupNotification(t *testing.T) {
 	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
 	provider.client = server.Client()
 	huid := "6fafda2c-6505-57a5-a088-25ea5d1d0364"
-	err := provider.AnnounceOnCall(t.Context(), "group-chat-1", "Platform", []integrations.OnCallPerson{
+	err := provider.AnnounceOnCall(t.Context(), "group-chat-1", "", "Platform", []integrations.OnCallPerson{
 		{DisplayName: "Alice", ExpressUserHuid: &huid},
 		{DisplayName: "Bob"},
 	}, "en")
@@ -179,7 +179,7 @@ func TestAnnounceOnCallUsesGroupNotification(t *testing.T) {
 
 func TestAnnounceOnCallRequiresChatID(t *testing.T) {
 	provider := New(Config{BotID: "bot", Host: "http://example.com", SecretKey: "secret"})
-	require.Error(t, provider.AnnounceOnCall(t.Context(), "", "Platform", nil, "en"))
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "", "", "Platform", nil, "en"))
 }
 
 func TestAnnounceOnCallEmptyPeople(t *testing.T) {
@@ -196,7 +196,7 @@ func TestAnnounceOnCallEmptyPeople(t *testing.T) {
 	defer server.Close()
 	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
 	provider.client = server.Client()
-	require.NoError(t, provider.AnnounceOnCall(t.Context(), "group-1", "Platform", nil, ""))
+	require.NoError(t, provider.AnnounceOnCall(t.Context(), "group-1", "", "Platform", nil, ""))
 	notification := body["notification"].(map[string]any)
 	require.Contains(t, notification["body"], "No one is on call")
 }
@@ -213,7 +213,7 @@ func TestAnnounceOnCallRejectsNonOK(t *testing.T) {
 	defer server.Close()
 	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
 	provider.client = server.Client()
-	require.Error(t, provider.AnnounceOnCall(t.Context(), "group-1", "Platform", nil, "en"))
+	require.Error(t, provider.AnnounceOnCall(t.Context(), "group-1", "", "Platform", nil, "en"))
 }
 
 func loadAnnounceMessages() error {

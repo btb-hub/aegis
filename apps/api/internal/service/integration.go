@@ -199,6 +199,17 @@ func validateWorkspaceIntegrationConfig(kind string, config json.RawMessage) err
 }
 
 func validateGlobalIntegrationConfig(kind string, config json.RawMessage, publicURL string) error {
+	if kind == "express" {
+		var fields map[string]any
+		if err := json.Unmarshal(config, &fields); err != nil {
+			return apperrors.Validation("invalid integration config", nil)
+		}
+		if value, exists := fields["oncall_group_chat_id"]; exists {
+			if _, ok := value.(string); !ok {
+				return apperrors.Validation("oncall_group_chat_id must be a string", nil)
+			}
+		}
+	}
 	if err := parseProviderConfig(kind, config, publicURL); err != nil {
 		return apperrors.Validation(err.Error(), map[string]any{"kind": kind})
 	}

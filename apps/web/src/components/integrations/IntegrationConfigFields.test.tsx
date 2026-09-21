@@ -73,7 +73,14 @@ describe('IntegrationConfigFields helpers', () => {
         { ...emptyIntegrationConfigForm(), bot_id: 'bot', host: 'https://cts', secret_key: '' },
         { workspaceOnly: false, keepBlankSecrets: true },
       ),
-    ).toEqual({ bot_id: 'bot', host: 'https://cts' });
+    ).toEqual({ bot_id: 'bot', host: 'https://cts', oncall_group_chat_id: '' });
+    expect(
+      buildConfigPayload(
+        'express',
+        { ...emptyIntegrationConfigForm(), bot_id: 'bot', host: 'https://cts', oncall_group_chat_id: '' },
+        { workspaceOnly: false, keepBlankSecrets: true },
+      ),
+    ).toEqual({ bot_id: 'bot', host: 'https://cts', oncall_group_chat_id: '' });
     expect(
       buildConfigPayload('jira', { ...form, project_key: 'OPS' }, { workspaceOnly: true, keepBlankSecrets: false }),
     ).toEqual({ project_key: 'OPS' });
@@ -84,6 +91,17 @@ describe('IntegrationConfigFields helpers', () => {
         { workspaceOnly: false, keepBlankSecrets: false },
       ),
     ).toEqual({ bot_token: 'x', signing_secret: 'y' });
+  });
+
+  it('round-trips the global eXpress on-call chat ID', () => {
+    const form = configFormFromItem('express', {
+      bot_id: 'bot',
+      host: 'https://cts',
+      oncall_group_chat_id: 'group-1',
+    });
+    expect(buildConfigPayload('express', form, { workspaceOnly: false, keepBlankSecrets: true })).toMatchObject({
+      oncall_group_chat_id: 'group-1',
+    });
   });
 
   it('prefills non-secret config and clears redacted secrets', () => {
@@ -186,5 +204,22 @@ describe('IntegrationConfigFields helpers', () => {
     expect(onChange).toHaveBeenCalledWith({ ...form, bot_id: 'bot-1' });
     expect(onChange).toHaveBeenCalledWith({ ...form, host: 'https://cts' });
     expect(onChange).toHaveBeenCalledWith({ ...form, secret_key: 'secret' });
+  });
+
+  it('renders the eXpress on-call chat only in the global editor', () => {
+    const form = emptyIntegrationConfigForm();
+    const { rerender } = render(
+      <I18nextProvider i18n={i18n}>
+        <IntegrationConfigFields kind="express" form={form} onChange={() => undefined} workspaceOnly={false} editing={false} />
+      </I18nextProvider>,
+    );
+    expect(screen.getByLabelText('eXpress on-call group chat ID')).toBeInTheDocument();
+
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <IntegrationConfigFields kind="express" form={form} onChange={() => undefined} workspaceOnly editing={false} />
+      </I18nextProvider>,
+    );
+    expect(screen.queryByLabelText('eXpress on-call group chat ID')).not.toBeInTheDocument();
   });
 });
