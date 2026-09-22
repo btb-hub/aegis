@@ -77,8 +77,8 @@ export function DashboardPage() {
       {loading ? (
         <p className="text-sm text-zinc-600">{t('dashboard.loading')}</p>
       ) : overview ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+          <section className="min-w-0 rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.mtta_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents?status=acknowledged')}>
@@ -102,7 +102,7 @@ export function DashboardPage() {
             />
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <section className="min-w-0 rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.mttr_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents?status=resolved')}>
@@ -126,7 +126,7 @@ export function DashboardPage() {
             />
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <section className="min-w-0 rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.noise_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/alerts')}>
@@ -138,10 +138,11 @@ export function DashboardPage() {
             ) : (
               <ul className="space-y-2 text-sm">
                 {overview.noise.items.map((item) => (
-                  <li key={item.fingerprint} className="flex items-center justify-between gap-2">
+                  <li key={item.fingerprint} className="flex min-w-0 items-center justify-between gap-2">
                     <button
                       type="button"
-                      className="truncate text-left text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      className="min-w-0 flex-1 truncate text-left text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                      title={item.title}
                       onClick={() => navigate(`/alerts?q=${encodeURIComponent(item.title)}`)}
                     >
                       {item.title}
@@ -153,7 +154,7 @@ export function DashboardPage() {
             )}
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <section className="min-w-0 rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.load_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents')}>
@@ -165,7 +166,7 @@ export function DashboardPage() {
             ) : (
               <ul className="space-y-2 text-sm">
                 {overview.on_call_load.items.map((item) => (
-                  <li key={item.user_id} className="flex items-center justify-between gap-2">
+                  <li key={item.user_id} className="flex min-w-0 items-center justify-between gap-2">
                     <span className="truncate text-zinc-900">{item.display_name || item.email}</span>
                     <span className="shrink-0 text-zinc-600">
                       {t('dashboard.page_count', { count: item.page_count })}
@@ -176,7 +177,7 @@ export function DashboardPage() {
             )}
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <section className="min-w-0 rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.handoff_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents')}>
@@ -191,7 +192,7 @@ export function DashboardPage() {
             </p>
           </section>
 
-          <section className="rounded-lg border border-zinc-200 bg-white p-4">
+          <section className="min-w-0 rounded-lg border border-zinc-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-zinc-900">{t('dashboard.escalation_title')}</h2>
               <Button variant="ghost" onClick={() => navigate('/incidents?status=open')}>

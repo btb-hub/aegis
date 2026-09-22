@@ -125,6 +125,29 @@ describe('IncidentDetail', () => {
     ).toBeInTheDocument();
   });
 
+  it('separates the incident summary from raw alert context', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <IncidentDetail
+          incident={{
+            ...incident,
+            title: 'HelmRelease is not ready > 10 min. Where: alertname: FluxHelmReleaseNotReady namespace: flux-system',
+          }}
+          teams={teams}
+          canBounce={false}
+          onAcknowledge={vi.fn()}
+          onResolve={vi.fn()}
+          onHandoff={vi.fn()}
+          onBounce={vi.fn()}
+        />
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'HelmRelease is not ready > 10 min.' })).toBeInTheDocument();
+    expect(screen.getByText('Alert context')).toBeInTheDocument();
+    expect(screen.getByText(/FluxHelmReleaseNotReady/)).toBeInTheDocument();
+  });
+
   it('calls acknowledge handler', () => {
     const onAcknowledge = vi.fn();
     render(

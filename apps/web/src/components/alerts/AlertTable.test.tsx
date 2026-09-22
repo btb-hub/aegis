@@ -41,6 +41,37 @@ describe('AlertTable', () => {
     expect(onPageChange).toHaveBeenCalledWith(1);
     expect(onPageChange).toHaveBeenCalledWith(3);
   });
+
+  it('keeps long titles readable and expandable without stretching the table', () => {
+    const longTitle =
+      'HelmRelease is not in the Ready state. '.repeat(8) +
+      'generatorURL: /graph?g0.expr=gotk_resource_info%7Bcustomresource_group%3Dhelm.toolkit.fluxcd.io%7D';
+
+    renderWithI18n(
+      <AlertTable
+        items={[{ ...alert, title: longTitle }]}
+        total={1}
+        page={1}
+        pageSize={25}
+        onPageChange={vi.fn()}
+      />,
+    );
+
+    const title = screen.getByText(longTitle);
+    const toggle = screen.getByRole('button', { name: 'Show full alert' });
+
+    expect(screen.getByRole('table')).toHaveClass('table-fixed', '[width:max(100%,840px)]');
+    expect(title).toHaveClass('line-clamp-3', '[overflow-wrap:anywhere]');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(toggle);
+
+    expect(title).not.toHaveClass('line-clamp-3');
+    expect(screen.getByRole('button', { name: 'Show less' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
 });
 
 describe('AlertGroupTable', () => {

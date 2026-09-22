@@ -14,6 +14,7 @@ type DataTableProps<T> = {
   rowKey: (row: T) => string;
   emptyMessage: string;
   compact?: boolean;
+  tableClassName?: string;
 };
 
 export function DataTable<T>({
@@ -22,17 +23,19 @@ export function DataTable<T>({
   rowKey,
   emptyMessage,
   compact = false,
+  tableClassName = '',
 }: DataTableProps<T>) {
   const rowClass = compact ? 'py-2' : 'py-3';
 
   return (
-    <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-      <table className="min-w-full divide-y divide-zinc-200 text-sm">
+    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+      <table className={`min-w-full divide-y divide-zinc-200 text-sm ${tableClassName}`.trim()}>
         <thead className="bg-zinc-50 text-left text-zinc-600">
           <tr>
             {columns.map((column) => (
               <th
                 key={column.key}
+                scope="col"
                 className={`px-4 py-3 font-medium ${column.headerClassName ?? ''}`.trim()}
               >
                 {column.header}

@@ -178,7 +178,7 @@ export function IncidentsPage() {
       {loading ? (
         <p className="text-sm text-zinc-600">{t('incidents.loading')}</p>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1.35fr)]">
           <IncidentList
             incidents={incidents}
             statusFilter={statusFilter}
@@ -187,7 +187,7 @@ export function IncidentsPage() {
             selectedId={selectedId}
           />
           {detailLoading ? (
-            <p className="rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">
+            <p className="min-w-0 rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">
               {t('incidents.loading_detail')}
             </p>
           ) : selectedIncident ? (
@@ -207,7 +207,7 @@ export function IncidentsPage() {
               onBounce={(id, note) => void runAction(() => bounceIncident(id, note), id)}
             />
           ) : (
-            <p className="rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">
+            <p className="min-w-0 rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">
               {t('incidents.select_prompt')}
             </p>
           )}
