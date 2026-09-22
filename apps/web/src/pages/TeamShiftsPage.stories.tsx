@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AppShell } from '../components/layout/AppShell';
+import { AuthProvider } from '../context/AuthContext';
 import type { CalendarOverride, CalendarSlot, OnCallUser } from '../lib/shiftsTypes';
 import { TeamShiftsPage } from './TeamShiftsPage';
 
@@ -59,6 +61,15 @@ const meta: Meta<typeof TeamShiftsPage> = {
     overrides,
     month: june2026,
   },
+  decorators: [
+    (Story) => (
+      <MemoryRouter>
+        <AuthProvider>
+          <Story />
+        </AuthProvider>
+      </MemoryRouter>
+    ),
+  ],
 };
 
 export default meta;

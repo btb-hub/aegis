@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { MemoryRouter } from 'react-router-dom';
+import { AuthProvider } from '../../context/AuthContext';
 import { SeverityTag } from '../ui/SeverityTag';
 import { Button } from '../ui/Button';
 import { AppShell } from './AppShell';
@@ -14,7 +15,9 @@ const meta: Meta<typeof AppShell> = {
   decorators: [
     (Story) => (
       <MemoryRouter>
-        <Story />
+        <AuthProvider>
+          <Story />
+        </AuthProvider>
       </MemoryRouter>
     ),
   ],

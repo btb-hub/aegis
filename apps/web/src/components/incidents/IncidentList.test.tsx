@@ -82,4 +82,25 @@ describe('IncidentList', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));
     expect(onStatusFilterChange).toHaveBeenCalledWith('open');
   });
+
+  it('keeps alert metadata out of the scannable list title', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <IncidentList
+          incidents={[
+            {
+              ...incidents[0],
+              title: 'HelmRelease is not ready > 10 min. Where: alertname: FluxHelmReleaseNotReady namespace: flux-system',
+            },
+          ]}
+          statusFilter="all"
+          onStatusFilterChange={() => undefined}
+          onSelect={() => undefined}
+        />
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByText('HelmRelease is not ready > 10 min.')).toBeInTheDocument();
+    expect(screen.queryByText(/FluxHelmReleaseNotReady/)).not.toBeInTheDocument();
+  });
 });

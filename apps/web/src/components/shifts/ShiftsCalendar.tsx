@@ -84,43 +84,45 @@ export function ShiftsCalendar({ month, slots, overrides }: ShiftsCalendarProps)
   return (
     <section aria-label={t('shifts.calendar_title')}>
       <h2 className="mb-4 text-xl font-semibold">{monthLabel}</h2>
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200">
-        {weekdays.map((label) => (
-          <div key={label} className="bg-white px-2 py-2 text-center text-xs font-medium text-zinc-500">
-            {label}
-          </div>
-        ))}
-        {cells.map((cell) => {
-          const isToday = sameDay(cell.date, today);
-          return (
-            <div
-              key={cell.date.toISOString()}
-              className={`min-h-24 bg-white p-2 ${cell.inMonth ? '' : 'bg-zinc-50 text-zinc-400'}`}
-            >
-              <div className={`text-sm font-medium ${isToday ? 'text-accent' : ''}`}>{cell.date.getUTCDate()}</div>
-              <ul className="mt-1 space-y-1">
-                {cell.slots.map((slot) => (
-                  <li
-                    key={slot.id}
-                    className="truncate rounded bg-surface px-1 py-0.5 text-xs text-zinc-700"
-                    title={slot.displayName}
-                  >
-                    {slot.displayName}
-                  </li>
-                ))}
-                {cell.overrides.map((override) => (
-                  <li
-                    key={override.id}
-                    className="truncate rounded bg-accent/10 px-1 py-0.5 text-xs font-medium text-accent"
-                    title={override.displayName}
-                  >
-                    {override.displayName}
-                  </li>
-                ))}
-              </ul>
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-200">
+        <div className="grid min-w-[700px] grid-cols-7 gap-px">
+          {weekdays.map((label) => (
+            <div key={label} className="bg-white px-2 py-2 text-center text-xs font-medium text-zinc-500">
+              {label}
             </div>
-          );
-        })}
+          ))}
+          {cells.map((cell) => {
+            const isToday = sameDay(cell.date, today);
+            return (
+              <div
+                key={cell.date.toISOString()}
+                className={`min-h-24 bg-white p-2 ${cell.inMonth ? '' : 'bg-zinc-50 text-zinc-400'}`}
+              >
+                <div className={`text-sm font-medium ${isToday ? 'text-accent' : ''}`}>{cell.date.getUTCDate()}</div>
+                <ul className="mt-1 space-y-1">
+                  {cell.slots.map((slot) => (
+                    <li
+                      key={slot.id}
+                      className="truncate rounded bg-surface px-1 py-0.5 text-xs text-zinc-700"
+                      title={slot.displayName}
+                    >
+                      {slot.displayName}
+                    </li>
+                  ))}
+                  {cell.overrides.map((override) => (
+                    <li
+                      key={override.id}
+                      className="truncate rounded bg-accent/10 px-1 py-0.5 text-xs font-medium text-accent"
+                      title={override.displayName}
+                    >
+                      {override.displayName}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

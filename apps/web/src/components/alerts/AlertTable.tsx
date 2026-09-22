@@ -1,3 +1,4 @@
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AlertGroup, AlertItem } from '../../lib/alertTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
@@ -27,6 +28,64 @@ function formatDate(value: string, locale: string) {
   }).format(new Date(value));
 }
 
+function AlertTitle({ title }: { title: string }) {
+  const { t } = useTranslation();
+  const titleId = useId();
+  const titleRef = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(title.length > 160);
+
+  useLayoutEffect(() => {
+    if (expanded) {
+      return undefined;
+    }
+
+    const titleElement = titleRef.current;
+    if (!titleElement) {
+      return undefined;
+    }
+
+    const measureOverflow = () => {
+      if (titleElement.scrollHeight > 0) {
+        setCanExpand(titleElement.scrollHeight > titleElement.clientHeight + 1);
+      }
+    };
+
+    measureOverflow();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const resizeObserver = new ResizeObserver(measureOverflow);
+    resizeObserver.observe(titleElement);
+    return () => resizeObserver.disconnect();
+  }, [expanded, title]);
+
+  return (
+    <div className="min-w-0 max-w-full">
+      <p
+        ref={titleRef}
+        id={titleId}
+        className={`${expanded ? '' : 'line-clamp-3'} whitespace-normal break-words leading-5 [overflow-wrap:anywhere]`}
+      >
+        {title}
+      </p>
+      {canExpand ? (
+        <button
+          type="button"
+          className="mt-1 rounded-sm text-xs font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          aria-controls={titleId}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded ? t('alerts.title.show_less') : t('alerts.title.show_full')}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function AlertTable({ items, total, page, pageSize, onPageChange }: AlertTableProps) {
   const { t, i18n } = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -34,10 +93,13 @@ export function AlertTable({ items, total, page, pageSize, onPageChange }: Alert
   return (
     <div className="space-y-3">
       <DataTable
+        tableClassName="table-fixed [width:max(100%,840px)]"
         columns={[
           {
             key: 'severity',
             header: t('alerts.column.severity'),
+            headerClassName: 'w-36',
+            cellClassName: 'align-top',
             render: (alert) => (
               <SeverityTag
                 severity={severityToTag(alert.severity)}
@@ -48,12 +110,14 @@ export function AlertTable({ items, total, page, pageSize, onPageChange }: Alert
           {
             key: 'title',
             header: t('alerts.column.title'),
-            cellClassName: 'font-medium text-zinc-900',
-            render: (alert) => alert.title,
+            cellClassName: 'align-top font-medium text-zinc-900',
+            render: (alert) => <AlertTitle title={alert.title} />,
           },
           {
             key: 'status',
             header: t('alerts.column.status'),
+            headerClassName: 'w-32',
+            cellClassName: 'align-top',
             render: (alert) => (
               <StatusTag
                 variant={alertStatusVariant(alert.status)}
@@ -64,7 +128,8 @@ export function AlertTable({ items, total, page, pageSize, onPageChange }: Alert
           {
             key: 'received_at',
             header: t('alerts.column.received_at'),
-            cellClassName: 'text-zinc-600',
+            headerClassName: 'w-48',
+            cellClassName: 'whitespace-nowrap align-top text-zinc-600',
             render: (alert) => formatDate(alert.received_at, i18n.language),
           },
         ]}

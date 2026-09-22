@@ -4,7 +4,7 @@ import { DataTable } from './DataTable';
 
 describe('DataTable', () => {
   it('renders rows and empty state', () => {
-    const { rerender } = render(
+    const { container, rerender } = render(
       <DataTable
         columns={[{ key: 'name', header: 'Name', render: (row: { name: string }) => row.name }]}
         rows={[{ name: 'Platform' }]}
@@ -13,6 +13,7 @@ describe('DataTable', () => {
       />,
     );
     expect(screen.getByText('Platform')).toBeInTheDocument();
+    expect(container.querySelector('table')?.parentElement).toHaveClass('overflow-x-auto');
 
     rerender(
       <DataTable
@@ -23,5 +24,19 @@ describe('DataTable', () => {
       />,
     );
     expect(screen.getByText('No rows')).toBeInTheDocument();
+  });
+
+  it('applies table layout classes supplied by a feature table', () => {
+    render(
+      <DataTable
+        columns={[{ key: 'name', header: 'Name', render: (row: { name: string }) => row.name }]}
+        rows={[{ name: 'Platform' }]}
+        rowKey={(row) => row.name}
+        emptyMessage="No rows"
+        tableClassName="table-fixed [width:max(100%,840px)]"
+      />,
+    );
+
+    expect(screen.getByRole('table')).toHaveClass('table-fixed', '[width:max(100%,840px)]');
   });
 });

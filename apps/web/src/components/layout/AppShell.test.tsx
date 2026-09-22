@@ -77,6 +77,33 @@ describe('AppShell', () => {
     expect(onNavigate).toHaveBeenCalledWith('incidents');
   });
 
+  it('exposes the active navigation item to assistive technology', () => {
+    renderShell(
+      <AppShell currentPage="incidents" onNavigate={vi.fn()}>
+        <div>content</div>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Incidents' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens and closes the mobile navigation', () => {
+    renderShell(
+      <AppShell currentPage="shifts" onNavigate={vi.fn()}>
+        <div>content</div>
+      </AppShell>,
+    );
+
+    const openNavigation = screen.getByRole('button', { name: 'Open navigation' });
+    expect(openNavigation).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(openNavigation);
+    expect(openNavigation).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close navigation' })[0]);
+    expect(openNavigation).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('includes Workspaces in navigation', () => {
     renderShell(
       <AppShell currentPage="workspaces" onNavigate={vi.fn()}>
