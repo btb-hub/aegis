@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   createOverride,
   createSchedule,
+  calendarRangeUTC,
   deleteOverride,
   fetchCurrentOnCall,
   fetchOnCallCalendar,
@@ -19,7 +20,6 @@ import {
   mapApiCalendarSlots,
   mapApiToOnCallUsers,
   memberNameMap,
-  monthRangeUTC,
   updateSchedule,
   type ApiSchedule,
 } from '../lib/shiftsApi';
@@ -32,7 +32,7 @@ export function TeamShiftsRoute() {
   const { teamId = '' } = useParams();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [month] = useState(() => new Date());
+  const [month, setMonth] = useState(() => new Date());
   const [teamName, setTeamName] = useState('');
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [schedules, setSchedules] = useState<ApiSchedule[]>([]);
@@ -61,7 +61,7 @@ export function TeamShiftsRoute() {
         fetchTeamSchedules(teamId),
         fetchTeamOverrides(teamId),
         fetchCurrentOnCall(teamId),
-        Promise.resolve(monthRangeUTC(month)),
+        Promise.resolve(calendarRangeUTC(month)),
       ]);
       setTeamName(team.name);
       setCanPublish(Boolean(team.express_chat_id || team.slack_channel_id));
@@ -95,7 +95,7 @@ export function TeamShiftsRoute() {
   }, [teamId, month, t]);
 
   const refreshCalendar = useCallback(async () => {
-    const range = monthRangeUTC(month);
+    const range = calendarRangeUTC(month);
     const [current, calendar] = await Promise.all([
       fetchCurrentOnCall(teamId),
       fetchOnCallCalendar(teamId, range.from, range.to),
@@ -210,7 +210,7 @@ export function TeamShiftsRoute() {
   if (schedules.length === 0) {
     return (
       <div className="max-w-5xl space-y-4">
-        <h1 className="text-3xl font-semibold">{teamName}</h1>
+        <h1 className="text-2xl font-semibold leading-8">{teamName}</h1>
         <div className="rounded-lg border border-zinc-200 bg-surface px-4 py-6 text-sm text-zinc-700">
           <p>{t('shifts.no_schedule')}</p>
           <div className="mt-3 flex flex-wrap gap-3">
@@ -242,9 +242,6 @@ export function TeamShiftsRoute() {
           <Button variant="secondary" onClick={() => setScheduleModalOpen(true)}>
             {primarySchedule ? t('schedule.edit') : t('schedule.create')}
           </Button>
-          <Button variant="secondary" onClick={() => setOverrideModalOpen(true)}>
-            {t('override.create')}
-          </Button>
           {canPublish ? (
             <Button variant="secondary" disabled={publishing} onClick={() => void publishOnCall()}>
               {t('shifts.publish_now')}
@@ -258,6 +255,8 @@ export function TeamShiftsRoute() {
         slots={slots}
         overrides={calendarOverrides}
         month={month}
+        onDateChange={setMonth}
+        onAddOverride={isAdmin ? () => setOverrideModalOpen(true) : undefined}
       />
       {isAdmin ? (
         <>

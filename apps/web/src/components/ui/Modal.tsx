@@ -64,14 +64,16 @@ export function Modal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
-          className="pointer-events-auto relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-lg"
+          className="pointer-events-auto relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white shadow-2xl"
         >
-          <h2 id={titleId} className="text-lg font-semibold text-zinc-900">
-            {title}
-          </h2>
-          <div className="mt-4 space-y-4">{children}</div>
+          <div className="px-5 pt-5">
+            <h2 id={titleId} className="text-base font-semibold text-zinc-900">
+              {title}
+            </h2>
+          </div>
+          <div className="space-y-4 px-5 py-4">{children}</div>
           {primaryLabel || secondaryLabel ? (
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="flex justify-end gap-2 border-t border-zinc-100 px-5 py-3.5">
               {secondaryLabel ? (
                 <Button variant="secondary" onClick={onClose}>
                   {secondaryLabel}

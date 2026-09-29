@@ -8,9 +8,10 @@ import { TeamShiftsRoute } from './TeamShiftsRoute';
 
 function currentMonthSlot() {
   const start = new Date();
-  start.setUTCDate(1);
+  start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
   start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 8));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
   return { start_at: start.toISOString(), end_at: end.toISOString() };
 }
 

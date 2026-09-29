@@ -39,15 +39,27 @@ describe('ShiftsLandingPage', () => {
   });
 
   it('lists teams when multiple exist', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        items: [
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/v1/teams') {
+        return { ok: true, json: async () => ({ items: [
           { id: 'team-1', name: 'Platform', description: '', created_at: '', updated_at: '' },
           { id: 'team-2', name: 'Data', description: '', created_at: '', updated_at: '' },
-        ],
-      }),
-    } as Response);
+        ] }) } as Response;
+      }
+      if (url.includes('/members')) {
+        return { ok: true, json: async () => ({ items: [{ user_id: 'u1', display_name: 'Alice', email: 'alice@example.com' }] }) } as Response;
+      }
+      if (url.includes('/on-call/calendar')) {
+        const start = new Date();
+        start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+        start.setUTCHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setUTCDate(end.getUTCDate() + 7);
+        return { ok: true, json: async () => ({ items: [{ id: 's1', user_id: 'u1', start_at: start.toISOString(), end_at: end.toISOString(), source: 'rotation' }] }) } as Response;
+      }
+      return { ok: false, status: 404 } as Response;
+    });
 
     render(
       <I18nextProvider i18n={i18n}>
@@ -60,6 +72,7 @@ describe('ShiftsLandingPage', () => {
     const platformLinks = await screen.findAllByRole('link', { name: 'Platform' });
     expect(platformLinks.some((link) => link.getAttribute('href') === '/teams/team-1/shifts')).toBe(true);
     expect(screen.getByRole('link', { name: 'Data' })).toHaveAttribute('href', '/teams/team-2/shifts');
+    expect(await screen.findAllByText('Alice')).toHaveLength(2);
   });
 
   it('shows empty state when no teams exist', async () => {

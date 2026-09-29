@@ -13,7 +13,7 @@ const variantClass: Record<BannerVariant, string> = {
 
 export function Banner({ variant = 'info', children }: BannerProps) {
   return (
-    <div role="alert" className={`rounded-md border px-4 py-3 text-sm ${variantClass[variant]}`}>
+    <div role="alert" className={`rounded-lg border px-4 py-3 text-[13px] ${variantClass[variant]}`}>
       {children}
     </div>
   );
