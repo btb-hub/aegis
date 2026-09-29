@@ -33,7 +33,7 @@ No decorative bounce or playful motion during incidents.
 | P1 Critical | Highest severity | Red family (see canvas) |
 | P2 High | | Orange family |
 | P3 Moderate | | Amber family |
-| P4 Low | | Purple family |
+| P4 Low | | Blue family (`#2563EB` on `#EFF6FF`) |
 | Resolved | Success / cleared | `#16A34A` on `#F0FDF4` |
 
 ### Typography
@@ -42,9 +42,10 @@ No decorative bounce or playful motion during incidents.
 |------|------|-----|
 | UI / body | IBM Plex Sans | Interface copy, incident detail, descriptions |
 | Data / labels | IBM Plex Mono | IDs, metrics, overlines, timestamps |
-| Display H1 | Plex Sans 32/40 · 600 | Page titles |
-| H2 | 24/32 · 600 | Section headings |
-| H3 | 18/26 · 600 | Subheads |
+| Display | Plex Sans 32/40 · 600 | Display text |
+| H1 | 24/32 · 600 | Page titles |
+| H2 | 18/26 · 600 | Section headings |
+| H3 | 14/20 · 600 | Subheads |
 | Body | 14/21 · 400 | Default reading size |
 | Caption | 12/16 · 400 | Helper text |
 | Overline | 11/16 · 500 mono | Section labels, uppercase |

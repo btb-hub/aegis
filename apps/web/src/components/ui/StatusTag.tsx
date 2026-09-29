@@ -17,7 +17,8 @@ type StatusTagProps = {
 
 export function StatusTag({ variant, label }: StatusTagProps) {
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${styles[variant]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.04em] leading-4 ${styles[variant]}`}>
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
       {label}
     </span>
   );

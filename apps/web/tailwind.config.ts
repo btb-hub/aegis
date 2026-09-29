@@ -10,7 +10,7 @@ export default {
         'severity-p1': '#DC2626',
         'severity-p2': '#EA580C',
         'severity-p3': '#D97706',
-        'severity-p4': '#9333EA',
+        'severity-p4': '#2563EB',
         resolved: '#16A34A',
       },
       fontFamily: {

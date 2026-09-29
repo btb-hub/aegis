@@ -11,6 +11,8 @@ type TeamShiftsPageProps = {
   slots: CalendarSlot[];
   overrides: CalendarOverride[];
   month?: Date;
+  onDateChange?: (date: Date) => void;
+  onAddOverride?: () => void;
 };
 
 export function TeamShiftsPage({
@@ -19,6 +21,8 @@ export function TeamShiftsPage({
   slots,
   overrides,
   month = new Date(),
+  onDateChange,
+  onAddOverride,
 }: TeamShiftsPageProps) {
   const { t } = useTranslation();
 
@@ -37,7 +41,7 @@ export function TeamShiftsPage({
         }}
       />
       <OnCallBanner users={onCallUsers} />
-      <ShiftsCalendar month={month} slots={slots} overrides={overrides} />
+      <ShiftsCalendar month={month} teamName={teamName} slots={slots} overrides={overrides} onDateChange={onDateChange} onAddOverride={onAddOverride} />
     </PageContent>
   );
 }

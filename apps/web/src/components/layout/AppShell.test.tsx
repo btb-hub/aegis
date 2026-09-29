@@ -84,7 +84,9 @@ describe('AppShell', () => {
       </AppShell>,
     );
 
-    expect(screen.getByRole('button', { name: 'Incidents' })).toHaveAttribute('aria-current', 'page');
+    const activeItem = screen.getByRole('button', { name: 'Incidents' });
+    expect(activeItem).toHaveAttribute('aria-current', 'page');
+    expect(activeItem).toHaveClass('bg-blue-50', 'text-blue-700');
   });
 
   it('opens and closes the mobile navigation', () => {

@@ -5,4 +5,6 @@
 body {
   margin: 0;
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 21px;
 }

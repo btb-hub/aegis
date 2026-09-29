@@ -45,6 +45,12 @@ export function monthRangeUTC(month: Date): { from: string; to: string } {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+export function calendarRangeUTC(anchor: Date): { from: string; to: string } {
+  const from = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth(), -6));
+  const to = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + 1, 15));
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }

@@ -25,6 +25,29 @@ type AppShellProps = {
   onSignOut?: () => void | Promise<void>;
 };
 
+const navigationIcons: Record<AppPage, ReactNode> = {
+  dashboard: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
+  alerts: <><path d="M12 3 22 20H2L12 3Z" /><path d="M12 10v4" /><circle cx="12" cy="17" r=".7" fill="currentColor" /></>,
+  incidents: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5" /><circle cx="12" cy="16" r=".7" fill="currentColor" /></>,
+  shifts: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l4 2" /></>,
+  integrations: <><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /><path d="M11 7.5h4a2 2 0 0 1 2 2V13" /></>,
+  teams: <><circle cx="9" cy="8" r="3" /><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5v1" /></>,
+  workspaces: <><rect x="3" y="5" width="18" height="15" rx="2" /><path d="M8 5V3h8v2M3 11h18" /></>,
+  setup: <><path d="M4 7h16M4 12h16M4 17h16" /><circle cx="9" cy="7" r="2" fill="white" /><circle cx="15" cy="12" r="2" fill="white" /><circle cx="8" cy="17" r="2" fill="white" /></>,
+  users: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
+};
+
+function Brand() {
+  return <span className="inline-flex items-center gap-2.5 font-bold text-zinc-900">
+    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3 19 5.5V11c0 4.4-3 8-7 10-4-2-7-5.6-7-10V5.5L12 3Z" />
+      </svg>
+    </span>
+    Aegis
+  </span>;
+}
+
 export function AppShell({ children, currentPage = 'shifts', onNavigate, user, onSignOut }: AppShellProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -66,14 +89,16 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
   const renderNavigationItems = (closeAfterNavigation: boolean) =>
     navItems.map((item) => {
       const active = currentPage === item.id;
+      const classes = `flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] ${
+        active ? 'bg-blue-50 font-semibold text-blue-700' : 'font-medium text-zinc-500 hover:bg-white hover:text-zinc-900'
+      }`;
+      const content = <><svg aria-hidden="true" viewBox="0 0 24 24" className="h-[17px] w-[17px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">{navigationIcons[item.id]}</svg><span>{item.label}</span></>;
       if (onNavigate) {
         return (
           <button
             key={item.id}
             type="button"
-            className={`block w-full rounded-md px-3 py-2 text-left font-medium ${
-              active ? 'bg-surface-muted text-zinc-900' : 'text-zinc-600 hover:bg-zinc-50'
-            }`}
+            className={classes}
             aria-current={active ? 'page' : undefined}
             onClick={() => {
               if (closeAfterNavigation) {
@@ -82,7 +107,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
               onNavigate(item.id);
             }}
           >
-            {item.label}
+            {content}
           </button>
         );
       }
@@ -90,20 +115,20 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
       return (
         <div
           key={item.id}
-          className={`rounded-md px-3 py-2 font-medium ${active ? 'bg-surface-muted text-zinc-900' : ''}`}
+          className={classes}
         >
-          {item.label}
+          {content}
         </div>
       );
     });
 
   return (
     <div className="min-h-screen bg-zinc-50 lg:flex">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-200 bg-white lg:flex">
-        <div className="flex h-14 items-center border-b border-zinc-200 px-4 font-semibold">
-          {t('app.title')}
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 lg:flex">
+        <div className="flex h-14 items-center border-b border-zinc-200 px-4">
+          <Brand />
         </div>
-        <nav className="space-y-1 p-3 text-sm text-zinc-600">{renderNavigationItems(false)}</nav>
+        <nav className="space-y-0.5 p-3">{renderNavigationItems(false)}</nav>
       </aside>
       {navigationOpen ? (
         <>
@@ -115,10 +140,10 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
           />
           <aside
             id="primary-navigation"
-            className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-zinc-200 bg-white shadow-xl lg:hidden"
+            className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-zinc-200 bg-zinc-50 shadow-xl lg:hidden"
           >
             <div className="flex h-14 items-center justify-between border-b border-zinc-200 px-4 font-semibold">
-              <span>{t('app.title')}</span>
+              <Brand />
               <button
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
@@ -137,7 +162,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
                 </svg>
               </button>
             </div>
-            <nav className="space-y-1 p-3 text-sm text-zinc-600">{renderNavigationItems(true)}</nav>
+            <nav className="space-y-0.5 p-3">{renderNavigationItems(true)}</nav>
             <div className="mt-auto border-t border-zinc-200 p-3">
               <LanguageSwitcher />
             </div>
@@ -158,7 +183,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
               <path d="M3 5h14M3 10h14M3 15h14" strokeLinecap="round" />
             </svg>
           </button>
-          <span className="font-semibold lg:hidden">{t('app.title')}</span>
+          <span className="lg:hidden"><Brand /></span>
           {user ? (
             <div className="ml-auto flex min-w-0 items-center gap-1 text-sm text-zinc-700 sm:gap-2 lg:ml-0 lg:gap-3">
               <Link
