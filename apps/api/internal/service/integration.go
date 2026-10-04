@@ -308,6 +308,45 @@ func (s *IntegrationService) resolveConfigForTest(ctx context.Context, item db.I
 	return result.Config, nil
 }
 
+// SlackSigningSecret uses the same workspace resolution rules as outbound paging.
+// It reads the saved configuration on every callback so rotation needs no restart.
+func (s *IntegrationService) SlackSigningSecret(ctx context.Context, workspaceID uuid.UUID) (string, error) {
+	item, err := s.repo.GetWorkspaceIntegration(ctx, workspaceID, "slack")
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", integrationResolveError("slack", resolve.ReasonSlotMissing)
+	}
+	if err != nil {
+		return "", err
+	}
+	mode, err := workspaceIntegrationMode(item.Mode, nil)
+	if err != nil {
+		return "", err
+	}
+	var globalSlot *resolve.Slot
+	if mode == "inherit" && item.Enabled {
+		global, err := s.repo.GetIntegrationByKind(ctx, "slack")
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return "", err
+		}
+		if err == nil {
+			globalSlot = &resolve.Slot{Enabled: global.Enabled, Config: global.Config}
+		}
+	}
+	result := resolve.Resolve(resolve.Input{
+		Kind:   "slack",
+		Slot:   &resolve.Slot{Mode: mode, Enabled: item.Enabled, Config: item.Config},
+		Global: globalSlot,
+	})
+	if !result.OK {
+		return "", integrationResolveError("slack", result.Reason)
+	}
+	var cfg intslack.Config
+	if err := json.Unmarshal(result.Config, &cfg); err != nil {
+		return "", apperrors.Validation("invalid slack config", nil)
+	}
+	return cfg.SigningSecret, nil
+}
+
 func integrationResolveError(kind, reason string) error {
 	var message string
 	switch reason {

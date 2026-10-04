@@ -656,3 +656,81 @@ func TestTimelineEventJSON(t *testing.T) {
 	})
 	require.Equal(t, "created", out["kind"])
 }
+
+// Faults at repository boundaries verify that resolution does not hide outages
+// or depend on a global connector for an independent Custom slot.
+type slackSecretRepo struct {
+	*integrationMockRepo
+	slotErr, globalErr error
+}
+
+func (r *slackSecretRepo) GetWorkspaceIntegration(ctx context.Context, id uuid.UUID, kind string) (db.Integration, error) {
+	if r.slotErr != nil {
+		return db.Integration{}, r.slotErr
+	}
+	return r.integrationMockRepo.GetWorkspaceIntegration(ctx, id, kind)
+}
+func (r *slackSecretRepo) GetIntegrationByKind(ctx context.Context, kind string) (db.Integration, error) {
+	if r.globalErr != nil {
+		return db.Integration{}, r.globalErr
+	}
+	return r.integrationMockRepo.GetIntegrationByKind(ctx, kind)
+}
+
+func TestSlackSigningSecretResolution(t *testing.T) {
+	workspaceID, otherWorkspace := uuid.New(), uuid.New()
+	for _, tc := range []struct {
+		name, mode, slotConfig, globalConfig             string
+		slotEnabled, globalEnabled, omitSlot, omitGlobal bool
+		wantSecret, wantReason                           string
+		slotErr, globalErr                               error
+	}{
+		{name: "inherit", mode: "inherit", slotEnabled: true, globalEnabled: true, slotConfig: `{}`, globalConfig: `{"bot_token":"global-token","signing_secret":"global-secret"}`, wantSecret: "global-secret"},
+		{name: "default mode inherits", slotEnabled: true, globalEnabled: true, slotConfig: `{}`, globalConfig: `{"bot_token":"global-token","signing_secret":"global-secret"}`, wantSecret: "global-secret"},
+		{name: "custom independent of global failure", mode: "custom", slotEnabled: true, slotConfig: `{"bot_token":"custom-token","signing_secret":"custom-secret"}`, globalErr: pgx.ErrTxClosed, wantSecret: "custom-secret"},
+		{name: "missing slot", omitSlot: true, wantReason: "slot_missing"},
+		{name: "disabled slot", mode: "inherit", globalErr: pgx.ErrTxClosed, wantReason: "slot_disabled"},
+		{name: "missing global", mode: "inherit", slotEnabled: true, omitGlobal: true, wantReason: "no_global"},
+		{name: "disabled global", mode: "inherit", slotEnabled: true, wantReason: "global_disabled"},
+		{name: "incomplete global", mode: "inherit", slotEnabled: true, globalEnabled: true, slotConfig: `{}`, globalConfig: `{"signing_secret":"global-secret"}`, wantReason: "custom_incomplete"},
+		{name: "incomplete custom", mode: "custom", slotEnabled: true, slotConfig: `{"signing_secret":"custom-secret"}`, wantReason: "custom_incomplete"},
+		{name: "malformed custom", mode: "custom", slotEnabled: true, slotConfig: `{`, wantReason: "custom_incomplete"},
+		{name: "malformed inherited overlay", mode: "inherit", slotEnabled: true, globalEnabled: true, slotConfig: `{`, globalConfig: `{"bot_token":"global-token","signing_secret":"global-secret"}`, wantReason: "custom_incomplete"},
+		{name: "slot lookup error", slotErr: pgx.ErrTxClosed},
+		{name: "global lookup error", mode: "inherit", slotEnabled: true, globalErr: pgx.ErrTxClosed},
+		{name: "invalid mode", mode: "invalid", slotEnabled: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Another workspace must never supply a missing slot or credentials.
+			repo := &slackSecretRepo{integrationMockRepo: &integrationMockRepo{items: []db.Integration{
+				{ID: uuid.New(), Kind: "slack", Enabled: true, WorkspaceID: &otherWorkspace, Config: []byte(`{"bot_token":"other","signing_secret":"other-secret"}`)},
+			}}, slotErr: tc.slotErr, globalErr: tc.globalErr}
+			if !tc.omitSlot {
+				var mode *string
+				if tc.mode != "" {
+					mode = &tc.mode
+				}
+				repo.items = append(repo.items, db.Integration{ID: uuid.New(), Kind: "slack", Enabled: tc.slotEnabled, WorkspaceID: &workspaceID, Mode: mode, Config: []byte(tc.slotConfig)})
+			}
+			if !tc.omitGlobal {
+				repo.items = append(repo.items, db.Integration{ID: uuid.New(), Kind: "slack", Enabled: tc.globalEnabled, Config: []byte(tc.globalConfig)})
+			}
+			secret, err := NewIntegrationService(repo, "https://aegis.example").SlackSigningSecret(context.Background(), workspaceID)
+			require.Equal(t, tc.wantSecret, secret)
+			if tc.wantSecret != "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			if tc.wantReason != "" {
+				var appErr *apperrors.Error
+				require.ErrorAs(t, err, &appErr)
+				require.Equal(t, tc.wantReason, appErr.Details["reason"])
+			} else if tc.slotErr != nil || tc.globalErr != nil {
+				require.ErrorIs(t, err, pgx.ErrTxClosed)
+			} else {
+				require.Contains(t, err.Error(), "mode must be")
+			}
+		})
+	}
+}

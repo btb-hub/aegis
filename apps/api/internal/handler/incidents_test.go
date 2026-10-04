@@ -21,6 +21,8 @@ import (
 )
 
 type phase2HandlerRepo struct {
+	cancelledEscalations []uuid.UUID
+	slackUserLookups int
 	teamRepoMock
 	incidents         map[uuid.UUID]db.Incident
 	events            map[uuid.UUID][]db.TimelineEvent
@@ -121,7 +123,10 @@ func (m *phase2HandlerRepo) ListAlertsForIncident(_ context.Context, incidentID 
 	}
 	return m.alerts[incidentID], nil
 }
-func (m *phase2HandlerRepo) CancelEscalationJobs(context.Context, uuid.UUID) error { return nil }
+func (m *phase2HandlerRepo) CancelEscalationJobs(_ context.Context, id uuid.UUID) error {
+	m.cancelledEscalations = append(m.cancelledEscalations, id)
+	return nil
+}
 
 func (m *phase2HandlerRepo) GetAlertByID(_ context.Context, id uuid.UUID) (db.Alert, error) {
 	if m.firingAlerts != nil {
@@ -186,6 +191,7 @@ func (m *phase2HandlerRepo) ManualCreateFromAlert(_ context.Context, input db.Ma
 	return db.ManualCreateFromAlertResult{Incident: incident, Created: true}, nil
 }
 func (m *phase2HandlerRepo) GetUserBySlackID(_ context.Context, slackUserID string) (db.User, error) {
+	m.slackUserLookups++
 	for _, user := range m.users {
 		if user.SlackUserID != nil && *user.SlackUserID == slackUserID {
 			return user, nil
@@ -487,7 +493,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	NewAnalyticsHandler(analytics, alerts, handoffs, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
-	NewSlackCallbackHandler(incidents, "secret").Register(r)
+	NewSlackCallbackHandler(incidents, integrationsSvc).Register(r)
 	NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
 	NewExpressLinkHandler(expressLinks, auth).Register(r)
 	return r, repo

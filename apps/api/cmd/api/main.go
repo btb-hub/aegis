@@ -78,7 +78,7 @@ func main() {
 	handler.NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	handler.NewSavedViewHandler(savedViews, auth).Register(r)
 	handler.NewAnalyticsHandler(analytics, alerts, handoffs, auth).Register(r)
-	handler.NewSlackCallbackHandler(incidents, cfg.SlackSigningSecret()).Register(r)
+	handler.NewSlackCallbackHandler(incidents, integrationsSvc).Register(r)
 	handler.NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
 	handler.NewExpressLinkHandler(expressLinks, auth).Register(r)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))

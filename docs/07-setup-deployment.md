@@ -231,7 +231,12 @@ See [Dev user seeds](#dev-user-seeds-local-only) below.
 ### Integrations (also storable per-row in DB after setup)
 
 - Jira: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`
-- Slack bot: `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`
+- Slack bot: configure through **Integrations → Configure Slack**, or a workspace's **Custom**
+  Slack slot. Save the installed app's Bot User OAuth Token and Signing Secret. Enable Slack
+  Interactivity with `https://<public-aegis-origin>/api/v1/callbacks/slack/interactive` (public HTTPS).
+  Outbound paging and callback verification read these saved integration rows. Setting only
+  `SLACK_BOT_TOKEN` / `SLACK_SIGNING_SECRET` does not replace saving the bot in the UI. Secret
+  rotation takes effect without an API restart. Slack OIDC settings above remain separate.
 - eXpress bot: `EXPRESS_BOT_ID`, `EXPRESS_BOT_HOST`, `EXPRESS_BOT_SECRET`
 
 ## Migrations

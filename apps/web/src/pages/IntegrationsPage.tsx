@@ -435,14 +435,22 @@ export function IntegrationsPage() {
       ) : null}
 
       {!loading && !loadError ? (
-        <section aria-label={t('integrations.slack_setup.title')} className="space-y-3 rounded-md border border-zinc-200 bg-white p-4">
+        <section
+          aria-label={t('integrations.slack_setup.title')}
+          className="space-y-3 rounded-md border border-zinc-200 bg-white p-4"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-zinc-900">{t('integrations.slack_setup.title')}</h2>
-            <StatusTag variant={slackStatus === 'configured' ? 'resolved' : 'neutral'} label={t(`integrations.slack_setup.${slackStatus}`)} />
+            <StatusTag
+              variant={slackStatus === 'configured' ? 'resolved' : 'neutral'}
+              label={t(`integrations.slack_setup.${slackStatus}`)}
+            />
           </div>
           <p className="text-sm text-zinc-600">{t('integrations.slack_setup.description')}</p>
           {!authLoading && (isAdmin ? (
-            <Button variant="secondary" onClick={configureSlack}>{t('integrations.slack_setup.configure')}</Button>
+            <Button variant="secondary" onClick={configureSlack}>
+              {t('integrations.slack_setup.configure')}
+            </Button>
           ) : (
             <p className="text-sm text-zinc-600">{t('integrations.slack_setup.admin_required')}</p>
           ))}
@@ -537,13 +545,13 @@ export function IntegrationsPage() {
                 <div className="flex flex-wrap gap-2">
                   {isAdmin ? (
                     <>
-                  <Button
-                    variant="secondary"
-                    disabled={!isAdmin || testingId === item.id}
-                    onClick={() => void testConnection(item.id)}
-                  >
-                    {testingId === item.id ? t('integrations.testing') : t('integrations.test_connection')}
-                  </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={testingId === item.id}
+                        onClick={() => void testConnection(item.id)}
+                      >
+                        {testingId === item.id ? t('integrations.testing') : t('integrations.test_connection')}
+                      </Button>
                       <Button variant="secondary" onClick={() => openEdit(item)}>
                         {t('integrations.configure')}
                       </Button>
