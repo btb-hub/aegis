@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -68,6 +69,7 @@ export function IntegrationsPage() {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [items, setItems] = useState<IntegrationItem[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -182,7 +184,7 @@ export function IntegrationsPage() {
     }
   };
 
-  const openEdit = (item: IntegrationItem) => {
+  const openEdit = useCallback((item: IntegrationItem) => {
     const kind = (['jira', 'slack', 'express'].includes(item.kind) ? item.kind : 'jira') as IntegrationKind;
     setEditor({
       mode: 'edit',
@@ -194,15 +196,25 @@ export function IntegrationsPage() {
       integrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
       savedIntegrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
     });
-  };
+  }, []);
 
-  const configureSlack = () => {
+  const configureSlack = useCallback(() => {
     if (globalSlack) {
       openEdit(globalSlack);
     } else {
       setEditor(emptyEditor('slack'));
     }
-  };
+  }, [globalSlack, openEdit]);
+
+  useEffect(() => {
+    if (loading || loadError || authLoading || !isAdmin || searchParams.get('configure') !== 'slack') {
+      return;
+    }
+    configureSlack();
+    const next = new URLSearchParams(searchParams);
+    next.delete('configure');
+    setSearchParams(next, { replace: true });
+  }, [loading, loadError, authLoading, isAdmin, searchParams, setSearchParams, configureSlack]);
 
   const changeIntegrationMode = (mode: IntegrationMode) => {
     setEditor((current) => {
@@ -618,6 +630,12 @@ export function IntegrationsPage() {
                 )}
               </p>
             </>
+          ) : null}
+          {editor.workspace_id && editor.kind === 'slack' && editor.integrationMode === 'inherit' ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-zinc-600">{t('workspaces.integrations.slack_inherit_help')}</p>
+              <Link className="text-accent hover:underline" to="/integrations?configure=slack">{t('workspaces.integrations.configure_global_slack')}</Link>
+            </div>
           ) : null}
           <IntegrationConfigFields
             kind={editor.kind}

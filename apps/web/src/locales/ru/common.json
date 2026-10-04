@@ -604,5 +604,7 @@
   "integrations.slack_setup.callback_url": "URL запросов интерактивности Slack",
   "integrations.slack_setup.interactivity_help": "Включите Interactivity в приложении Slack и вставьте этот Request URL. Slack должен иметь доступ к нему по HTTPS. Настройка бота выполняется отдельно от входа через Slack.",
   "integrations.slack_setup.test_help": "Проверка подключения проверяет токен бота. После настройки проверьте доставку сообщений и кнопки подтверждения в Slack.",
-  "integrations.admin_required": "Только администраторы могут настраивать интеграции и проверять подключения."
+  "integrations.admin_required": "Только администраторы могут настраивать интеграции и проверять подключения.",
+  "workspaces.integrations.slack_inherit_help": "Режим наследования использует глобального бота Slack. Выберите собственный режим, чтобы использовать отдельного бота для этого рабочего пространства.",
+  "workspaces.integrations.configure_global_slack": "Настроить глобальный Slack"
 }

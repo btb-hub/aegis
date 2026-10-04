@@ -604,5 +604,7 @@
   "integrations.slack_setup.callback_url": "Slack interactivity request URL",
   "integrations.slack_setup.interactivity_help": "Enable Interactivity in your Slack app and paste this Request URL. Slack must be able to reach it over HTTPS. Bot setup is separate from Sign in with Slack.",
   "integrations.slack_setup.test_help": "Test connection checks the bot token. Verify message delivery and Acknowledge buttons in Slack after setup.",
-  "integrations.admin_required": "Only administrators can configure integrations or test connections."
+  "integrations.admin_required": "Only administrators can configure integrations or test connections.",
+  "workspaces.integrations.slack_inherit_help": "Inherit uses the global Slack bot. Choose Custom to use a separate bot for this workspace.",
+  "workspaces.integrations.configure_global_slack": "Configure global Slack"
 }

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../context/AuthContext';
 import i18n from '../i18n';
@@ -32,12 +32,18 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
-function renderPage() {
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="Current URL">{location.pathname}{location.search}</output>;
+}
+
+function renderPage(initialEntry = '/integrations') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <I18nextProvider i18n={i18n}>
         <AuthProvider>
           <IntegrationsPage />
+          <LocationProbe />
         </AuthProvider>
       </I18nextProvider>
     </MemoryRouter>,
@@ -160,6 +166,52 @@ describe('IntegrationsPage', () => {
     renderPage();
     await screen.findByRole('alert');
     expect(screen.queryByRole('button', { name: 'Configure Slack' })).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])('opens the Slack deep link once (existing bot: %s)', async (exists) => {
+    mockFetch({ items: exists ? [slackIntegration] : [] });
+    renderPage('/integrations?configure=slack&keep=value');
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByLabelText(/^Slack bot token/)).toBeInTheDocument();
+    expect(dialog.getByRole('combobox', { name: 'Kind' })).toHaveProperty('disabled', exists);
+    await waitFor(() => expect(screen.getByLabelText('Current URL')).toHaveTextContent('/integrations?keep=value'));
+    fireEvent.click(dialog.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    if (exists) {
+      fireEvent.click(screen.getByRole('button', { name: 'Disable' }));
+      await screen.findByText('Integration disabled');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }
+  });
+
+  it('waits for admin identity before opening the Slack deep link', async () => {
+    let resolveAuth!: (response: Response) => void;
+    const auth = new Promise<Response>((resolve) => { resolveAuth = resolve; });
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input) === '/auth/me' ? auth : jsonResponse({ items: [] }),
+    );
+    renderPage('/integrations?configure=slack');
+    await screen.findByText('No integrations yet. Add Jira, Slack, or eXpress with credentials on this page.');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    resolveAuth(authAdmin('/auth/me') as Response);
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Slack bot token');
+  });
+
+  it('keeps a failed Slack deep link closed', async () => {
+    mockFetch({}, 500);
+    renderPage('/integrations?configure=slack');
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('does not open a Slack deep link for a member', async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => String(input) === '/auth/me'
+      ? jsonResponse({ id: 'member-1', role: 'member', locale: 'en' })
+      : jsonResponse({ items: [] }),
+    );
+    renderPage('/integrations?configure=slack');
+    await screen.findByText('Ask an administrator to configure Slack.');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('shows breadcrumb navigation back to shifts', async () => {

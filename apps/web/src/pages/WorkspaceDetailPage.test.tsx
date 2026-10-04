@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -909,6 +909,55 @@ describe('WorkspaceDetailPage', () => {
     expect(screen.getByLabelText('Mode')).toHaveValue('inherit');
     expect(screen.getByLabelText('Jira project key')).toHaveValue('OPS');
     expect(screen.queryByLabelText('Jira base URL')).not.toBeInTheDocument();
+  });
+
+  it('links inherited Slack setup and saves separate workspace credentials in Custom mode', async () => {
+    let mode = 'inherit';
+    let config: Record<string, string> = {};
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === '/auth/me') {return jsonResponse({ id: 'admin-1', role: 'admin', locale: 'en' });}
+      if (url === `/api/v1/workspaces/${workspaceId}`) {return jsonResponse({ id: workspaceId, name: 'Default', slug: 'default', description: '' });}
+      if (url === '/api/v1/integrations/slack-slot' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body));
+        mode = body.mode;
+        config = body.config;
+        return jsonResponse({ id: 'slack-slot' });
+      }
+      if (url === '/api/v1/integrations') {return jsonResponse({ items: [{
+        id: 'slack-slot', workspace_id: workspaceId, kind: 'slack', name: 'Slack',
+        enabled: true, mode, config, slot_status: mode === 'inherit' ? 'missing' : 'ready',
+      }] });}
+      return jsonResponse({ items: [] });
+    });
+    renderPage();
+    const slackRow = (await screen.findByText('Slack')).closest('tr') as HTMLElement;
+    fireEvent.click(within(slackRow).getByRole('button', { name: 'Configure' }));
+    expect(screen.getByRole('link', { name: 'Configure global Slack' })).toHaveAttribute('href', '/integrations?configure=slack');
+    expect(screen.queryByLabelText(/^Slack bot token/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'custom' } });
+    expect(screen.queryByRole('link', { name: 'Configure global Slack' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save integration' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/^Slack bot token/), { target: { value: 'workspace-test-token' } });
+    fireEvent.change(screen.getByLabelText(/^Slack signing secret/), { target: { value: 'workspace-test-secret' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
+    await screen.findByText('Integration saved');
+    expect(config).toEqual({ bot_token: 'workspace-test-token', signing_secret: 'workspace-test-secret' });
+    const patch = vi.mocked(fetch).mock.calls.find(([url, init]) => String(url) === '/api/v1/integrations/slack-slot' && init?.method === 'PATCH');
+    expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ mode: 'custom', enabled: true, config });
+    await waitFor(() => expect(screen.queryByText('Loading integrations')).not.toBeInTheDocument());
+    fireEvent.click(within(slackRow).getByRole('button', { name: 'Configure' }));
+    const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'inherit' } });
+    expect(screen.getByLabelText('Mode')).toHaveValue('custom');
+    confirmation.mockReturnValue(true);
+    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'inherit' } });
+    expect(screen.queryByLabelText(/^Slack bot token/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save integration' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mode).toBe('inherit');
+    expect(config).toEqual({});
+    confirmation.mockRestore();
   });
 
   it('saves a custom workspace integration with full credentials', async () => {

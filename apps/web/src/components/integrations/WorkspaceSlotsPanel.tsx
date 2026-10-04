@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   IntegrationConfigFields,
@@ -275,6 +276,12 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
                 : 'workspaces.integrations.custom_help',
             )}
           </p>
+          {editor.slot.kind === 'slack' && editor.mode === 'inherit' ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-zinc-600">{t('workspaces.integrations.slack_inherit_help')}</p>
+              <Link className="text-accent hover:underline" to="/integrations?configure=slack">{t('workspaces.integrations.configure_global_slack')}</Link>
+            </div>
+          ) : null}
           <IntegrationConfigFields
             kind={editor.slot.kind}
             form={editor.form}
