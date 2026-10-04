@@ -205,3 +205,61 @@ func TestIncidentServiceAssigneeLookupError(t *testing.T) {
 }
 
 func strPtr(v string) *string { return &v }
+
+type incidentWorkspaceRepo struct {
+	*incidentMockRepo
+	team                 db.Team
+	incidentErr, teamErr error
+}
+
+func (r *incidentWorkspaceRepo) GetIncidentByID(ctx context.Context, id uuid.UUID) (db.Incident, error) {
+	if r.incidentErr != nil {
+		return db.Incident{}, r.incidentErr
+	}
+	return r.incidentMockRepo.GetIncidentByID(ctx, id)
+}
+func (r *incidentWorkspaceRepo) GetTeam(_ context.Context, id uuid.UUID) (db.Team, error) {
+	if r.teamErr != nil {
+		return db.Team{}, r.teamErr
+	}
+	if id != r.team.ID {
+		return db.Team{}, pgx.ErrNoRows
+	}
+	return r.team, nil
+}
+func TestIncidentWorkspaceID(t *testing.T) {
+	incidentID, teamID, workspaceID := uuid.New(), uuid.New(), uuid.New()
+	for _, tc := range []struct {
+		name                 string
+		incidentErr, teamErr error
+		wantCode             string
+	}{
+		{name: "incident team workspace"},
+		{name: "incident not found", incidentErr: pgx.ErrNoRows, wantCode: "NOT_FOUND"},
+		{name: "team not found", teamErr: pgx.ErrNoRows, wantCode: "NOT_FOUND"},
+		{name: "incident repository failure", incidentErr: pgx.ErrTxClosed},
+		{name: "team repository failure", teamErr: pgx.ErrTxClosed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &incidentWorkspaceRepo{
+				incidentMockRepo: &incidentMockRepo{incident: db.Incident{ID: incidentID, TeamID: teamID}},
+				team:             db.Team{ID: teamID, WorkspaceID: workspaceID}, incidentErr: tc.incidentErr, teamErr: tc.teamErr,
+			}
+			got, err := NewIncidentService(repo, time.Hour, time.Minute).WorkspaceID(context.Background(), incidentID)
+			if tc.incidentErr == nil && tc.teamErr == nil {
+				require.NoError(t, err)
+				require.Equal(t, workspaceID, got)
+				return
+			}
+			require.Equal(t, uuid.Nil, got)
+			require.Error(t, err)
+			if tc.wantCode != "" {
+				var appErr *apperrors.Error
+				require.ErrorAs(t, err, &appErr)
+				require.Equal(t, tc.wantCode, appErr.Code)
+			} else {
+				require.ErrorIs(t, err, pgx.ErrTxClosed)
+			}
+		})
+	}
+}

@@ -210,7 +210,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           onChange={(value) => onChange({ ...form, bot_token: value })}
           type="password"
           autoComplete="new-password"
-          hint={secretHint}
+          hint={secretHint ?? t('integrations.slack_setup.token_hint')}
         />
         <Input
           label={t('setup.integrations.slack.signing_secret')}
@@ -218,8 +218,19 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           onChange={(value) => onChange({ ...form, signing_secret: value })}
           type="password"
           autoComplete="new-password"
-          hint={secretHint}
+          hint={secretHint ?? t('integrations.slack_setup.secret_hint')}
         />
+        <label className="block text-sm text-zinc-700" htmlFor="slack-interactivity-url">
+          <span className="mb-1 block font-medium">{t('integrations.slack_setup.callback_url')}</span>
+          <input
+            id="slack-interactivity-url"
+            className="h-9 w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+            readOnly
+            value={`${window.location.origin}/api/v1/callbacks/slack/interactive`}
+          />
+        </label>
+        <p className="text-sm text-zinc-600">{t('integrations.slack_setup.interactivity_help')}</p>
+        <p className="text-sm text-zinc-600">{t('integrations.slack_setup.test_help')}</p>
       </>
     );
   }

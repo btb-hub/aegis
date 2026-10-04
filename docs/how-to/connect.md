@@ -25,8 +25,14 @@ workspace can inherit.
    **Jira project key**. **Save integration**, then **Test connection**.
 
 2. **Slack**
-   Bot token and signing secret. Test connection. On-call DMs use the user’s Slack user ID
-   (from Sign in with Slack). Team announcements use the channel ID on the team.
+   Click **Configure Slack** in the Slack bot summary. Install your Slack app with `chat:write`,
+   then save its **Bot User OAuth Token** and **Signing Secret**. Enable **Interactivity** in the
+   Slack app and use the displayed Request URL: `https://<public-aegis-origin>/api/v1/callbacks/slack/interactive`.
+   Slack must reach this URL over HTTPS. **Test connection** checks the token; verify a real
+   message and its **Acknowledge** button separately. On-call DMs use the user's linked Slack
+   user ID; team announcements use the channel ID on the team, where the bot must have access.
+   Saved credentials take effect without environment changes or an API restart.
+   Bot configuration is separate from Sign in with Slack.
 
 3. **eXpress**
    Bot ID, host, and secret key. Test connection. Users who signed in with Google or Slack
@@ -48,6 +54,13 @@ Every workspace has a Jira, Slack, and eXpress slot. Open the workspace →
 | --- | --- |
 | **Inherit** | Use the global connector. Jira can still override **project key** for this<br>workspace (Platform → `OPS`, Data → `DATA`). Slack can override<br>channel. Switching back to Inherit deletes workspace-only secrets for that slot. |
 | **Custom** | This workspace has its own complete credentials and does not mix in global ones. |
+
+For Slack in **Inherit** mode, click **Configure global Slack** in the slot editor to set up
+or edit the global bot. Choose **Custom** and save bot token/signing secret to use a separate
+bot for this workspace. Teams use their workspace's bot.
+
+Only administrators can save credentials or test connections. Members/viewers can inspect the
+inventory and ask an administrator to complete setup.
 
 Status on the slot:
 **Ready**, **Using global**, **Needs setup**, **Missing — no global**, or

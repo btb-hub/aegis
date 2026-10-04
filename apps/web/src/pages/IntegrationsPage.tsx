@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -66,8 +67,9 @@ const emptyEditor = (kind: IntegrationKind): EditorState => ({
 
 export function IntegrationsPage() {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [items, setItems] = useState<IntegrationItem[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -166,6 +168,15 @@ export function IntegrationsPage() {
     [items, kindFilter, scopeFilter, statusFilter],
   );
 
+  const globalSlack = items.find((item) => item.kind === 'slack' && !item.workspace_id);
+  const slackStatus = !globalSlack
+    ? 'not_configured'
+    : !globalSlack.enabled
+      ? 'disabled'
+      : globalSlack.config_complete === false
+        ? 'missing_credentials'
+        : 'configured';
+
   const openCreate = () => {
     const kind = missingGlobalKinds[0];
     if (kind) {
@@ -173,7 +184,7 @@ export function IntegrationsPage() {
     }
   };
 
-  const openEdit = (item: IntegrationItem) => {
+  const openEdit = useCallback((item: IntegrationItem) => {
     const kind = (['jira', 'slack', 'express'].includes(item.kind) ? item.kind : 'jira') as IntegrationKind;
     setEditor({
       mode: 'edit',
@@ -185,7 +196,25 @@ export function IntegrationsPage() {
       integrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
       savedIntegrationMode: item.workspace_id ? (item.mode ?? 'inherit') : undefined,
     });
-  };
+  }, []);
+
+  const configureSlack = useCallback(() => {
+    if (globalSlack) {
+      openEdit(globalSlack);
+    } else {
+      setEditor(emptyEditor('slack'));
+    }
+  }, [globalSlack, openEdit]);
+
+  useEffect(() => {
+    if (loading || loadError || authLoading || !isAdmin || searchParams.get('configure') !== 'slack') {
+      return;
+    }
+    configureSlack();
+    const next = new URLSearchParams(searchParams);
+    next.delete('configure');
+    setSearchParams(next, { replace: true });
+  }, [loading, loadError, authLoading, isAdmin, searchParams, setSearchParams, configureSlack]);
 
   const changeIntegrationMode = (mode: IntegrationMode) => {
     setEditor((current) => {
@@ -405,6 +434,32 @@ export function IntegrationsPage() {
         <Banner variant="warning">{t('integrations.incomplete_banner')}</Banner>
       ) : null}
 
+      {!loading && !loadError ? (
+        <section
+          aria-label={t('integrations.slack_setup.title')}
+          className="space-y-3 rounded-md border border-zinc-200 bg-white p-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-zinc-900">{t('integrations.slack_setup.title')}</h2>
+            <StatusTag
+              variant={slackStatus === 'configured' ? 'resolved' : 'neutral'}
+              label={t(`integrations.slack_setup.${slackStatus}`)}
+            />
+          </div>
+          <p className="text-sm text-zinc-600">{t('integrations.slack_setup.description')}</p>
+          {!authLoading && (isAdmin ? (
+            <Button variant="secondary" onClick={configureSlack}>
+              {t('integrations.slack_setup.configure')}
+            </Button>
+          ) : (
+            <p className="text-sm text-zinc-600">{t('integrations.slack_setup.admin_required')}</p>
+          ))}
+        </section>
+      ) : null}
+      {!authLoading && !isAdmin && !loading && !loadError && items.length > 0 ? (
+        <p className="text-sm text-zinc-600">{t('integrations.admin_required')}</p>
+      ) : null}
+
       {!loading && !loadError && items.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-3">
           <Select
@@ -488,15 +543,15 @@ export function IntegrationsPage() {
               header: t('integrations.column.actions'),
               render: (item) => (
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="secondary"
-                    disabled={testingId === item.id}
-                    onClick={() => void testConnection(item.id)}
-                  >
-                    {testingId === item.id ? t('integrations.testing') : t('integrations.test_connection')}
-                  </Button>
                   {isAdmin ? (
                     <>
+                      <Button
+                        variant="secondary"
+                        disabled={testingId === item.id}
+                        onClick={() => void testConnection(item.id)}
+                      >
+                        {testingId === item.id ? t('integrations.testing') : t('integrations.test_connection')}
+                      </Button>
                       <Button variant="secondary" onClick={() => openEdit(item)}>
                         {t('integrations.configure')}
                       </Button>
@@ -583,6 +638,12 @@ export function IntegrationsPage() {
                 )}
               </p>
             </>
+          ) : null}
+          {editor.workspace_id && editor.kind === 'slack' && editor.integrationMode === 'inherit' ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-zinc-600">{t('workspaces.integrations.slack_inherit_help')}</p>
+              <Link className="text-accent hover:underline" to="/integrations?configure=slack">{t('workspaces.integrations.configure_global_slack')}</Link>
+            </div>
           ) : null}
           <IntegrationConfigFields
             kind={editor.kind}

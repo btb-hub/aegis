@@ -152,6 +152,7 @@ func TestSlackCallbackAcknowledge(t *testing.T) {
 	slackID := "U555"
 	repo.users[userID] = db.User{ID: userID, Role: "member", SlackUserID: &slackID}
 	repo.incidents[incidentID] = db.Incident{ID: incidentID, TeamID: uuid.New(), Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp"}
+	seedSlackWorkspace(repo, incidentID, "secret")
 
 	payload := map[string]any{
 		"type": "block_actions",

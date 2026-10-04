@@ -590,5 +590,21 @@
   "override.deleted": "Подмена удалена",
   "override.save_error": "Не удалось сохранить подмену",
   "override.delete_error": "Не удалось удалить подмену",
-  "override.validation.end_before_start": "Конец должен быть позже начала"
+  "override.validation.end_before_start": "Конец должен быть позже начала",
+  "integrations.slack_setup.title": "Бот Slack",
+  "integrations.slack_setup.not_configured": "Не настроен",
+  "integrations.slack_setup.missing_credentials": "Не хватает учётных данных",
+  "integrations.slack_setup.disabled": "Отключён",
+  "integrations.slack_setup.configured": "Настроен",
+  "integrations.slack_setup.description": "Настройте глобального бота Slack для рабочих пространств в режиме наследования. Каждое рабочее пространство также может использовать своего бота в собственном режиме.",
+  "integrations.slack_setup.configure": "Настроить Slack",
+  "integrations.slack_setup.admin_required": "Попросите администратора настроить Slack.",
+  "integrations.slack_setup.token_hint": "Установите приложение Slack и скопируйте Bot User OAuth Token из раздела OAuth & Permissions. Боту нужны право chat:write и доступ к каналам, в которые он отправляет сообщения.",
+  "integrations.slack_setup.secret_hint": "Скопируйте Signing Secret из раздела Basic Information приложения Slack.",
+  "integrations.slack_setup.callback_url": "URL запросов интерактивности Slack",
+  "integrations.slack_setup.interactivity_help": "Включите Interactivity в приложении Slack и вставьте этот Request URL. Slack должен иметь доступ к нему по HTTPS. Настройка бота выполняется отдельно от входа через Slack.",
+  "integrations.slack_setup.test_help": "Проверка подключения проверяет токен бота. После настройки проверьте доставку сообщений и кнопки подтверждения в Slack.",
+  "integrations.admin_required": "Только администраторы могут настраивать интеграции и проверять подключения.",
+  "workspaces.integrations.slack_inherit_help": "Режим наследования использует глобального бота Slack. Выберите собственный режим, чтобы использовать отдельного бота для этого рабочего пространства.",
+  "workspaces.integrations.configure_global_slack": "Настроить глобальный Slack"
 }

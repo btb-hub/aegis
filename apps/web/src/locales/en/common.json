@@ -590,5 +590,21 @@
   "override.deleted": "Override deleted",
   "override.save_error": "Could not save override",
   "override.delete_error": "Could not delete override",
-  "override.validation.end_before_start": "End must be after start"
+  "override.validation.end_before_start": "End must be after start",
+  "integrations.slack_setup.title": "Slack bot",
+  "integrations.slack_setup.not_configured": "Not configured",
+  "integrations.slack_setup.missing_credentials": "Missing credentials",
+  "integrations.slack_setup.disabled": "Disabled",
+  "integrations.slack_setup.configured": "Configured",
+  "integrations.slack_setup.description": "Configure the global Slack bot for workspaces that use Inherit. Each workspace can also use its own bot in Custom mode.",
+  "integrations.slack_setup.configure": "Configure Slack",
+  "integrations.slack_setup.admin_required": "Ask an administrator to configure Slack.",
+  "integrations.slack_setup.token_hint": "Install your Slack app and copy its Bot User OAuth Token from OAuth & Permissions. The bot needs chat:write and access to the channels it posts to.",
+  "integrations.slack_setup.secret_hint": "Copy the Signing Secret from your Slack app’s Basic Information page.",
+  "integrations.slack_setup.callback_url": "Slack interactivity request URL",
+  "integrations.slack_setup.interactivity_help": "Enable Interactivity in your Slack app and paste this Request URL. Slack must be able to reach it over HTTPS. Bot setup is separate from Sign in with Slack.",
+  "integrations.slack_setup.test_help": "Test connection checks the bot token. Verify message delivery and Acknowledge buttons in Slack after setup.",
+  "integrations.admin_required": "Only administrators can configure integrations or test connections.",
+  "workspaces.integrations.slack_inherit_help": "Inherit uses the global Slack bot. Choose Custom to use a separate bot for this workspace.",
+  "workspaces.integrations.configure_global_slack": "Configure global Slack"
 }

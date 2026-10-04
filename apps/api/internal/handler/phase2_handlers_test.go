@@ -140,8 +140,11 @@ func TestIntegrationsValidationErrors(t *testing.T) {
 }
 
 func TestSlackCallbackInvalidSignature(t *testing.T) {
-	r, _ := setupPhase2Router(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/callbacks/slack/interactive", bytes.NewBufferString("payload={}"))
+    r, repo := setupPhase2Router(t)
+    incidentID := uuid.New()
+    repo.incidents[incidentID] = db.Incident{ID: incidentID, TeamID: uuid.New(), Status: "open"}
+    seedSlackWorkspace(repo, incidentID, "secret")
+    req := httptest.NewRequest(http.MethodPost, "/api/v1/callbacks/slack/interactive", bytes.NewBufferString(slackAckBody(t, incidentID.String(), "U123")))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

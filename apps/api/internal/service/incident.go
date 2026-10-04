@@ -63,6 +63,19 @@ func (s *IncidentService) Get(ctx context.Context, id uuid.UUID) (db.Incident, e
 	return incident, nil
 }
 
+// WorkspaceID identifies the workspace whose integration verifies this incident's callbacks.
+func (s *IncidentService) WorkspaceID(ctx context.Context, incidentID uuid.UUID) (uuid.UUID, error) {
+	incident, err := s.Get(ctx, incidentID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	team, err := s.repo.GetTeam(ctx, incident.TeamID)
+	if err != nil {
+		return uuid.Nil, mapTeamError(err)
+	}
+	return team.WorkspaceID, nil
+}
+
 func (s *IncidentService) Assignee(ctx context.Context, incident db.Incident) (*db.User, error) {
 	if incident.AssigneeID == nil {
 		return nil, nil

@@ -163,12 +163,12 @@ func (h *IntegrationHandler) testIntegration(c *gin.Context) {
 }
 
 type SlackCallbackHandler struct {
-	incidents *service.IncidentService
-	secret    string
+	incidents    *service.IncidentService
+	integrations *service.IntegrationService
 }
 
-func NewSlackCallbackHandler(incidents *service.IncidentService, signingSecret string) *SlackCallbackHandler {
-	return &SlackCallbackHandler{incidents: incidents, secret: signingSecret}
+func NewSlackCallbackHandler(incidents *service.IncidentService, integrations *service.IntegrationService) *SlackCallbackHandler {
+	return &SlackCallbackHandler{incidents: incidents, integrations: integrations}
 }
 
 func (h *SlackCallbackHandler) Register(r gin.IRouter) {
@@ -181,10 +181,6 @@ func (h *SlackCallbackHandler) interactive(c *gin.Context) {
 		WriteError(c, apperrors.Validation("invalid body", nil))
 		return
 	}
-	if err := verifySlackSignature(h.secret, c.GetHeader("X-Slack-Request-Timestamp"), c.GetHeader("X-Slack-Signature"), body); err != nil {
-		WriteError(c, apperrors.Unauthorized("invalid slack signature"))
-		return
-	}
 	incidentID, slackUserID, err := parseSlackAck(body)
 	if err != nil {
 		WriteError(c, apperrors.Validation(err.Error(), nil))
@@ -193,6 +189,22 @@ func (h *SlackCallbackHandler) interactive(c *gin.Context) {
 	id, err := uuid.Parse(incidentID)
 	if err != nil {
 		WriteError(c, apperrors.Validation("invalid incident id", nil))
+		return
+	}
+	// The unverified payload selects credentials only. No mutations occur until
+	// Slack's signature has been verified against the original raw body.
+	workspaceID, err := h.incidents.WorkspaceID(c.Request.Context(), id)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	secret, err := h.integrations.SlackSigningSecret(c.Request.Context(), workspaceID)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	if err := verifySlackSignature(secret, c.GetHeader("X-Slack-Request-Timestamp"), c.GetHeader("X-Slack-Signature"), body); err != nil {
+		WriteError(c, apperrors.Unauthorized("invalid slack signature"))
 		return
 	}
 	incident, err := h.incidents.AcknowledgeBySlackUser(c.Request.Context(), id, slackUserID)

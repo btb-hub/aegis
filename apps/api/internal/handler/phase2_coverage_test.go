@@ -74,6 +74,7 @@ func TestSlackCallbackUserNotFound(t *testing.T) {
 	r, repo := setupPhase2Router(t)
 	incidentID := uuid.New()
 	repo.incidents[incidentID] = db.Incident{ID: incidentID, TeamID: uuid.New(), Status: "open", Severity: "critical", Title: "CPU", Fingerprint: "fp"}
+	seedSlackWorkspace(repo, incidentID, "secret")
 
 	payload := map[string]any{
 		"type": "block_actions",
@@ -118,7 +119,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	NewIncidentHandler(incidents, handoffs, auth).Register(r)
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
-	NewSlackCallbackHandler(incidents, "secret").Register(r)
+	NewSlackCallbackHandler(incidents, integrationsSvc).Register(r)
 	NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
 	NewExpressLinkHandler(expressLinks, auth).Register(r)
 	return r
