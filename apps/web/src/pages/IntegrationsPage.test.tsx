@@ -87,6 +87,81 @@ describe('IntegrationsPage', () => {
     });
   }
 
+  it('opens and saves Slack credentials directly when no global bot exists', async () => {
+    mockFetch({ items: [] });
+    renderPage();
+    expect(screen.queryByRole('button', { name: 'Configure Slack' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure Slack' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByLabelText(/^Slack bot token/)).toHaveValue('');
+    expect(dialog.getByLabelText(/^Slack signing secret/)).toHaveValue('');
+    expect(dialog.getByRole('button', { name: 'Save integration' })).toBeDisabled();
+    expect(dialog.getByRole('textbox', { name: 'Slack interactivity request URL' })).toHaveValue(
+      `${window.location.origin}/api/v1/callbacks/slack/interactive`,
+    );
+    expect(dialog.getByRole('textbox', { name: 'Slack interactivity request URL' })).toHaveAttribute('readonly');
+    fireEvent.change(dialog.getByLabelText(/^Slack bot token/), { target: { value: 'test-bot-token' } });
+    expect(dialog.getByRole('button', { name: 'Save integration' })).toBeDisabled();
+    fireEvent.change(dialog.getByLabelText(/^Slack signing secret/), { target: { value: 'test-signing-secret' } });
+    fireEvent.click(dialog.getByRole('button', { name: 'Save integration' }));
+    await screen.findByText('Integration saved');
+    const post = vi.mocked(fetch).mock.calls.find(([url, init]) =>
+      String(url) === '/api/v1/integrations' && init?.method === 'POST',
+    );
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({
+      kind: 'slack', enabled: true,
+      config: { bot_token: 'test-bot-token', signing_secret: 'test-signing-secret' },
+    });
+  });
+
+  it('offers global Slack setup when only workspace slots exist', async () => {
+    mockFetch({ items: [{ ...slackIntegration, id: 'slot-slack', workspace_id: 'workspace-1', mode: 'inherit' }] });
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure Slack' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('Add integration');
+    expect(screen.getByLabelText(/^Slack bot token/)).toBeInTheDocument();
+  });
+
+  it.each([
+    [true, true, 'Configured'],
+    [true, false, 'Missing credentials'],
+    [false, true, 'Disabled'],
+  ])('shows global Slack setup status and edits the existing bot (%s, %s)', async (enabled, complete, status) => {
+    mockFetch({ items: [{ ...slackIntegration, enabled, config_complete: complete }] });
+    renderPage();
+    const action = await screen.findByRole('button', { name: 'Configure Slack' });
+    expect(screen.getByRole('region', { name: 'Slack bot' })).toHaveTextContent(status);
+    fireEvent.click(action);
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('combobox', { name: 'Kind' })).toBeDisabled();
+    expect(dialog.getByLabelText(/^Slack bot token/)).toHaveValue('');
+    expect(dialog.getByLabelText(/^Slack signing secret/)).toHaveValue('');
+  });
+
+  it.each(['member', 'viewer'])('explains admin access and hides credential actions for %s', async (role) => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      if (String(input) === '/auth/me') {
+        return jsonResponse({ id: 'user-1', role, locale: 'en' });
+      }
+      return String(input) === '/api/v1/workspaces'
+        ? jsonResponse({ items: [] })
+        : jsonResponse({ items: [slackIntegration] });
+    });
+    renderPage();
+    await screen.findByText('Ask an administrator to configure Slack.');
+    expect(screen.queryByRole('button', { name: 'Configure Slack' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Configure' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Test connection' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add integration' })).not.toBeInTheDocument();
+  });
+
+  it('does not offer Slack setup when inventory failed to load', async () => {
+    mockFetch({}, 500);
+    renderPage();
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('button', { name: 'Configure Slack' })).not.toBeInTheDocument();
+  });
+
   it('shows breadcrumb navigation back to shifts', async () => {
     mockFetch({ items: [] });
 
