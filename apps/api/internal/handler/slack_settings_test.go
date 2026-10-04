@@ -246,3 +246,41 @@ func TestSlackCallbackRepositoryFailuresDoNotMutate(t *testing.T) {
 		})
 	}
 }
+
+func TestSlackSettingsAreReadOnlyForMembersAndViewers(t *testing.T) {
+	for _, role := range []string{"member", "viewer"} {
+		t.Run(role, func(t *testing.T) {
+			r, repo := setupPhase2Router(t)
+			cookie := seedAdmin(t, r, repo)
+			for id, user := range repo.users {
+				user.Role = role
+				repo.users[id] = user
+			}
+			id := uuid.New()
+			original := db.Integration{ID: id, Kind: "slack", Enabled: true, Config: []byte(`{"bot_token":"stored-test-token","signing_secret":"stored-test-secret"}`)}
+			repo.integrations[id] = original
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/integrations", nil)
+			req.AddCookie(cookie)
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			require.Equal(t, http.StatusOK, w.Code)
+			require.NotContains(t, w.Body.String(), "stored-test-token")
+			require.NotContains(t, w.Body.String(), "stored-test-secret")
+			for _, action := range []struct{ method, path string }{
+				{http.MethodPost, "/api/v1/integrations"},
+				{http.MethodPatch, "/api/v1/integrations/" + id.String()},
+				{http.MethodDelete, "/api/v1/integrations/" + id.String()},
+				{http.MethodPost, "/api/v1/integrations/" + id.String() + "/test"},
+			} {
+				req := httptest.NewRequest(action.method, action.path, bytes.NewBufferString(`{"enabled":false,"config":{"signing_secret":"replacement"}}`))
+				req.AddCookie(cookie)
+				req.Header.Set("Content-Type", "application/json")
+				w := httptest.NewRecorder()
+				r.ServeHTTP(w, req)
+				require.Equal(t, http.StatusForbidden, w.Code, action.path)
+				require.Equal(t, original, repo.integrations[id])
+				require.Len(t, repo.integrations, 1)
+			}
+		})
+	}
+}
