@@ -16,6 +16,9 @@ type CommandEvent struct {
 	} `json:"command"`
 	From struct {
 		UserHuid string `json:"user_huid"`
+		ChatID   string `json:"group_chat_id"`
+		ChatType string `json:"chat_type"`
+		Locale   string `json:"locale"`
 	} `json:"from"`
 }
 

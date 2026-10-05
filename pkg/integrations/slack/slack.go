@@ -135,11 +135,15 @@ func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, slackUserGroup
 	names := make([]string, 0, len(people))
 	for _, person := range people {
 		if person.SlackUserID != nil && strings.TrimSpace(*person.SlackUserID) != "" {
-			names = append(names, "<@"+strings.TrimSpace(*person.SlackUserID)+">")
+			name := "<@" + strings.TrimSpace(*person.SlackUserID) + ">"
+			if shift := integrations.ShiftTimeMSK(person.StartAt, person.EndAt, locale); shift != "" {
+				name += " (" + shift + ")"
+			}
+			names = append(names, name)
 			continue
 		}
 		if person.DisplayName != "" {
-			names = append(names, person.DisplayName)
+			names = append(names, integrations.OnCallName(person, locale))
 		}
 	}
 

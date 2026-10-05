@@ -23,6 +23,10 @@ func TestKind(t *testing.T) {
 func TestTestConnectionUsesCachedToken(t *testing.T) {
 	var tokenCalls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		tokenCalls.Add(1)
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 	}))
@@ -37,6 +41,10 @@ func TestTestConnectionUsesCachedToken(t *testing.T) {
 
 func TestSendPageDefaultsLocale(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 			return
@@ -56,6 +64,10 @@ func TestSendPageDefaultsLocale(t *testing.T) {
 
 func TestSendPageNotificationStatusError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 			return
@@ -75,6 +87,10 @@ func TestSendPageNotificationStatusError(t *testing.T) {
 
 func TestSendPageWithoutSyncID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 			return
@@ -89,13 +105,16 @@ func TestSendPageWithoutSyncID(t *testing.T) {
 	ref, err := provider.SendPage(t.Context(), integrations.IncidentRef{
 		ID: uuid.New(), Title: "CPU", Severity: "warning",
 	}, integrations.PageRecipient{Locale: "en", ExpressUserHuid: &huid})
-	require.NoError(t, err)
-	_, err = uuid.Parse(ref)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "missing sync_id")
+	require.Empty(t, ref)
 }
 
 func TestEnsureTokenFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"status":"error"}`))
 	}))
@@ -109,6 +128,10 @@ func TestEnsureTokenFailure(t *testing.T) {
 func TestSendPageRetriesAfterNotificationFailure(t *testing.T) {
 	var notifyCalls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 			return
@@ -164,6 +187,10 @@ func TestParseAckCommandFromBody(t *testing.T) {
 
 func TestEnsureTokenInvalidResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": ""})
 	}))
 	defer server.Close()

@@ -23,6 +23,10 @@ import (
 func TestSendPageUsesFixture(t *testing.T) {
 	responseRaw := readFixture(t, "notification_response.json")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		switch {
 		case strings.Contains(r.URL.Path, "/token"):
 			require.NotEmpty(t, r.URL.Query().Get("signature"))
@@ -50,6 +54,10 @@ func TestSendPageUsesFixture(t *testing.T) {
 
 func TestTestConnectionUsesFixture(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 	}))
 	defer server.Close()
@@ -145,10 +153,14 @@ func TestAnnounceOnCallUsesGroupNotification(t *testing.T) {
 	var gotPath string
 	var gotBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		switch {
 		case strings.Contains(r.URL.Path, "/token"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
-		case r.URL.Path == "/api/v4/botx/notifications":
+		case r.URL.Path == "/api/v4/botx/notifications/direct":
 			gotPath = r.URL.Path
 			require.Equal(t, "Bearer bot-token", r.Header.Get("Authorization"))
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&gotBody))
@@ -168,7 +180,7 @@ func TestAnnounceOnCallUsesGroupNotification(t *testing.T) {
 		{DisplayName: "Bob"},
 	}, "en")
 	require.NoError(t, err)
-	require.Equal(t, "/api/v4/botx/notifications", gotPath)
+	require.Equal(t, "/api/v4/botx/notifications/direct", gotPath)
 	require.Equal(t, "group-chat-1", gotBody["group_chat_id"])
 	notification := gotBody["notification"].(map[string]any)
 	require.Contains(t, notification["body"], "On call now for Platform")
@@ -186,12 +198,16 @@ func TestAnnounceOnCallEmptyPeople(t *testing.T) {
 	require.NoError(t, loadAnnounceMessages())
 	var body map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 			return
 		}
 		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"sync_id": "message-id"}})
 	}))
 	defer server.Close()
 	provider := New(Config{BotID: "bot", Host: server.URL, SecretKey: "secret"})
@@ -204,6 +220,10 @@ func TestAnnounceOnCallEmptyPeople(t *testing.T) {
 func TestAnnounceOnCallRejectsNonOK(t *testing.T) {
 	require.NoError(t, loadAnnounceMessages())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/botx/chats/personal" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": map[string]string{"group_chat_id": "personal-chat"}})
+			return
+		}
 		if strings.Contains(r.URL.Path, "/token") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 			return
