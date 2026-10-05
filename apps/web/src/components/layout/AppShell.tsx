@@ -15,7 +15,8 @@ export type AppPage =
   | 'integrations'
   | 'dashboard'
   | 'setup'
-  | 'users';
+  | 'users'
+  | 'settings';
 
 type AppShellProps = {
   children: ReactNode;
@@ -34,6 +35,7 @@ const navigationIcons: Record<AppPage, ReactNode> = {
   teams: <><circle cx="9" cy="8" r="3" /><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5v1" /></>,
   workspaces: <><rect x="3" y="5" width="18" height="15" rx="2" /><path d="M8 5V3h8v2M3 11h18" /></>,
   setup: <><path d="M4 7h16M4 12h16M4 17h16" /><circle cx="9" cy="7" r="2" fill="white" /><circle cx="15" cy="12" r="2" fill="white" /><circle cx="8" cy="17" r="2" fill="white" /></>,
+  settings: <><path d="M4 7h16M4 12h16M4 17h16" /><circle cx="9" cy="7" r="2" /><circle cx="15" cy="12" r="2" /></>,
   users: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
 };
 
@@ -64,7 +66,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
     { id: 'dashboard', label: t('nav.dashboard') },
     { id: 'integrations', label: t('nav.integrations') },
     { id: 'setup', label: t('nav.setup') },
-    ...(isAdmin ? [{ id: 'users' as AppPage, label: t('nav.users') }] : []),
+    ...(isAdmin ? [{ id: 'users' as AppPage, label: t('nav.users') }, { id: 'settings' as AppPage, label: t('nav.settings') }] : []),
   ];
 
   useEffect(() => {

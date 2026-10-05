@@ -63,6 +63,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
 
+	handler.NewSettingsHandler(service.NewSettingsService(store), auth).Register(r)
 	handler.NewHealthHandler(health).Register(r)
 	handler.NewAuthHandler(auth, cfg.PublicURL).Register(r)
 	handler.NewAlertHandler(alerts, teams, auth).Register(r)

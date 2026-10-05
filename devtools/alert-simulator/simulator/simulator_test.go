@@ -117,6 +117,9 @@ func TestEnsureDemoRoutingViaAPI(t *testing.T) {
 			id := teamIDs[body.Name]
 			_, _ = w.Write([]byte(`{"id":"` + id + `","name":"` + body.Name + `"}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/routing-rules":
+			var input map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&input))
+			require.Equal(t, defaultWorkspaceID, input["workspace_id"])
 			rulesCreated++
 			_, _ = w.Write([]byte(`{"id":"rule-` + string(rune('0'+rulesCreated)) + `","team_id":"team-1","match_labels":{"team":"platform"}}`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/workspaces/"+defaultWorkspaceID+"/escalation-paths":

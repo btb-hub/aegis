@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell, type AppPage } from './components/layout/AppShell';
 import { useAuth } from './context/AuthContext';
+import { SettingsPage } from './pages/SettingsPage';
 import { IncidentsPage } from './pages/IncidentsPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
@@ -42,6 +43,7 @@ function pageFromPath(pathname: string): AppPage {
   if (pathname.startsWith('/incidents')) {
     return 'incidents';
   }
+  if (pathname.startsWith('/settings')) {return 'settings';}
   if (pathname.startsWith('/users')) {
     return 'users';
   }
@@ -167,6 +169,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/shifts" replace />} />
       </Routes>
     </AppShell>

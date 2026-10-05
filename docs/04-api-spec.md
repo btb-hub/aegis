@@ -239,7 +239,8 @@ supplies integrations.
 **Implemented (AEG-107):** `incident` keeps `assignee_id`. When the assignee user exists, `incident.assignee` is `{ user_id, email, display_name, contacts }` using the same `contacts` shape as current on-call. Unassigned incidents and unknown assignee IDs omit `assignee`. `GET /incidents` list does not embed `assignee`.
 | POST | `/incidents` | Create incident from a firing alert (admin or member). Body: `{ "alert_id": "uuid", "team_id": "uuid", "assignee_id": "uuid" | omitted }`. Returns `200` with `IncidentJSON`. Enqueues notify and escalation jobs; does not call Jira/Slack/eXpress directly. |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |
-| POST | `/incidents/{id}/resolve` | Resolve |
+| POST | `/incidents/{id}/resolve` | Resolve; optional `{ "comment": "…" }`, empty body supported |
+| POST | `/incidents/{id}/comments` | Append `{ "body": "…" }` to timeline, including resolved incidents |
 | GET | `/incidents/{id}/timeline` | Timeline events |
 
 `POST /incidents` errors:
@@ -408,3 +409,13 @@ Response `202`:
 - Architecture: [`02-architecture.md`](./02-architecture.md)
 - Security: [`09-security.md`](./09-security.md)
 - Localization: [`11-localization.md`](./11-localization.md)
+
+### Incident comments and Jira links
+
+Comment creation returns HTTP 201 with a timeline event (`kind: comment_added`, `actor_id`, `created_at`, `payload.body`, `payload.author_name`). Nonempty bodies are limited to 10,000 Unicode characters. Members and administrators may comment/resolve; viewers may read. Resolution plus its optional comment and synchronization job commit atomically. Jira failure never rolls back the local action. Incident detail includes `jira_issue_key` and the actual `jira_issue_url` when linked.
+
+### On-call publication settings
+
+Administrator-only `GET /api/v1/settings/oncall-publication` and `PATCH` with `{ "time": "HH:mm", "timezone": "IANA name" }`. Both return `{ "time": "03:00", "timezone": "UTC", "next_run_at": "RFC3339 instant" }` (values reflect saved settings). Invalid values return 400, unauthenticated requests 401 and non-admin requests 403. Initial persisted default is 03:00 UTC. The worker observes edits within one minute, skips missed local dates and publishes once per scheduled local date across workers/restarts. A skipped DST time moves to the first valid instant afterward; a repeated time publishes only once.
+
+BotX command callbacks durably accept authenticated commands with 202 and queue localized replies separately. `/oncall` is read-only and does not require identity linking. Asynchronous notification callbacks are available at `/api/v1/callbacks/express/notification/callback` and `/api/v1/callbacks/express/bot/notification/callback`.

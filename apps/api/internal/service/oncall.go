@@ -77,6 +77,11 @@ func (s *OnCallService) EnqueuePublish(ctx context.Context, teamID uuid.UUID) er
 			return apperrors.Validation("set a Slack channel or global eXpress on-call group chat before publishing", nil)
 		}
 	}
+	if manual, ok := s.repo.(interface {
+		EnqueueManualPublishOnCall(context.Context, uuid.UUID) error
+	}); ok {
+		return manual.EnqueueManualPublishOnCall(ctx, teamID)
+	}
 	return s.repo.EnqueuePublishOnCall(ctx, teamID)
 }
 
