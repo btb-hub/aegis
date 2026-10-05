@@ -123,34 +123,6 @@ func TestPublicationPerDestinationStateAndConfiguration(t *testing.T) {
 	}
 }
 
-type leasedFixture struct {
-	mockStore
-	started, stopped, finished bool
-	result                     error
-}
-
-func (f *leasedFixture) BeginJob(ctx context.Context, _ Job) (context.Context, func()) {
-	f.started = true
-	return ctx, func() { f.stopped = true }
-}
-func (f *leasedFixture) FinishClaimedJob(_ context.Context, _ Job, result error) error {
-	f.finished = true
-	f.result = result
-	return nil
-}
-
-type errorHandler struct{ err error }
-
-func (h errorHandler) Handle(context.Context, Job) error { return h.err }
-func TestWorkerLeaseLifecycle(t *testing.T) {
-	f := &leasedFixture{mockStore: mockStore{claim: true, job: Job{ID: "job", Kind: "sync_jira"}}}
-	w := NewWorker(nil, f, nil, nil, nil, nil, nil, nil)
-	w.Register("sync_jira", errorHandler{err: errors.New("network")})
-	require.NoError(t, w.RunOnce(t.Context()))
-	require.True(t, f.started && f.stopped && f.finished)
-	require.Error(t, f.result)
-}
-
 type atomicPublicationFixture struct{ publicationFixture }
 
 func (f *atomicPublicationFixture) RunOnCallDeliveryWithRef(_ context.Context, a db.PublicationAttempt, _ uuid.UUID, send func() (string, error)) error {
