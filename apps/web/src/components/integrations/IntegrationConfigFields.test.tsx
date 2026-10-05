@@ -63,6 +63,7 @@ describe('IntegrationConfigFields helpers', () => {
       email: 'a@b.c',
       project_key: 'OPS',
       auth_type: 'bearer',
+      deployment: 'server_dc',
     });
     expect(buildConfigPayload('slack', emptyIntegrationConfigForm(), { workspaceOnly: false, keepBlankSecrets: true })).toEqual(
       {},
@@ -118,6 +119,7 @@ describe('IntegrationConfigFields helpers', () => {
       email: 'ops@example.com',
       project_key: 'OPS',
       auth_type: 'bearer',
+      deployment: 'server_dc',
     });
     expect(
       configFormFromItem('express', {

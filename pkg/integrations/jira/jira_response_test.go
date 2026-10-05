@@ -17,7 +17,7 @@ func TestCreateTicketMissingKey(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := New(Config{BaseURL: server.URL, Email: "ops@example.com", APIToken: "token", ProjectKey: "OPS"})
+	provider := New(Config{Deployment: "cloud", BaseURL: server.URL, Email: "ops@example.com", APIToken: "token", ProjectKey: "OPS"})
 	_, err := provider.CreateTicket(t.Context(), integrations.IncidentRef{ID: uuid.New(), Title: "CPU", Severity: "critical"})
 	require.Error(t, err)
 }
@@ -28,7 +28,7 @@ func TestCreateTicketInvalidJSONResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := New(Config{BaseURL: server.URL, Email: "ops@example.com", APIToken: "token", ProjectKey: "OPS"})
+	provider := New(Config{Deployment: "cloud", BaseURL: server.URL, Email: "ops@example.com", APIToken: "token", ProjectKey: "OPS"})
 	_, err := provider.CreateTicket(t.Context(), integrations.IncidentRef{ID: uuid.New(), Title: "CPU", Severity: "critical"})
 	require.Error(t, err)
 }

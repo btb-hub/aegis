@@ -477,6 +477,7 @@ describe('IntegrationsPage', () => {
       api_token: 'token',
       project_key: 'OPS',
       auth_type: 'bearer',
+            deployment: 'server_dc',
     });
   });
 

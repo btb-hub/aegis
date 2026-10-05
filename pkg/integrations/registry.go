@@ -8,6 +8,7 @@ import (
 )
 
 type IncidentRef struct {
+	URL          string
 	ID           uuid.UUID
 	TeamID       uuid.UUID
 	AssigneeID   *uuid.UUID
@@ -29,6 +30,8 @@ type PageRecipient struct {
 }
 
 type OnCallPerson struct {
+	StartAt         time.Time
+	EndAt           time.Time
 	DisplayName     string
 	Locale          string
 	SlackUserID     *string

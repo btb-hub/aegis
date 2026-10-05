@@ -1058,6 +1058,7 @@ describe('WorkspaceDetailPage', () => {
           api_token: 'secret',
           project_key: 'OPS',
           auth_type: 'bearer',
+            deployment: 'server_dc',
         },
       });
     });
