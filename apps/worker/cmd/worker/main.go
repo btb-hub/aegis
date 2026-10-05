@@ -48,6 +48,7 @@ func main() {
 	worker := processor.NewWorker(nil, adapter, alert, materialise, escalate, handoffNotify, notifyIncident, publishOnCall)
 
 	worker.Register("sync_jira", processor.NewJiraSyncProcessor(store, cfg.PublicURL))
+	worker.Register("express_reply", processor.NewExpressReplyProcessor(store))
 
 	go enqueueNightlyMaterialise(ctx, store)
 	go enqueueDailyPublishOnCall(ctx, store)

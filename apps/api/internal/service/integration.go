@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/aegis/aegis/pkg/apperrors"
@@ -526,4 +527,46 @@ func mapIntegrationError(err error) error {
 		return apperrors.NotFound("integration not found")
 	}
 	return err
+}
+
+// ExpressConnector resolves the exact enabled bot. Prefer the global connector
+// for duplicate bot configurations so command IDs have a stable namespace.
+func (s *IntegrationService) ExpressConnector(ctx context.Context, botID, auth string) (db.Integration, error) {
+	items, err := s.ExpressConnectors(ctx, botID, auth)
+	if err != nil {
+		return db.Integration{}, err
+	}
+	return items[0], nil
+}
+func (s *IntegrationService) ExpressConnectors(ctx context.Context, botID, auth string) ([]db.Integration, error) {
+	items, err := s.repo.ListIntegrations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var matches []db.Integration
+	for _, item := range items {
+		if item.Kind != "express" || !item.Enabled {
+			continue
+		}
+		var cfg intexpress.Config
+		if json.Unmarshal(item.Config, &cfg) != nil || cfg.SecretKey == "" {
+			continue
+		}
+		if botID != "" && botID != cfg.BotID {
+			continue
+		}
+		if intexpress.VerifyAuthorization(auth, cfg.SecretKey) == nil {
+			matches = append(matches, item)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, apperrors.Unauthorized("invalid express signature or disabled bot")
+	}
+	sort.Slice(matches, func(i, j int) bool {
+		if (matches[i].WorkspaceID == nil) != (matches[j].WorkspaceID == nil) {
+			return matches[i].WorkspaceID == nil
+		}
+		return matches[i].ID.String() < matches[j].ID.String()
+	})
+	return matches, nil
 }

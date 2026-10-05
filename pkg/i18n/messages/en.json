@@ -2,5 +2,15 @@
   "page.acknowledge_button": "Acknowledge",
   "page.incident_title": "Incident {{id}}",
   "oncall.announce": "On call now for {{team}}: {{people}}",
-  "oncall.announce_empty": "No one is on call for {{team}}."
+  "oncall.announce_empty": "No one is on call for {{team}}.",
+  "bot.linked": "Linked to Aegis.",
+  "bot.link_invalid": "Link code is invalid or expired. Generate a new code in Aegis.",
+  "bot.acknowledged": "Incident acknowledged.",
+  "bot.already_acknowledged": "Incident is already acknowledged.",
+  "bot.incident_missing": "Incident not found.",
+  "bot.incident_resolved": "Incident is already resolved.",
+  "bot.unlinked": "Link your Aegis account with /link before acknowledging incidents.",
+  "bot.not_allowed": "Your Aegis role cannot acknowledge incidents.",
+  "bot.unsupported": "Command not supported. Use /link, /ack_incident or /oncall.",
+  "bot.oncall_empty": "No teams are configured."
 }

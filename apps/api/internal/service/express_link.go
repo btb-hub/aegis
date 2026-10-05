@@ -55,7 +55,7 @@ func (s *IntegrationService) ExpressSecretKey(ctx context.Context) (string, erro
 		return "", err
 	}
 	for _, item := range items {
-		if item.Kind != "express" {
+		if item.Kind != "express" || !item.Enabled {
 			continue
 		}
 		var cfg intexpress.Config

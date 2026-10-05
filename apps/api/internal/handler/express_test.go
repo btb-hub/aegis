@@ -140,7 +140,7 @@ func TestExpressCallbackNoExpressIntegration(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
 func TestExpressCallbackInvalidIncidentID(t *testing.T) {
@@ -155,7 +155,7 @@ func TestExpressCallbackInvalidIncidentID(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusBadRequest, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code)
 }
 
 func TestExpressCallbackAckUserNotFound(t *testing.T) {
@@ -170,7 +170,7 @@ func TestExpressCallbackAckUserNotFound(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code)
 }
 
 func TestExpressStatusOK(t *testing.T) {
@@ -305,7 +305,7 @@ func seedExpressIntegration(t *testing.T, repo *phase2HandlerRepo) {
 	t.Helper()
 	repo.integrations[uuid.New()] = db.Integration{
 		Kind: "express", Enabled: true,
-		Config: expressConfigJSON(map[string]string{"bot_id": "bot", "host": "https://cts.example.com", "secret_key": "secret"}),
+		Config: expressConfigJSON(map[string]string{"bot_id": "8dada2c8-67a6-4434-9dec-570d244e78ee", "host": "https://cts.example.com", "secret_key": "secret"}),
 	}
 }
 
@@ -336,4 +336,20 @@ func signExpressJWT(t *testing.T, secret string, claims map[string]any) string {
 	mac.Write([]byte(signingInput))
 	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 	return signingInput + "." + sig
+}
+
+func TestExpressNotificationResultAuthentication(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	id := uuid.New()
+	repo.integrations[id] = db.Integration{ID: id, Kind: "express", Enabled: true, Config: []byte(`{"bot_id":"bot","secret_key":"secret","host":"https://express.example.test"}`)}
+	for _, spec := range []struct {
+		body, auth string
+		want       int
+	}{{`{"sync_id":"message-1","status":"ok"}`, "Bearer " + signExpressJWT(t, "secret", map[string]any{"exp": time.Now().Add(time.Hour).Unix()}), 202}, {`{"sync_id":"message-1","status":"error","reason":"not_found"}`, "Bearer " + signExpressJWT(t, "secret", map[string]any{"exp": time.Now().Add(time.Hour).Unix()}), 202}, {`{"sync_id":"message-1","status":"ok"}`, "Bearer invalid", 401}, {`bad`, "Bearer " + signExpressJWT(t, "secret", map[string]any{"exp": time.Now().Add(time.Hour).Unix()}), 500}} {
+		req := httptest.NewRequest("POST", "/api/v1/callbacks/express/notification/callback", bytes.NewBufferString(spec.body))
+		req.Header.Set("Authorization", spec.auth)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		require.Equal(t, spec.want, w.Code, w.Body.String())
+	}
 }

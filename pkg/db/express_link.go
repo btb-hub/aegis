@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+var ErrLinkCodeInvalid = errors.New("link code invalid or expired")
 
 func (s *Store) GetUserByExpressHuid(ctx context.Context, expressHuid uuid.UUID) (User, error) {
 	q := `SELECT ` + userSelectColumns + ` FROM users WHERE express_user_huid = $1`
@@ -53,7 +55,7 @@ WHERE code = $1 AND expires_at > now()
 FOR UPDATE`, code).Scan(&userID)
 	if err != nil {
 		if isNoRows(err) {
-			return User{}, fmt.Errorf("link code invalid or expired")
+			return User{}, ErrLinkCodeInvalid
 		}
 		return User{}, err
 	}

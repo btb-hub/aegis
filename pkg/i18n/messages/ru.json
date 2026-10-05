@@ -2,5 +2,15 @@
   "page.acknowledge_button": "Подтвердить",
   "page.incident_title": "Инцидент {{id}}",
   "oncall.announce": "Сейчас дежурят в {{team}}: {{people}}",
-  "oncall.announce_empty": "В {{team}} сейчас никто не дежурит."
+  "oncall.announce_empty": "В {{team}} сейчас никто не дежурит.",
+  "bot.linked": "Привязано к Aegis.",
+  "bot.link_invalid": "Код привязки недействителен или истёк. Создайте новый код в Aegis.",
+  "bot.acknowledged": "Инцидент подтверждён.",
+  "bot.already_acknowledged": "Инцидент уже подтверждён.",
+  "bot.incident_missing": "Инцидент не найден.",
+  "bot.incident_resolved": "Инцидент уже закрыт.",
+  "bot.unlinked": "Привяжите учётную запись Aegis через /link перед подтверждением инцидентов.",
+  "bot.not_allowed": "Ваша роль Aegis не позволяет подтверждать инциденты.",
+  "bot.unsupported": "Команда не поддерживается. Используйте /link, /ack_incident или /oncall.",
+  "bot.oncall_empty": "Команды не настроены."
 }
