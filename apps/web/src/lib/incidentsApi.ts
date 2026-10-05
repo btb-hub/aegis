@@ -22,6 +22,7 @@ export type ApiIncident = {
   title: string;
   fingerprint: string;
   jira_issue_key?: string;
+  jira_issue_url?: string;
   created_at: string;
   acknowledged_at?: string;
   resolved_at?: string;
@@ -119,6 +120,7 @@ export function mapApiIncident(
     title: incident.title,
     fingerprint: incident.fingerprint,
     jiraIssueKey: incident.jira_issue_key,
+ jiraIssueUrl: incident.jira_issue_url,
     createdAt: incident.created_at,
     acknowledgedAt: incident.acknowledged_at,
     resolvedAt: incident.resolved_at,
@@ -153,8 +155,11 @@ export async function acknowledgeIncident(id: string): Promise<void> {
   await apiFetch(`/api/v1/incidents/${id}/acknowledge`, { method: 'POST' });
 }
 
-export async function resolveIncident(id: string): Promise<void> {
-  await apiFetch(`/api/v1/incidents/${id}/resolve`, { method: 'POST' });
+export async function addIncidentComment(id: string, body: string): Promise<void> {
+ await apiFetch(`/api/v1/incidents/${id}/comments`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body})});
+}
+export async function resolveIncident(id: string, comment?: string): Promise<void> {
+  await apiFetch(`/api/v1/incidents/${id}/resolve`, { method: 'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({comment:comment ?? ''}) });
 }
 
 export async function handoffIncident(id: string, toTeamId: string, note: string): Promise<void> {

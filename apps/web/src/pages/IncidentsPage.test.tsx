@@ -104,3 +104,5 @@ describe('IncidentsPage', () => {
     });
   });
 });
+
+vi.mock('../context/AuthContext',()=>({useAuth:()=>({user:{role:'admin'}})}));

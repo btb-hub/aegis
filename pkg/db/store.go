@@ -7,11 +7,40 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type dbConnection interface {
+	Begin(context.Context) (pgx.Tx, error)
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+	Ping(context.Context) error
+}
+type transactionConnection struct{ pgx.Tx }
+
+func (t transactionConnection) Ping(ctx context.Context) error {
+	_, err := t.Exec(ctx, "SELECT 1")
+	return err
+}
+
+// InTransaction allows existing repository operations to share one commit;
+// their internal transactions become PostgreSQL savepoints.
+func (s *Store) InTransaction(ctx context.Context, fn func(*Store) error) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err := fn(&Store{pool: transactionConnection{tx}}); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 type Store struct {
-	pool *pgxpool.Pool
+	pool dbConnection
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -170,7 +199,7 @@ UPDATE jobs
 SET status = 'running', updated_at = now(), attempts = attempts + 1
 WHERE id = (
     SELECT id FROM jobs
-    WHERE status = 'pending' AND run_at <= now()
+    WHERE (status = 'pending' AND run_at <= now()) OR (status='running' AND updated_at < now()-interval '2 minutes')
     ORDER BY run_at
     FOR UPDATE SKIP LOCKED
     LIMIT 1

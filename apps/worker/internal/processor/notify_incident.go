@@ -80,6 +80,7 @@ func notifyIncidentIntegrations(
 	ref := toIncidentRef(incident)
 
 	integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
+		if _, durable := store.(interface { EnqueueJiraSync(context.Context, uuid.UUID) error }); durable { return nil }
 		if incident.JiraIssueKey != nil {
 			return nil
 		}

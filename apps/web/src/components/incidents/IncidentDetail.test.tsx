@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { within, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import { IncidentDetail } from './IncidentDetail';
@@ -13,6 +13,7 @@ const incident: Incident = {
   title: 'CPU high',
   fingerprint: 'fp-1',
   jiraIssueKey: 'OPS-42',
+ jiraIssueUrl:'https://jira.example.org/browse/OPS-42',
   createdAt: '2026-06-26T10:00:00Z',
   alerts: [{ id: 'a1', severity: 'critical', title: 'CPU high', status: 'firing' }],
   timeline: [{ id: 'e1', kind: 'created', payload: {}, createdAt: '2026-06-26T10:00:00Z' }],
@@ -185,7 +186,8 @@ describe('IncidentDetail', () => {
     );
 
     fireEvent.click(screen.getByText('Resolve'));
-    expect(onResolve).toHaveBeenCalledWith(incident.id);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button',{name:'Resolve'}));
+    expect(onResolve).toHaveBeenCalledWith(incident.id,'');
   });
 
   it('submits handoff with selected team', () => {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/db"
@@ -119,6 +121,55 @@ func (s *IncidentService) AcknowledgeByExpressHuid(ctx context.Context, incident
 	return s.Acknowledge(ctx, incidentID, user.ID)
 }
 
+type IncidentCommentRepository interface {
+	AddIncidentComment(context.Context, uuid.UUID, uuid.UUID, string) (db.TimelineEvent, error)
+	ResolveIncidentWithComment(context.Context, uuid.UUID, uuid.UUID, string) (db.Incident, error)
+}
+
+func validateIncidentComment(body string, optional bool) error {
+	if strings.TrimSpace(body) == "" {
+		if optional {
+			return nil
+		}
+		return apperrors.Validation("comment body is required", nil)
+	}
+	if utf8.RuneCountInString(body) > 10000 {
+		return apperrors.Validation("comment must be at most 10000 characters", nil)
+	}
+	return nil
+}
+func (s *IncidentService) AddComment(ctx context.Context, id, actor uuid.UUID, body string) (db.TimelineEvent, error) {
+	if err := validateIncidentComment(body, false); err != nil {
+		return db.TimelineEvent{}, err
+	}
+	repo, ok := s.repo.(IncidentCommentRepository)
+	if !ok {
+		return db.TimelineEvent{}, apperrors.Validation("comments unavailable", nil)
+	}
+	event, err := repo.AddIncidentComment(ctx, id, actor, strings.TrimSpace(body))
+	if err != nil {
+		return db.TimelineEvent{}, mapIncidentError(err)
+	}
+	return event, nil
+}
+func (s *IncidentService) ResolveWithComment(ctx context.Context, id, actor uuid.UUID, comment string) (db.Incident, error) {
+	if err := validateIncidentComment(comment, true); err != nil {
+		return db.Incident{}, err
+	}
+	if repo, ok := s.repo.(IncidentCommentRepository); ok {
+		incident, err := repo.ResolveIncidentWithComment(ctx, id, actor, strings.TrimSpace(comment))
+		if err != nil {
+			return db.Incident{}, mapIncidentTransitionError(err, "resolve")
+		}
+		_ = s.repo.CancelEscalationJobs(ctx, id)
+		return incident, nil
+	}
+	if strings.TrimSpace(comment) != "" {
+		return db.Incident{}, apperrors.Validation("comments unavailable", nil)
+	}
+	return s.Resolve(ctx, id, actor)
+}
+
 func (s *IncidentService) Resolve(ctx context.Context, incidentID, actorID uuid.UUID) (db.Incident, error) {
 	incident, err := s.repo.ResolveIncident(ctx, incidentID, actorID)
 	if err != nil {
@@ -213,6 +264,9 @@ func IncidentJSON(incident db.Incident) map[string]any {
 	}
 	if incident.AssigneeID != nil {
 		out["assignee_id"] = incident.AssigneeID.String()
+	}
+	if incident.JiraIssueURL != nil {
+		out["jira_issue_url"] = *incident.JiraIssueURL
 	}
 	if incident.JiraIssueKey != nil {
 		out["jira_issue_key"] = *incident.JiraIssueKey

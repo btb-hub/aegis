@@ -123,14 +123,14 @@ ON CONFLICT (incident_id, alert_id) DO NOTHING`, incidentID, alertID)
 func (s *Store) GetIncidentByID(ctx context.Context, id uuid.UUID) (Incident, error) {
 	const q = `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, jira_integration_id, jira_issue_url
 FROM incidents
 WHERE id = $1`
 	var incident Incident
 	err := s.pool.QueryRow(ctx, q, id).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.JiraIntegrationID, &incident.JiraIssueURL,
 	)
 	return incident, err
 }

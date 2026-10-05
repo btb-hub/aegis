@@ -78,6 +78,9 @@ func enqueuePostCreateJobsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUI
 		return err
 	}
 	notifyPayload := []byte(`{"incident_id":"` + incidentID.String() + `"}`)
+	if err := enqueueJobTx(ctx, tx, "sync_jira", notifyPayload, time.Now().UTC()); err != nil {
+		return err
+	}
 	return enqueueJobTx(ctx, tx, "notify_incident", notifyPayload, time.Now().UTC())
 }
 
@@ -87,13 +90,22 @@ SELECT EXISTS (
   SELECT 1 FROM jobs
   WHERE kind = $1 AND status = 'pending' AND payload::text LIKE $2
 )`
- needle := "%" + incidentID.String() + "%"
+	needle := "%" + incidentID.String() + "%"
 	var exists bool
 	err := s.pool.QueryRow(ctx, q, kind, needle).Scan(&exists)
 	return exists, err
 }
 
 func (s *Store) EnsureIncidentPostCreateJobs(ctx context.Context, incidentID uuid.UUID, escalationRunAt time.Time) error {
+	hasSync, err := s.HasPendingJob(ctx, "sync_jira", incidentID)
+	if err != nil {
+		return err
+	}
+	if !hasSync {
+		if err := s.EnqueueJiraSync(ctx, incidentID); err != nil {
+			return err
+		}
+	}
 	hasEscalation, err := s.HasPendingJob(ctx, "escalate_incident", incidentID)
 	if err != nil {
 		return err

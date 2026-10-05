@@ -608,5 +608,11 @@
   "workspaces.integrations.slack_inherit_help": "Режим наследования использует глобального бота Slack. Выберите собственный режим, чтобы использовать отдельного бота для этого рабочего пространства.",
   "workspaces.integrations.configure_global_slack": "Настроить глобальный Slack",
   "setup.integrations.jira.deployment": "Тип Jira",
-  "integrations.jira_test_help": "Проверка подключения проверяет аутентификацию. Создайте инцидент через маршрутизацию, чтобы проверить создание задачи и её видимость на доске."
+  "integrations.jira_test_help": "Проверка подключения проверяет аутентификацию. Создайте инцидент через маршрутизацию, чтобы проверить создание задачи и её видимость на доске.",
+  "incidents.comment": "Комментарий",
+  "incidents.add_comment": "Добавить комментарий",
+  "incidents.resolution_comment": "Комментарий к закрытию (необязательно)",
+  "incidents.comment_error": "Комментарий не сохранён. Проверьте соединение и повторите попытку.",
+  "incidents.timeline.comment_added": "Комментарий добавлен",
+  "incidents.timeline.integration_failed": "Ошибка интеграции"
 }

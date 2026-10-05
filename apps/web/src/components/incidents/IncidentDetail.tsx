@@ -6,6 +6,7 @@ import { splitIncidentTitle } from '../../lib/incidentTitle';
 import { bounceLabelKey, handoffLabelKey, handoffTeamLabelKey } from '../../lib/teamTypes';
 import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
 import { PersonContacts } from '../ui/PersonContacts';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
@@ -25,7 +26,9 @@ type IncidentDetailProps = {
   owningTier?: string;
   canBounce: boolean;
   onAcknowledge: (incidentId: string) => void;
-  onResolve: (incidentId: string) => void;
+  onResolve: (incidentId: string, comment?: string) => void | Promise<boolean | void>;
+  onComment?: (incidentId: string,body:string) => void | Promise<boolean | void>;
+  canMutate?: boolean;
   onHandoff: (incidentId: string, toTeamId: string, note: string) => void;
   onBounce: (incidentId: string, note: string) => void;
 };
@@ -111,11 +114,27 @@ export function IncidentDetail({
   canBounce,
   onAcknowledge,
   onResolve,
+  onComment,
+  canMutate = true,
   onHandoff,
   onBounce,
 }: IncidentDetailProps) {
   const { t, i18n } = useTranslation();
   const [showHandoff, setShowHandoff] = useState(false);
+  const [showResolve,setShowResolve]=useState(false);
+  const [resolutionComment,setResolutionComment]=useState('');
+  const [comment,setComment]=useState('');
+  const [saving,setSaving]=useState(false);
+  const [commentError,setCommentError]=useState<string | null>(null);
+  useEffect(()=>{setComment('');setResolutionComment('');setShowResolve(false);setCommentError(null)},[incident.id]);
+  const submitComment=async(resolve:boolean)=>{
+    setSaving(true);setCommentError(null);
+    try{
+      const result=resolve ? await onResolve(incident.id,resolutionComment) : await onComment?.(incident.id,comment);
+      if(result===false){setCommentError(t('incidents.comment_error'));return}
+      if(resolve){setShowResolve(false);setResolutionComment('')}else{setComment('')}
+    }catch{setCommentError(t('incidents.comment_error'))}finally{setSaving(false)}
+  };
   const [showBounce, setShowBounce] = useState(false);
   const [targetTeamId, setTargetTeamId] = useState(teams[0]?.id ?? '');
   const [handoffNote, setHandoffNote] = useState('');
@@ -142,13 +161,20 @@ export function IncidentDetail({
   const bounceHeading = t(`${bounceLabelKey(owningTier)}_heading`, { defaultValue: bounceLabel });
   const handoffTeamLabel = t(handoffTeamLabelKey(owningTier));
 
-  const canAcknowledge = incident.status === 'open';
-  const canResolve = incident.status === 'open' || incident.status === 'acknowledged';
-  const canHandoff = incident.status !== 'resolved' && teams.length > 0;
+  const canAcknowledge = canMutate && incident.status === 'open';
+  const canResolve = canMutate && (incident.status === 'open' || incident.status === 'acknowledged');
+  const canHandoff = canMutate && incident.status !== 'resolved' && teams.length > 0;
   const showHandoffUnavailable = incident.status !== 'resolved' && teams.length === 0;
 
   return (
     <div className="min-w-0 space-y-6 rounded-lg border border-zinc-200 bg-white p-4 sm:p-6">
+      <Modal open={showResolve} title={t('incidents.resolve')} onClose={()=>setShowResolve(false)} primaryLabel={t('incidents.resolve')} onPrimary={()=>void submitComment(true)} primaryLoading={saving} primaryDisabled={saving}>
+        <label className="block text-sm text-zinc-700">
+          {t('incidents.resolution_comment')}
+          <textarea className="mt-1 min-h-28 w-full rounded-md border border-zinc-300 p-3 focus:outline-accent" maxLength={10000} value={resolutionComment} onChange={(e)=>setResolutionComment(e.target.value)} />
+        </label>
+        {commentError ? <p role="alert" className="text-sm text-severity-p1">{commentError}</p> : null}
+      </Modal>
       <header className="grid min-w-0 gap-4 border-b border-zinc-100 pb-5 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="min-w-0 space-y-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -183,10 +209,10 @@ export function IncidentDetail({
               })}
             </time>
           </div>
-          {incident.jiraIssueKey ? (
+          {incident.jiraIssueKey && incident.jiraIssueUrl ? (
             <a
               className="text-sm font-medium text-blue-700 hover:underline"
-              href={`https://jira.example.com/browse/${incident.jiraIssueKey}`}
+              href={incident.jiraIssueUrl}
             >
               {t('incidents.jira_link', { key: incident.jiraIssueKey })}
             </a>
@@ -197,7 +223,7 @@ export function IncidentDetail({
             <Button onClick={() => onAcknowledge(incident.id)}>{t('incidents.acknowledge')}</Button>
           ) : null}
           {canResolve ? (
-            <Button variant="secondary" onClick={() => onResolve(incident.id)}>
+            <Button variant="secondary" onClick={() => setShowResolve(true)}>
               {t('incidents.resolve')}
             </Button>
           ) : null}
@@ -206,7 +232,7 @@ export function IncidentDetail({
               {handoffLabel}
             </Button>
           ) : null}
-          {canBounce && incident.status !== 'resolved' ? (
+          {canMutate && canBounce && incident.status !== 'resolved' ? (
             <Button variant="secondary" onClick={() => setShowBounce((open) => !open)}>
               {bounceLabel}
             </Button>
@@ -318,10 +344,11 @@ export function IncidentDetail({
           {incident.timeline.map((event) => (
             <li key={event.id} className="rounded-md border border-zinc-200 px-4 py-3">
               <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                <span className="min-w-0 break-words font-medium [overflow-wrap:anywhere]">
-                  {event.payload.message ??
+                <span className="min-w-0 whitespace-pre-wrap break-words font-medium [overflow-wrap:anywhere]">
+                  {event.payload.body ?? event.payload.message ??
                     t(`incidents.timeline.${event.kind}`, { defaultValue: event.kind })}
                 </span>
+                {event.payload.author_name ? <span className="text-xs text-zinc-500">{event.payload.author_name}</span> : null}
                 <time className="shrink-0 text-xs text-zinc-500">
                   {formatDateTime(new Date(event.createdAt), i18n.language, {
                     second: '2-digit',
@@ -331,6 +358,14 @@ export function IncidentDetail({
             </li>
           ))}
         </ol>
+        {canMutate && onComment ? <form className="space-y-2" onSubmit={(e)=>{e.preventDefault();void submitComment(false)}}>
+          <label className="block text-sm text-zinc-700">
+            {t('incidents.comment')}
+            <textarea className="mt-1 min-h-28 w-full rounded-md border border-zinc-300 p-3 focus:outline-accent" maxLength={10000} value={comment} onChange={(e)=>setComment(e.target.value)} />
+          </label>
+          <Button disabled={saving || !comment.trim()} onClick={()=>void submitComment(false)}>{t('incidents.add_comment')}</Button>
+          {commentError ? <p role="alert" className="text-sm text-severity-p1">{commentError}</p> : null}
+        </form> : null}
       </section>
     </div>
   );
