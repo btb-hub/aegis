@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,20 +61,28 @@ func NewPublishOnCallProcessor(log *slog.Logger, store PublishOnCallStore, publi
 
 func (p *PublishOnCallProcessor) Handle(ctx context.Context, job Job) error {
 	var payload struct {
-		TeamID string `json:"team_id"`
+		TeamID         string `json:"team_id"`
+		PublicationKey string `json:"publication_key"`
 	}
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
 		return fmt.Errorf("decode payload: %w", err)
+	}
+	if payload.PublicationKey == "" && job.ID != "" {
+		payload.PublicationKey = "manual:" + job.ID
 	}
 	if payload.TeamID == "" {
 		teams, err := p.store.ListTeams(ctx)
 		if err != nil {
 			return err
 		}
+		var failures []error
 		for _, team := range teams {
-			if err := p.publishTeam(ctx, team); err != nil {
-				return err
+			if err := p.publishTeam(ctx, team, payload.PublicationKey); err != nil {
+				failures = append(failures, err)
 			}
+		}
+		if len(failures) > 0 {
+			return errors.Join(failures...)
 		}
 		p.log.Info("publish_oncall nightly", "teams", len(teams))
 		return nil
@@ -86,10 +95,14 @@ func (p *PublishOnCallProcessor) Handle(ctx context.Context, job Job) error {
 	if err != nil {
 		return err
 	}
-	return p.publishTeam(ctx, team)
+	return p.publishTeam(ctx, team, payload.PublicationKey)
 }
 
-func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team) error {
+func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team, keys ...string) error {
+	publicationKey := ""
+	if len(keys) > 0 {
+		publicationKey = keys[0]
+	}
 	slackChannelID := stringValue(team.SlackChannelID)
 	slackUserGroupID := stringValue(team.SlackUserGroupID)
 	slackAnnouncer, expressAnnouncer, expressChatID, err := p.resolveAnnouncers(ctx, team.ID, slackChannelID)
@@ -113,14 +126,15 @@ func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team) 
 		full, err := p.store.GetUserByID(ctx, user.UserID)
 		if err != nil {
 			p.log.Error("publish_oncall skip user", "user_id", user.UserID.String(), "error", err)
-			people = append(people, integrations.OnCallPerson{DisplayName: user.DisplayName})
+			people = append(people, integrations.OnCallPerson{DisplayName: user.DisplayName, StartAt: user.StartAt, EndAt: user.EndAt})
 			continue
 		}
 		if full.Locale != "" {
 			locale = full.Locale
 		}
 		people = append(people, integrations.OnCallPerson{
-			DisplayName:     full.DisplayName,
+			DisplayName: full.DisplayName,
+			StartAt:     user.StartAt, EndAt: user.EndAt,
 			Locale:          full.Locale,
 			SlackUserID:     full.SlackUserID,
 			ExpressUserHuid: db.ExpressHuidString(full),
@@ -129,20 +143,48 @@ func (p *PublishOnCallProcessor) publishTeam(ctx context.Context, team db.Team) 
 
 	var slackErr, expressErr error
 	if attemptedSlack {
-		slackErr = slackAnnouncer.AnnounceOnCall(ctx, slackChannelID, slackUserGroupID, team.Name, people, locale)
+		slackErr = p.sendOnCall(ctx, team.ID, "slack", slackChannelID, onCallFingerprint(onCall), publicationKey, func() error {
+			return slackAnnouncer.AnnounceOnCall(ctx, slackChannelID, slackUserGroupID, team.Name, people, locale)
+		})
 		if slackErr != nil {
 			p.log.Error("publish_oncall slack failed", "team_id", team.ID.String(), "error", slackErr)
 		}
 	}
 	if attemptedExpress {
-		expressErr = expressAnnouncer.AnnounceOnCall(ctx, expressChatID, "", team.Name, people, locale)
+		var outgoingRef, generation string
+		expressErr = p.sendOnCall(ctx, team.ID, "express", expressChatID, onCallFingerprint(onCall), publicationKey+":"+onCallFingerprint(onCall), func() error {
+			if tracked, ok := expressAnnouncer.(interface {
+				AnnounceOnCallWithRef(context.Context, string, string, string, []integrations.OnCallPerson, string) (string, error)
+			}); ok {
+				var err error
+				outgoingRef, err = tracked.AnnounceOnCallWithRef(ctx, expressChatID, "", team.Name, people, locale)
+				return err
+			}
+			return expressAnnouncer.AnnounceOnCall(ctx, expressChatID, "", team.Name, people, locale)
+		}, &generation, &outgoingRef)
+		_, atomicRef := p.store.(interface {
+			RunOnCallDeliveryWithRef(context.Context, db.PublicationAttempt, uuid.UUID, func() (string, error)) error
+		})
+		if outgoingRef != "" && !atomicRef {
+			if recorder, ok := p.store.(interface {
+				RecordOnCallExpressRef(context.Context, uuid.UUID, uuid.UUID, string, string, string) error
+			}); ok {
+				connector, err := p.store.GetIntegrationByKind(ctx, "express")
+				if err == nil {
+					err = recorder.RecordOnCallExpressRef(ctx, connector.ID, team.ID, expressChatID, generation, outgoingRef)
+				}
+				if err != nil {
+					expressErr = err
+				}
+			}
+		}
 		if expressErr != nil {
 			p.log.Error("publish_oncall express failed", "team_id", team.ID.String(), "error", expressErr)
 		}
 	}
 
 	if attemptedSlack && slackErr != nil && attemptedExpress && expressErr != nil {
-		return fmt.Errorf("publish_oncall both providers failed: slack: %v; express: %v", slackErr, expressErr)
+		return fmt.Errorf("publish_oncall providers failed: %w", errors.Join(slackErr, expressErr))
 	}
 	if attemptedSlack && slackErr != nil && !attemptedExpress {
 		return slackErr
@@ -234,10 +276,30 @@ func EnqueueOnCallRotationPublishes(ctx context.Context, store RotationPublishSt
 			return err
 		}
 		fp := onCallFingerprint(users)
-		if team.OnCallAnnouncedUserIDs != nil && *team.OnCallAnnouncedUserIDs == fp {
+		if durable, ok := store.(OnCallDeliveryStore); ok {
+			needs := false
+			for kind, destination := range map[string]string{"slack": stringValue(team.SlackChannelID), "express": expressChatID} {
+				if destination == "" {
+					continue
+				}
+				version, err := publicationConfigVersion(ctx, store, team.ID, kind)
+				if err != nil {
+					return err
+				}
+				due, err := durable.NeedsOnCallPublication(ctx, db.PublicationAttempt{TeamID: team.ID, Provider: kind, Destination: destination, Fingerprint: fp, ConfigVersion: version}, now)
+				if err != nil {
+					return err
+				}
+				needs = needs || due
+			}
+			if !needs {
+				continue
+			}
+		} else if team.OnCallAnnouncedUserIDs != nil && *team.OnCallAnnouncedUserIDs == fp {
 			continue
 		}
-		if fp == "" && (team.OnCallAnnouncedUserIDs == nil || *team.OnCallAnnouncedUserIDs == "") {
+		_, durable := store.(OnCallDeliveryStore)
+		if !durable && fp == "" && (team.OnCallAnnouncedUserIDs == nil || *team.OnCallAnnouncedUserIDs == "") {
 			continue
 		}
 		pending, err := store.HasPendingPublishOnCall(ctx, team.ID)
@@ -257,7 +319,11 @@ func EnqueueOnCallRotationPublishes(ctx context.Context, store RotationPublishSt
 func onCallFingerprint(users []db.OnCallUser) string {
 	ids := make([]string, 0, len(users))
 	for _, user := range users {
-		ids = append(ids, user.UserID.String())
+		id := user.UserID.String()
+		if !user.StartAt.IsZero() {
+			id += ":" + user.StartAt.UTC().Format(time.RFC3339Nano) + ":" + user.EndAt.UTC().Format(time.RFC3339Nano)
+		}
+		ids = append(ids, id)
 	}
 	sort.Strings(ids)
 	return strings.Join(ids, ",")
@@ -272,4 +338,60 @@ func stringValue(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+type OnCallDeliveryStore interface {
+	RunOnCallDelivery(context.Context, db.PublicationAttempt, func() error) error
+	NeedsOnCallPublication(context.Context, db.PublicationAttempt, time.Time) (bool, error)
+}
+
+func (p *PublishOnCallProcessor) sendOnCall(ctx context.Context, teamID uuid.UUID, kind, destination, fingerprint, key string, send func() error, generation ...*string) error {
+	durable, ok := p.store.(OnCallDeliveryStore)
+	if !ok {
+		return send()
+	}
+	version, err := publicationConfigVersion(ctx, p.store, teamID, kind)
+	if err != nil {
+		return err
+	}
+	key += ":" + version
+	if len(generation) > 0 {
+		*generation[0] = key
+	}
+	attempt := db.PublicationAttempt{TeamID: teamID, Provider: kind, Destination: destination, Fingerprint: fingerprint, ConfigVersion: version, PublicationKey: key}
+	if tracked, ok := p.store.(interface {
+		RunOnCallDeliveryWithRef(context.Context, db.PublicationAttempt, uuid.UUID, func() (string, error)) error
+	}); ok && kind == "express" && len(generation) > 1 {
+		connector, err := p.store.GetIntegrationByKind(ctx, kind)
+		if err != nil {
+			return err
+		}
+		return tracked.RunOnCallDeliveryWithRef(ctx, attempt, connector.ID, func() (string, error) { err := send(); return *generation[1], err })
+	}
+	return durable.RunOnCallDelivery(ctx, attempt, send)
+}
+func publicationConfigVersion(ctx context.Context, store globalExpressIntegrationStore, teamID uuid.UUID, kind string) (string, error) {
+	global, err := store.GetIntegrationByKind(ctx, kind)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
+	}
+	raw, _ := json.Marshal(global)
+	if kind == "slack" {
+		if scoped, ok := store.(interface {
+			GetTeamWorkspaceID(context.Context, uuid.UUID) (uuid.UUID, error)
+			GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error)
+		}); ok {
+			workspace, err := scoped.GetTeamWorkspaceID(ctx, teamID)
+			if err != nil {
+				return "", err
+			}
+			slot, err := scoped.GetWorkspaceIntegration(ctx, workspace, kind)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return "", err
+			}
+			slotRaw, _ := json.Marshal(slot)
+			raw = append(raw, slotRaw...)
+		}
+	}
+	return fmt.Sprintf("%x", sha256.Sum256(raw)), nil
 }

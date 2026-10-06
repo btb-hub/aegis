@@ -287,6 +287,7 @@ func (a *AegisAPI) findOrCreateTeam(ctx context.Context, name, tier string) (str
 
 func (a *AegisAPI) createRoutingRule(ctx context.Context, teamID string, labels map[string]string, priority int) (string, error) {
 	body, _ := json.Marshal(map[string]any{
+		"workspace_id": defaultWorkspaceID,
 		"team_id":      teamID,
 		"match_labels": labels,
 		"priority":     priority,

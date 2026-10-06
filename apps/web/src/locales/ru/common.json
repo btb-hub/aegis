@@ -614,5 +614,15 @@
   "incidents.resolution_comment": "Комментарий к закрытию (необязательно)",
   "incidents.comment_error": "Комментарий не сохранён. Проверьте соединение и повторите попытку.",
   "incidents.timeline.comment_added": "Комментарий добавлен",
-  "incidents.timeline.integration_failed": "Ошибка интеграции"
+  "incidents.timeline.integration_failed": "Ошибка интеграции",
+  "settings.admin_required": "Требуется доступ администратора.",
+  "settings.description": "Настройки общих объявлений о дежурстве.",
+  "settings.publication": "Ежедневное объявление дежурных",
+  "settings.time": "Время публикации",
+  "settings.timezone": "Часовой пояс",
+  "settings.timezone_hint": "Часовой пояс IANA, например Europe/Moscow или UTC",
+  "settings.next": "Следующая публикация: {{time}} ({{timezone}})",
+  "settings.error": "Не удалось загрузить или сохранить настройки. Проверьте время и часовой пояс.",
+  "settings.saved": "Настройки сохранены.",
+  "nav.settings": "Настройки"
 }

@@ -3,12 +3,14 @@ package db
 import (
 	"context"
 	"errors"
+	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
@@ -122,6 +124,72 @@ func TestExpressCallbacksReconcileAndDeduplicate(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE kind='express_reply'`).Scan(&count))
 	require.Equal(t, 1, count)
 }
+func TestPublicationRestartDedupAndPermanentFailures(t *testing.T) {
+	s, pool := improvementsStore(t)
+	team, _, _, _ := improvementsIncident(t, pool)
+	ctx := context.Background()
+	due := time.Date(2026, 10, 5, 3, 0, 0, 0, time.UTC)
+	_, err := pool.Exec(ctx, `UPDATE oncall_publication_settings SET next_run_at=$1`, due)
+	require.NoError(t, err)
+	var wg sync.WaitGroup
+	errs := make(chan error, 4)
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); errs <- s.EnqueueScheduledPublication(ctx, due.Add(time.Minute)) }()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+	var count int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE kind='publish_oncall'`).Scan(&count))
+	require.Equal(t, 1, count)
+	_, err = pool.Exec(ctx, `UPDATE oncall_publication_settings SET next_run_at=$1`, due.Add(-24*time.Hour))
+	require.NoError(t, err)
+	require.NoError(t, s.EnqueueScheduledPublication(ctx, due.Add(time.Minute)))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE kind='publish_oncall'`).Scan(&count))
+	require.Equal(t, 1, count)
+	a := PublicationAttempt{TeamID: team, Provider: "express", Destination: "oncall", Fingerprint: "engineer", ConfigVersion: "v1", PublicationKey: "rotation"}
+	calls := 0
+	send := func() error {
+		calls++
+		return &integrations.HTTPError{Status: 404, Provider: "express", Operation: "publish"}
+	}
+	require.Error(t, s.RunOnCallDelivery(ctx, a, send))
+	require.Error(t, s.RunOnCallDelivery(ctx, a, send))
+	require.Equal(t, 1, calls)
+	needed, err := s.NeedsOnCallPublication(ctx, a, time.Now().Add(time.Hour))
+	require.NoError(t, err)
+	require.False(t, needed)
+	a.ConfigVersion = "v2"
+	needed, err = s.NeedsOnCallPublication(ctx, a, time.Now())
+	require.NoError(t, err)
+	require.True(t, needed)
+	require.Error(t, s.RunOnCallDelivery(ctx, a, send))
+	require.Equal(t, 2, calls)
+	a.PublicationKey = "manual:1"
+	require.NoError(t, s.RunOnCallDelivery(ctx, a, func() error { calls++; return nil }))
+	require.NoError(t, s.RunOnCallDelivery(ctx, a, func() error { calls++; return nil }))
+	require.Equal(t, 3, calls)
+}
+func TestNewMigrationsReversible(t *testing.T) {
+	_, pool := improvementsStore(t)
+	ctx := context.Background()
+	for _, name := range []string{"000022_oncall_settings", "000021_express_delivery", "000020_incident_jira"} {
+		raw, err := os.ReadFile("../../db/migrations/" + name + ".down.sql")
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, string(raw))
+		require.NoError(t, err)
+	}
+	for _, name := range []string{"000020_incident_jira", "000021_express_delivery", "000022_oncall_settings"} {
+		raw, err := os.ReadFile("../../db/migrations/" + name + ".up.sql")
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, string(raw))
+		require.NoError(t, err)
+	}
+}
+
 func TestExpiredJobLeaseAndFencing(t *testing.T) {
 	s, pool := improvementsStore(t)
 	ctx := context.Background()
@@ -148,4 +216,38 @@ func TestExpiredJobLeaseAndFencing(t *testing.T) {
 	require.NoError(t, s.FinishClaimedJob(ctx, id, second.Attempts, "", true, false))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM jobs WHERE id=$1`, id).Scan(&status))
 	require.Equal(t, "done", status)
+}
+func TestPublicationDelayedCallbackGeneration(t *testing.T) {
+	s, pool := improvementsStore(t)
+	team, _, _, connector := improvementsIncident(t, pool)
+	ctx := context.Background()
+	a := PublicationAttempt{TeamID: team, Provider: "express", Destination: "oncall", Fingerprint: "first", ConfigVersion: "v1", PublicationKey: "rotation:first:v1"}
+	require.NoError(t, s.RunOnCallDeliveryWithRef(ctx, a, connector, func() (string, error) { return "first-ref", nil }))
+	a.Fingerprint = "second"
+	a.PublicationKey = "rotation:second:v1"
+	require.NoError(t, s.RunOnCallDeliveryWithRef(ctx, a, connector, func() (string, error) { return "second-ref", nil }))
+	var status string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM oncall_deliveries WHERE team_id=$1`, team).Scan(&status))
+	require.Equal(t, "sent", status)
+	// A -> B -> A reuses the logical fingerprint but must retain the newest sync ID.
+	a.Fingerprint = "first"
+	a.PublicationKey = "rotation:first:v1"
+	require.NoError(t, s.RunOnCallDeliveryWithRef(ctx, a, connector, func() (string, error) { return "first-again-ref", nil }))
+	require.NoError(t, s.HandleExpressNotificationResult(ctx, connector, "first-ref", "error", "late first A"))
+	require.NoError(t, s.HandleExpressNotificationResult(ctx, connector, "second-ref", "error", "late B"))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM oncall_deliveries WHERE team_id=$1`, team).Scan(&status))
+	require.Equal(t, "sent", status)
+	require.NoError(t, s.HandleExpressNotificationResult(ctx, connector, "first-again-ref", "error", "current A failure"))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM oncall_deliveries WHERE team_id=$1`, team).Scan(&status))
+	require.Equal(t, "failed", status)
+	require.NoError(t, s.HandleExpressNotificationResult(ctx, connector, "second-ref", "error", "new failure"))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM oncall_deliveries WHERE team_id=$1`, team).Scan(&status))
+	require.Equal(t, "failed", status)
+	// Early callback and outgoing state commit together.
+	require.NoError(t, s.HandleExpressNotificationResult(ctx, connector, "third-ref", "error", "early failure"))
+	a.Fingerprint = "third"
+	a.PublicationKey = "rotation:third:v1"
+	require.Error(t, s.RunOnCallDeliveryWithRef(ctx, a, connector, func() (string, error) { return "third-ref", nil }))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM oncall_deliveries WHERE team_id=$1`, team).Scan(&status))
+	require.Equal(t, "failed", status)
 }

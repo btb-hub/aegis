@@ -113,11 +113,17 @@ func enqueueNightlyMaterialise(ctx context.Context, store *db.Store) {
 }
 
 func enqueueDailyPublishOnCall(ctx context.Context, store *db.Store) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
 	for {
-		now := time.Now().UTC()
-		next := time.Date(now.Year(), now.Month(), now.Day()+1, 3, 0, 0, 0, time.UTC)
-		time.Sleep(time.Until(next))
-		_, _ = store.EnqueueJob(ctx, "publish_oncall", []byte(`{}`), time.Now())
+		if err := store.EnqueueScheduledPublication(ctx, time.Now().UTC()); err != nil {
+			log.Printf("daily oncall schedule: %v", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 

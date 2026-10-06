@@ -614,5 +614,15 @@
   "incidents.resolution_comment": "Resolution comment (optional)",
   "incidents.comment_error": "Comment was not saved. Check the connection and try again.",
   "incidents.timeline.comment_added": "Comment added",
-  "incidents.timeline.integration_failed": "Integration failed"
+  "incidents.timeline.integration_failed": "Integration failed",
+  "settings.admin_required": "Administrator access required.",
+  "settings.description": "Configure shared on-call announcements.",
+  "settings.publication": "Daily on-call publication",
+  "settings.time": "Daily time",
+  "settings.timezone": "Timezone",
+  "settings.timezone_hint": "IANA timezone, for example Europe/Moscow or UTC",
+  "settings.next": "Next publication: {{time}} ({{timezone}})",
+  "settings.error": "Could not load or save settings. Check the time and timezone.",
+  "settings.saved": "Settings saved.",
+  "nav.settings": "Settings"
 }

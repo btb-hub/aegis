@@ -28,3 +28,5 @@ bin/
 _bmad-output/
 _bmad/config.user.toml
 _bmad/config.user.yaml
+
+.superpowers/
