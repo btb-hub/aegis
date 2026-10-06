@@ -103,3 +103,10 @@ function jsonResponse(body: unknown, status = 200): Response {
     json: async () => body,
   } as Response;
 }
+
+it('posts general and resolution comments preserving line breaks',async()=> {
+ const {addIncidentComment,resolveIncident}=await import('./incidentsApi');
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,status:200,json:async()=>({})}));
+ await addIncidentComment('incident-id','note\nsecond');expect(fetch).toHaveBeenLastCalledWith('/api/v1/incidents/incident-id/comments',expect.objectContaining({method:'POST',body:JSON.stringify({body:'note\nsecond'})}));
+ await resolveIncident('incident-id','fixed');expect(fetch).toHaveBeenLastCalledWith('/api/v1/incidents/incident-id/resolve',expect.objectContaining({body:JSON.stringify({comment:'fixed'})}));
+});

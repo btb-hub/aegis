@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"github.com/aegis/aegis/pkg/integrations"
 	"log"
 	"os"
 	"os/signal"
@@ -46,6 +47,8 @@ func main() {
 	publishOnCall := processor.NewPublishOnCallProcessor(nil, store, cfg.PublicURL)
 	worker := processor.NewWorker(nil, adapter, alert, materialise, escalate, handoffNotify, notifyIncident, publishOnCall)
 
+	worker.Register("sync_jira", processor.NewJiraSyncProcessor(store, cfg.PublicURL))
+
 	go enqueueNightlyMaterialise(ctx, store)
 	go enqueueDailyPublishOnCall(ctx, store)
 	go enqueueOnCallRotationTicker(ctx, store)
@@ -80,7 +83,7 @@ func (s *storeAdapter) ClaimNextJob(ctx context.Context) (bool, processor.Job, e
 	if err != nil {
 		return false, processor.Job{}, err
 	}
-	return true, processor.Job{ID: job.ID.String(), Kind: job.Kind, Payload: json.RawMessage(job.Payload)}, nil
+	return true, processor.Job{ID: job.ID.String(), Kind: job.Kind, Attempt: job.Attempts, Payload: json.RawMessage(job.Payload)}, nil
 }
 
 func (s *storeAdapter) CompleteJob(ctx context.Context, id string) error {
@@ -138,4 +141,55 @@ func loadI18n() error {
 		dir = filepath.Join("..", "..", "pkg", "i18n", "messages")
 	}
 	return i18n.LoadMessages(dir)
+}
+
+func (s *storeAdapter) RetryJob(ctx context.Context, id string, cause error) error {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	if !integrations.RetryableError(cause) {
+		return s.store.FailJob(ctx, uid, cause.Error())
+	}
+	return s.store.RescheduleJob(ctx, uid, cause.Error())
+}
+
+func (s *storeAdapter) BeginJob(ctx context.Context, job processor.Job) (context.Context, func()) {
+	child, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-child.Done():
+				return
+			case <-ticker.C:
+				id, err := uuid.Parse(job.ID)
+				if err != nil {
+					cancel()
+					return
+				}
+				alive, err := s.store.RenewClaimedJob(child, id, job.Attempt)
+				if err != nil || !alive {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	return child, func() { cancel(); <-done }
+}
+func (s *storeAdapter) FinishClaimedJob(ctx context.Context, job processor.Job, result error) error {
+	id, err := uuid.Parse(job.ID)
+	if err != nil {
+		return err
+	}
+	retry := result != nil && integrations.RetryableError(result) && (job.Kind == "sync_jira" || job.Kind == "express_reply" || job.Kind == "notify_incident" || job.Kind == "notify_handoff" || job.Kind == "escalate_incident" || job.Kind == "publish_oncall")
+	message := ""
+	if result != nil {
+		message = result.Error()
+	}
+	return s.store.FinishClaimedJob(ctx, id, job.Attempt, message, result == nil, retry)
 }

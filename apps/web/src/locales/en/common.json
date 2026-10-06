@@ -608,5 +608,11 @@
   "workspaces.integrations.slack_inherit_help": "Inherit uses the global Slack bot. Choose Custom to use a separate bot for this workspace.",
   "workspaces.integrations.configure_global_slack": "Configure global Slack",
   "setup.integrations.jira.deployment": "Jira deployment",
-  "integrations.jira_test_help": "Test connection checks authentication. Create a routed incident to verify issue creation and board visibility."
+  "integrations.jira_test_help": "Test connection checks authentication. Create a routed incident to verify issue creation and board visibility.",
+  "incidents.comment": "Comment",
+  "incidents.add_comment": "Add comment",
+  "incidents.resolution_comment": "Resolution comment (optional)",
+  "incidents.comment_error": "Comment was not saved. Check the connection and try again.",
+  "incidents.timeline.comment_added": "Comment added",
+  "incidents.timeline.integration_failed": "Integration failed"
 }

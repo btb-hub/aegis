@@ -76,8 +76,16 @@ func (p *HandoffNotifyProcessor) Handle(ctx context.Context, job Job) error {
 	}
 	ref := toIncidentRef(incident)
 
+	if enqueuer, ok := p.store.(interface {
+		EnqueueJiraSync(context.Context, uuid.UUID) error
+	}); ok {
+		if err := enqueuer.EnqueueJiraSync(ctx, incident.ID); err != nil {
+			return err
+		}
+	}
 	if incident.JiraIssueKey != nil {
 		integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
+			if _, durable := p.store.(interface { EnqueueJiraSync(context.Context, uuid.UUID) error }); durable { return nil }
 			updater, ok := provider.(integrations.AssigneeUpdater)
 			if !ok {
 				return nil

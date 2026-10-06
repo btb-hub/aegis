@@ -7,6 +7,7 @@ import (
 
 type Job struct {
 	ID      string
+	Attempt int32
 	Kind    string
 	Payload json.RawMessage
 }

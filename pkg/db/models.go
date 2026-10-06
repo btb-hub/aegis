@@ -38,15 +38,15 @@ type Session struct {
 }
 
 type Job struct {
-	ID        uuid.UUID       `json:"id"`
-	Kind      string          `json:"kind"`
-	Payload   []byte          `json:"payload"`
-	Status    string          `json:"status"`
-	RunAt     time.Time       `json:"run_at"`
-	Attempts  int32           `json:"attempts"`
-	LastError *string         `json:"last_error"`
-	CreatedAt time.Time       `json:"created_at"`
-	UpdatedAt time.Time       `json:"updated_at"`
+	ID        uuid.UUID `json:"id"`
+	Kind      string    `json:"kind"`
+	Payload   []byte    `json:"payload"`
+	Status    string    `json:"status"`
+	RunAt     time.Time `json:"run_at"`
+	Attempts  int32     `json:"attempts"`
+	LastError *string   `json:"last_error"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Alert struct {
@@ -73,17 +73,17 @@ type Workspace struct {
 }
 
 type Team struct {
-	ID                     uuid.UUID  `json:"id"`
-	WorkspaceID            uuid.UUID  `json:"workspace_id"`
-	Name                   string     `json:"name"`
-	Description            string     `json:"description"`
-	SupportTier            *string    `json:"support_tier,omitempty"`
-	ExpressChatID          *string    `json:"express_chat_id,omitempty"`
-	SlackChannelID         *string    `json:"slack_channel_id,omitempty"`
-	SlackUserGroupID       *string    `json:"slack_user_group_id,omitempty"`
-	OnCallAnnouncedUserIDs *string    `json:"-"`
-	CreatedAt              time.Time  `json:"created_at"`
-	UpdatedAt              time.Time  `json:"updated_at"`
+	ID                     uuid.UUID `json:"id"`
+	WorkspaceID            uuid.UUID `json:"workspace_id"`
+	Name                   string    `json:"name"`
+	Description            string    `json:"description"`
+	SupportTier            *string   `json:"support_tier,omitempty"`
+	ExpressChatID          *string   `json:"express_chat_id,omitempty"`
+	SlackChannelID         *string   `json:"slack_channel_id,omitempty"`
+	SlackUserGroupID       *string   `json:"slack_user_group_id,omitempty"`
+	OnCallAnnouncedUserIDs *string   `json:"-"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
 }
 
 func (t Team) HasChatChannel() bool {
@@ -167,6 +167,8 @@ type OnCallSlot struct {
 }
 
 type OnCallUser struct {
+	StartAt         time.Time   `json:"start_at"`
+	EndAt           time.Time   `json:"end_at"`
 	UserID          uuid.UUID   `json:"user_id"`
 	Email           string      `json:"email"`
 	DisplayName     string      `json:"display_name"`
@@ -187,17 +189,19 @@ type RoutingRule struct {
 }
 
 type Incident struct {
-	ID              uuid.UUID  `json:"id"`
-	TeamID          uuid.UUID  `json:"team_id"`
-	AssigneeID      *uuid.UUID `json:"assignee_id"`
-	Status          string     `json:"status"`
-	Severity        string     `json:"severity"`
-	Title           string     `json:"title"`
-	Fingerprint     string     `json:"fingerprint"`
-	JiraIssueKey    *string    `json:"jira_issue_key"`
-	AcknowledgedAt  *time.Time `json:"acknowledged_at"`
-	ResolvedAt      *time.Time `json:"resolved_at"`
-	CreatedAt       time.Time  `json:"created_at"`
+	JiraIntegrationID *uuid.UUID `json:"jira_integration_id,omitempty"`
+	JiraIssueURL      *string    `json:"jira_issue_url,omitempty"`
+	ID                uuid.UUID  `json:"id"`
+	TeamID            uuid.UUID  `json:"team_id"`
+	AssigneeID        *uuid.UUID `json:"assignee_id"`
+	Status            string     `json:"status"`
+	Severity          string     `json:"severity"`
+	Title             string     `json:"title"`
+	Fingerprint       string     `json:"fingerprint"`
+	JiraIssueKey      *string    `json:"jira_issue_key"`
+	AcknowledgedAt    *time.Time `json:"acknowledged_at"`
+	ResolvedAt        *time.Time `json:"resolved_at"`
+	CreatedAt         time.Time  `json:"created_at"`
 }
 
 type TimelineEvent struct {
@@ -247,15 +251,15 @@ type SavedView struct {
 }
 
 type Handoff struct {
-	ID          uuid.UUID  `json:"id"`
-	IncidentID  uuid.UUID  `json:"incident_id"`
-	FromUserID  *uuid.UUID `json:"from_user_id"`
-	ToUserID    *uuid.UUID `json:"to_user_id"`
-	FromTeamID  uuid.UUID  `json:"from_team_id"`
-	ToTeamID    uuid.UUID  `json:"to_team_id"`
-	Reason      *string    `json:"reason"`
-	BouncedAt   *time.Time `json:"bounced_at"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID         uuid.UUID  `json:"id"`
+	IncidentID uuid.UUID  `json:"incident_id"`
+	FromUserID *uuid.UUID `json:"from_user_id"`
+	ToUserID   *uuid.UUID `json:"to_user_id"`
+	FromTeamID uuid.UUID  `json:"from_team_id"`
+	ToTeamID   uuid.UUID  `json:"to_team_id"`
+	Reason     *string    `json:"reason"`
+	BouncedAt  *time.Time `json:"bounced_at"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 type HandoffStats struct {

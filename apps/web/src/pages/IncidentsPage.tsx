@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import { IncidentDetail } from '../components/incidents/IncidentDetail';
 import { IncidentList } from '../components/incidents/IncidentList';
 import { Banner } from '../components/ui/Banner';
@@ -8,6 +9,7 @@ import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import {
   acknowledgeIncident,
+  addIncidentComment,
   bounceIncident,
   fetchHandoffTargets,
   fetchIncidentDetail,
@@ -24,11 +26,12 @@ import { validEscalationTargetTiers, type SupportTier } from '../lib/teamTypes';
 
 export function IncidentsPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialStatus = (searchParams.get('status') as IncidentStatus | 'all' | null) ?? 'all';
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(searchParams.get('incident') ?? undefined);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [handoffTargets, setHandoffTargets] = useState<HandoffTarget[]>([]);
   const [owningTeamName, setOwningTeamName] = useState<string | undefined>();
@@ -152,12 +155,14 @@ export function IncidentsPage() {
     try {
       await action();
       await refreshDetail(incidentId);
+      return true;
     } catch (error) {
       if (error instanceof IncidentApiError) {
         setActionError(resolveApiErrorMessage(t, error.body, t('incidents.action_error')));
       } else {
         setActionError(t('incidents.action_error'));
       }
+      return false;
     }
   };
 
@@ -202,7 +207,9 @@ export function IncidentsPage() {
               owningTier={owningTier}
               canBounce={canBounce}
               onAcknowledge={(id) => void runAction(() => acknowledgeIncident(id), id)}
-              onResolve={(id) => void runAction(() => resolveIncident(id), id)}
+              onResolve={(id,comment) => runAction(() => resolveIncident(id,comment), id)}
+              onComment={(id,body)=>runAction(()=>addIncidentComment(id,body),id)}
+              canMutate={user?.role==='admin' || user?.role==='member'}
               onHandoff={(id, toTeamId, note) => void runAction(() => handoffIncident(id, toTeamId, note), id)}
               onBounce={(id, note) => void runAction(() => bounceIncident(id, note), id)}
             />

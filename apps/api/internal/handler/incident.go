@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -33,7 +35,8 @@ func (h *IncidentHandler) Register(r gin.IRouter) {
 	api.GET("/incidents/:id", h.getIncident)
 	api.GET("/incidents/:id/timeline", h.listTimeline)
 	api.POST("/incidents/:id/acknowledge", h.acknowledge)
-	api.POST("/incidents/:id/resolve", h.resolve)
+	mutate.POST("/incidents/:id/resolve", h.resolve)
+	mutate.POST("/incidents/:id/comments", h.comment)
 	api.POST("/incidents/:id/handoff", h.handoff)
 	api.POST("/incidents/:id/bounce", h.bounce)
 }
@@ -186,7 +189,14 @@ func (h *IncidentHandler) resolve(c *gin.Context) {
 		WriteError(c, apperrors.Unauthorized("missing session"))
 		return
 	}
-	incident, err := h.incidents.Resolve(c.Request.Context(), incidentID, user.ID)
+	var body struct {
+		Comment string `json:"comment"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil && !errors.Is(err, io.EOF) {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	incident, err := h.incidents.ResolveWithComment(c.Request.Context(), incidentID, user.ID, body.Comment)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -250,4 +260,30 @@ func (h *IncidentHandler) bounce(c *gin.Context) {
 		return
 	}
 	WriteJSON(c, http.StatusOK, service.IncidentJSON(incident))
+}
+
+func (h *IncidentHandler) comment(c *gin.Context) {
+	id, err := parseUUIDParam(c, "id")
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	user, ok := middleware.UserFromContext(c)
+	if !ok {
+		WriteError(c, apperrors.Unauthorized("missing session"))
+		return
+	}
+	var body struct {
+		Body string `json:"body"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		WriteError(c, service.ErrInvalidBody())
+		return
+	}
+	event, err := h.incidents.AddComment(c.Request.Context(), id, user.ID, body.Body)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	WriteJSON(c, http.StatusCreated, service.TimelineEventJSON(event))
 }
