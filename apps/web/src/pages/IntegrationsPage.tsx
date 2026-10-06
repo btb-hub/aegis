@@ -429,6 +429,7 @@ export function IntegrationsPage() {
         }
       />
 
+      <p className="text-sm text-zinc-600">{t('integrations.jira_test_help')}</p>
       {loadError ? <Banner variant="warning">{loadError}</Banner> : null}
       {!loadError && incompleteCount > 0 ? (
         <Banner variant="warning">{t('integrations.incomplete_banner')}</Banner>

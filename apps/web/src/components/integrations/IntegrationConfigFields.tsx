@@ -12,6 +12,7 @@ export type IntegrationConfigForm = {
   api_token: string;
   project_key: string;
   auth_type: JiraAuthType;
+  deployment: 'server_dc' | 'cloud';
   bot_token: string;
   signing_secret: string;
   bot_id: string;
@@ -26,6 +27,7 @@ export const emptyIntegrationConfigForm = (): IntegrationConfigForm => ({
   api_token: '',
   project_key: '',
   auth_type: 'bearer',
+  deployment: 'server_dc',
   bot_token: '',
   signing_secret: '',
   bot_id: '',
@@ -51,6 +53,7 @@ export function configFormFromItem(
     form.email = read('email');
     form.project_key = read('project_key');
     form.auth_type = config.auth_type === 'basic' ? 'basic' : 'bearer';
+    form.deployment = config.deployment === 'cloud' || (!config.deployment && form.auth_type === 'basic') ? 'cloud' : 'server_dc';
   }
   if (kind === 'slack') {
     // secrets stay blank for edit
@@ -78,6 +81,7 @@ export function buildConfigPayload(
       email: form.email.trim(),
       project_key: form.project_key.trim(),
       auth_type: form.auth_type === 'basic' ? 'basic' : 'bearer',
+      deployment: form.deployment,
     };
     const token = form.api_token.trim();
     if (token || !opts.keepBlankSecrets) {
@@ -167,6 +171,15 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           label={t('setup.integrations.jira.base_url')}
           value={form.base_url}
           onChange={(value) => onChange({ ...form, base_url: value })}
+        />
+        <Select
+          label={t('setup.integrations.jira.deployment')}
+          value={form.deployment}
+          options={[
+            { value: 'server_dc', label: 'Server / Data Center' },
+            { value: 'cloud', label: 'Cloud' },
+          ]}
+          onChange={(value) => onChange({ ...form, deployment: value === 'cloud' ? 'cloud' : 'server_dc' })}
         />
         <Select
           label={t('setup.integrations.jira.auth_type')}

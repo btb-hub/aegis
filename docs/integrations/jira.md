@@ -1,44 +1,22 @@
 # Integration: Jira
 
-Ticket provider. Implements `TicketProvider`.
+## Configuration and compatibility
 
-## Config (env / integration JSON)
+Set `deployment` to `server_dc` or `cloud`, independently of `auth_type` (`bearer` or `basic`). Existing configurations infer Server/DC from Bearer and Cloud from Basic. An explicit deployment takes precedence. Server/DC PAT authentication remains `Authorization: Bearer`; Cloud normally uses Basic `email:api_token`.
 
-- `base_url` — Jira Cloud or Server/Data Center URL
-- `api_token` — PAT or Cloud API token
-- `auth_type` — `bearer` (default, Data Center PAT) or `basic` (Cloud `email:api_token`)
-- `email` — required for `basic`; optional for Bearer (used only to look up assignee accounts)
-- `project_key` — default project for new issues
-- `issue_type` — default `Task` or `Incident`
+Other fields: `base_url` (including any Jira context path), `project_key`, `api_token`, `email` (required for Basic), and `issue_type` (default `Task`). Workspace slots inherit the global connector or supply custom credentials. Test connection checks authentication, not issue creation or board filters.
 
-Default HTTP auth is `Authorization: Bearer <api_token>`. Set `auth_type: "basic"` for Jira Cloud API tokens.
+| Operation | Server/DC | Cloud |
+| --- | --- | --- |
+| Authentication check | `GET /rest/api/2/myself` | `GET /rest/api/3/myself` |
+| Create issue | `POST /rest/api/2/issue`, string description | `POST /rest/api/3/issue`, ADF description |
+| Find assignee | `/rest/api/2/user/search?username=…`, returned `name` | `/rest/api/3/user/search?query=…`, returned `accountId` |
+| Assign | Issue update with `fields.assignee.name` | Issue update with `fields.assignee.accountId` |
+| Comment | v2 issue comment, string body | v3 issue comment, ADF body |
+| Reconcile creation | v2 JQL `/search` | v3 enhanced JQL `/search/jql` |
 
-## Create ticket
+Search parameters are URL-encoded. Multiple matches require a unique exact username/email match; missing or ambiguous active users are reported. Login redirects are rejected with an actionable status error, and credentials are excluded from errors.
 
-On incident open, worker calls Jira REST API:
+## Acceptance
 
-- Summary: incident title
-- Description: link back to Aegis incident, alert labels
-- Labels: `aegis`, team slug
-
-Store `jira_issue_key` on incident.
-
-## Assignee sync
-
-- On handoff or reassignment, `PUT` issue assignee if mappable Jira account exists.
-
-## Inbound (optional MVP+)
-
-- Jira webhook on status → resolved maps to incident resolve (story-gated).
-
-## Test connection
-
-- `GET /rest/api/3/myself` or `/rest/api/2/myself`.
-
-## Tests
-
-- Recorded JSON fixtures in `apps/worker/testdata/jira/` — no live Jira in CI.
-
-## References
-
-- REQ-INT-02
+Create a routed incident to verify issue creation, assignment and board visibility. Test connection checks authentication only.
