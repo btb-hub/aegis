@@ -1,0 +1,11 @@
+DROP INDEX jobs_running_lease_idx;
+DROP TABLE express_outbound;
+DROP TABLE express_notification_results;
+DROP INDEX jobs_dedup_idx;
+ALTER TABLE jobs DROP COLUMN dedup_key;
+DROP TABLE oncall_deliveries;
+DROP TABLE express_command_receipts;
+DROP INDEX notifications_delivery_idx;
+ALTER TABLE notifications DROP COLUMN failure_permanent;
+ALTER TABLE notifications DROP COLUMN delivery_error;
+ALTER TABLE notifications DROP COLUMN delivery_key;

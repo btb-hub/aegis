@@ -77,8 +77,8 @@ func TestSlackCallbackUserNotFound(t *testing.T) {
 	seedSlackWorkspace(repo, incidentID, "secret")
 
 	payload := map[string]any{
-		"type": "block_actions",
-		"user": map[string]string{"id": "U404"},
+		"type":    "block_actions",
+		"user":    map[string]string{"id": "U404"},
 		"actions": []map[string]string{{"action_id": "ack_incident", "value": incidentID.String()}},
 	}
 	raw, _ := json.Marshal(payload)
@@ -120,7 +120,7 @@ func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engin
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, integrationsSvc).Register(r)
-	NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
+	NewExpressCallbackHandler(service.NewExpressCommandService(&expressCommandTestStore{repo: &repo.phase2HandlerRepo}), integrationsSvc).Register(r)
 	NewExpressLinkHandler(expressLinks, auth).Register(r)
 	return r
 }

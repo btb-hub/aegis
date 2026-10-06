@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,38 +21,38 @@ import (
 
 type phase2HandlerRepo struct {
 	cancelledEscalations []uuid.UUID
-	slackUserLookups int
+	slackUserLookups     int
 	teamRepoMock
-	incidents         map[uuid.UUID]db.Incident
-	events            map[uuid.UUID][]db.TimelineEvent
-	alerts            map[uuid.UUID][]db.Alert
-	rules             map[uuid.UUID]db.RoutingRule
-	integrations      map[uuid.UUID]db.Integration
-	listIncidentsErr  error
+	incidents           map[uuid.UUID]db.Incident
+	events              map[uuid.UUID][]db.TimelineEvent
+	alerts              map[uuid.UUID][]db.Alert
+	rules               map[uuid.UUID]db.RoutingRule
+	integrations        map[uuid.UUID]db.Integration
+	listIncidentsErr    error
 	listIntegrationsErr error
-	alertListErr      error
-	handoffStats      db.HandoffStats
-	handoffStatsErr   error
-	mttaSeries        db.MetricTimeSeries
-	mttaSeriesErr     error
-	mttrSeries        db.MetricTimeSeries
-	mttrSeriesErr     error
-	noiseStats        db.NoiseStats
-	noiseErr          error
-	onCallLoad        db.OnCallLoadStats
-	onCallLoadErr     error
-	escalationStats   db.EscalationStats
-	escalationErr     error
-	escalationPaths   []db.EscalationPath
-	alertRepo         *authMockAlertRepo
-	bounceFails       bool
-	firingAlerts      map[uuid.UUID]db.Alert
-	alertOpenLinks    map[uuid.UUID]db.Incident
-	fingerprintOpen   map[string]db.Incident
-	onCallByTeam      map[uuid.UUID][]db.OnCallUser
-	enqueuedJobs      []string
-	manualCreateErr   error
-	manualCreateResult *db.ManualCreateFromAlertResult
+	alertListErr        error
+	handoffStats        db.HandoffStats
+	handoffStatsErr     error
+	mttaSeries          db.MetricTimeSeries
+	mttaSeriesErr       error
+	mttrSeries          db.MetricTimeSeries
+	mttrSeriesErr       error
+	noiseStats          db.NoiseStats
+	noiseErr            error
+	onCallLoad          db.OnCallLoadStats
+	onCallLoadErr       error
+	escalationStats     db.EscalationStats
+	escalationErr       error
+	escalationPaths     []db.EscalationPath
+	alertRepo           *authMockAlertRepo
+	bounceFails         bool
+	firingAlerts        map[uuid.UUID]db.Alert
+	alertOpenLinks      map[uuid.UUID]db.Incident
+	fingerprintOpen     map[string]db.Incident
+	onCallByTeam        map[uuid.UUID][]db.OnCallUser
+	enqueuedJobs        []string
+	manualCreateErr     error
+	manualCreateResult  *db.ManualCreateFromAlertResult
 }
 
 func newPhase2HandlerRepo() *phase2HandlerRepo {
@@ -64,9 +63,9 @@ func newPhase2HandlerRepo() *phase2HandlerRepo {
 			teams:            map[uuid.UUID]db.Team{},
 			memberships:      map[uuid.UUID]map[uuid.UUID]db.TeamMembership{},
 		},
-		incidents: map[uuid.UUID]db.Incident{},
-		events:    map[uuid.UUID][]db.TimelineEvent{},
-		alerts:    map[uuid.UUID][]db.Alert{},
+		incidents:    map[uuid.UUID]db.Incident{},
+		events:       map[uuid.UUID][]db.TimelineEvent{},
+		alerts:       map[uuid.UUID][]db.Alert{},
 		rules:        map[uuid.UUID]db.RoutingRule{},
 		integrations: map[uuid.UUID]db.Integration{},
 	}
@@ -215,7 +214,7 @@ func (m *phase2HandlerRepo) CreateExpressLinkCode(_ context.Context, userID uuid
 
 func (m *phase2HandlerRepo) RedeemExpressLinkCode(_ context.Context, code string, expressHuid uuid.UUID) (db.User, error) {
 	if code != "ABC123" {
-		return db.User{}, fmt.Errorf("link code invalid or expired")
+		return db.User{}, db.ErrLinkCodeInvalid
 	}
 	for id, user := range m.users {
 		user.ExpressUserHuid = db.ExpressHuidToPg(expressHuid)
@@ -494,7 +493,7 @@ func setupPhase2Router(t *testing.T) (*gin.Engine, *phase2HandlerRepo) {
 	NewRoutingHandler(routingRules, auth).Register(r)
 	NewIntegrationHandler(integrationsSvc, auth).Register(r)
 	NewSlackCallbackHandler(incidents, integrationsSvc).Register(r)
-	NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
+	NewExpressCallbackHandler(service.NewExpressCommandService(&expressCommandTestStore{repo: repo}), integrationsSvc).Register(r)
 	NewExpressLinkHandler(expressLinks, auth).Register(r)
 	return r, repo
 }

@@ -3,8 +3,11 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	intexpress "github.com/aegis/aegis/pkg/integrations/express"
 	"log/slog"
+	"strings"
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
@@ -78,9 +81,29 @@ func notifyIncidentIntegrations(
 		_ = store.AppendTimelineEvent(ctx, incident.ID, "integration_skipped", nil, payload)
 	}
 	ref := toIncidentRef(incident)
+	ref.URL = strings.TrimRight(publicURL, "/") + "/incidents?incident=" + incident.ID.String()
+	var deliveryErrors []error
+	if durable, ok := store.(DeliveryStore); ok {
+		global, chat, err := globalExpressOnCallDestination(ctx, store)
+		if err != nil {
+			deliveryErrors = append(deliveryErrors, err)
+		} else if chat != "" {
+			provider, err := intexpress.NewFromJSON(global.Config)
+			if err == nil {
+				err = deliverOnce(ctx, durable, incident.ID, global.ID, "channel:"+chat+":opened", func() (string, error) { return provider.SendIncidentToChannel(ctx, ref, chat, "en") })
+			}
+			if err != nil {
+				deliveryErrors = append(deliveryErrors, err)
+			}
+		}
+	}
 
 	integrations.ForEachTicket(reg.Registry, func(provider integrations.TicketProvider) error {
-		if _, durable := store.(interface { EnqueueJiraSync(context.Context, uuid.UUID) error }); durable { return nil }
+		if _, durable := store.(interface {
+			EnqueueJiraSync(context.Context, uuid.UUID) error
+		}); durable {
+			return nil
+		}
 		if incident.JiraIssueKey != nil {
 			return nil
 		}
@@ -118,10 +141,13 @@ func notifyIncidentIntegrations(
 	})
 
 	if incident.AssigneeID == nil {
-		return nil
+		return errors.Join(deliveryErrors...)
 	}
 	user, err := store.GetUserByID(ctx, *incident.AssigneeID)
 	if err != nil {
+		if _, durable := store.(DeliveryStore); durable {
+			return errors.Join(append(deliveryErrors, err)...)
+		}
 		return nil
 	}
 	recipient := integrations.PageRecipient{
@@ -134,6 +160,17 @@ func notifyIncidentIntegrations(
 	}
 
 	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
+		if durable, ok := store.(DeliveryStore); ok {
+			integrationID, exists := reg.integrationID(provider.Kind())
+			if !exists {
+				return nil
+			}
+			err := deliverOnce(ctx, durable, incident.ID, integrationID, "personal:"+user.ID.String()+":opened", func() (string, error) { return provider.SendPage(ctx, ref, recipient) })
+			if err != nil {
+				deliveryErrors = append(deliveryErrors, err)
+			}
+			return nil
+		}
 		integrationID, ok := reg.integrationID(provider.Kind())
 		if ok {
 			sent, err := store.HasNotification(ctx, incident.ID, integrationID)
@@ -162,5 +199,58 @@ func notifyIncidentIntegrations(
 		}
 		return nil
 	})
-	return nil
+	return errors.Join(deliveryErrors...)
+}
+
+type DeliveryStore interface {
+	HasDelivery(context.Context, uuid.UUID, uuid.UUID, string) (bool, error)
+	RecordDelivery(context.Context, uuid.UUID, uuid.UUID, string, string, string, string) error
+	AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error
+}
+
+func deliverOnce(ctx context.Context, store DeliveryStore, incidentID, integrationID uuid.UUID, key string, send func() (string, error)) error {
+	if locked, ok := store.(interface {
+		RunDelivery(context.Context, uuid.UUID, string, func(*db.Store) error) error
+	}); ok {
+		var deliveryErr error
+		err := locked.RunDelivery(ctx, incidentID, integrationID.String()+key, func(tx *db.Store) error {
+			deliveryErr = deliverOnceUnlocked(ctx, tx, incidentID, integrationID, key, send)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		return deliveryErr
+	}
+	return deliverOnceUnlocked(ctx, store, incidentID, integrationID, key, send)
+}
+func deliverOnceUnlocked(ctx context.Context, store DeliveryStore, incidentID, integrationID uuid.UUID, key string, send func() (string, error)) error {
+	sent, err := store.HasDelivery(ctx, incidentID, integrationID, key)
+	if err != nil {
+		return err
+	}
+	if sent {
+		return nil
+	}
+	ref, sendErr := send()
+	status, message := "sent", ""
+	if sendErr != nil {
+		status = "failed"
+		if !integrations.RetryableError(sendErr) {
+			status = "failed_permanent"
+		}
+		message = sendErr.Error()
+	}
+	if err := store.RecordDelivery(ctx, incidentID, integrationID, key, status, ref, message); err != nil {
+		return err
+	}
+	payload, _ := json.Marshal(map[string]string{"provider": "express", "destination": key, "ref": ref, "message": message})
+	kind := "paged"
+	if sendErr != nil {
+		kind = "integration_failed"
+	}
+	if err := store.AppendTimelineEvent(ctx, incidentID, kind, nil, payload); err != nil {
+		return err
+	}
+	return sendErr
 }

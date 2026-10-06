@@ -9,17 +9,15 @@ import (
 	"github.com/aegis/aegis/pkg/apperrors"
 	intexpress "github.com/aegis/aegis/pkg/integrations/express"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type ExpressCallbackHandler struct {
-	incidents    *service.IncidentService
-	links        *service.ExpressLinkService
+	commands     *service.ExpressCommandService
 	integrations *service.IntegrationService
 }
 
-func NewExpressCallbackHandler(incidents *service.IncidentService, links *service.ExpressLinkService, integrations *service.IntegrationService) *ExpressCallbackHandler {
-	return &ExpressCallbackHandler{incidents: incidents, links: links, integrations: integrations}
+func NewExpressCallbackHandler(commands *service.ExpressCommandService, integrations *service.IntegrationService) *ExpressCallbackHandler {
+	return &ExpressCallbackHandler{commands: commands, integrations: integrations}
 }
 
 func (h *ExpressCallbackHandler) Register(r gin.IRouter) {
@@ -28,10 +26,12 @@ func (h *ExpressCallbackHandler) Register(r gin.IRouter) {
 	r.POST("/api/v1/callbacks/express/command", h.command)
 	r.POST("/api/v1/callbacks/express/bot/command", h.command)
 	r.POST("/api/v1/callbacks/express/bot", h.command)
+	r.POST("/api/v1/callbacks/express/notification/callback", h.notificationResult)
+	r.POST("/api/v1/callbacks/express/bot/notification/callback", h.notificationResult)
 }
 
 func (h *ExpressCallbackHandler) status(c *gin.Context) {
-	secret, err := h.integrations.ExpressSecretKey(c.Request.Context())
+	_, err := h.integrations.ExpressSecretKey(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"reason":     "bot_disabled",
@@ -41,7 +41,7 @@ func (h *ExpressCallbackHandler) status(c *gin.Context) {
 		return
 	}
 	if auth := c.GetHeader("Authorization"); strings.TrimSpace(auth) != "" {
-		if err := intexpress.VerifyAuthorization(auth, secret); err != nil {
+		if _, err := h.integrations.ExpressConnector(c.Request.Context(), "", auth); err != nil {
 			WriteError(c, apperrors.Unauthorized("invalid express signature"))
 			return
 		}
@@ -52,6 +52,7 @@ func (h *ExpressCallbackHandler) status(c *gin.Context) {
 			"enabled":        true,
 			"status_message": "Bot is working",
 			"commands": []gin.H{
+				{"body": "/oncall", "name": "oncall", "description": "Current on-call engineers", "command_type": "user"},
 				{
 					"body":         "/link",
 					"name":         "link",
@@ -70,54 +71,43 @@ func (h *ExpressCallbackHandler) status(c *gin.Context) {
 }
 
 func (h *ExpressCallbackHandler) command(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
 	if err != nil {
 		WriteError(c, apperrors.Validation("invalid body", nil))
 		return
 	}
-	secret, err := h.integrations.ExpressSecretKey(c.Request.Context())
+	event, err := intexpress.ParseCommandEvent(body)
+	if err != nil {
+		WriteError(c, apperrors.Validation("invalid command JSON", nil))
+		return
+	}
+	connector, err := h.integrations.ExpressConnector(c.Request.Context(), event.BotID, c.GetHeader("Authorization"))
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	if err := intexpress.VerifyAuthorization(c.GetHeader("Authorization"), secret); err != nil {
-		WriteError(c, apperrors.Unauthorized("invalid express signature"))
+	if err := h.commands.Process(c.Request.Context(), connector, event); err != nil {
+		WriteJSON(c, http.StatusServiceUnavailable, gin.H{"reason": "bot_disabled", "error_data": gin.H{"status_message": "Command could not be persisted; retry"}, "errors": []any{}})
 		return
 	}
-
-	event, err := intexpress.ParseCommandEvent(body)
+	writeCommandAccepted(c)
+}
+func (h *ExpressCallbackHandler) notificationResult(c *gin.Context) {
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
 	if err != nil {
-		WriteError(c, apperrors.Validation(err.Error(), nil))
+		WriteError(c, apperrors.Validation("invalid body", nil))
 		return
 	}
-
-	if strings.HasPrefix(strings.TrimSpace(event.Command.Body), "/link") {
-		code, userHuid, err := intexpress.ParseLinkCommand(event)
-		if err != nil {
-			WriteError(c, apperrors.Validation(err.Error(), nil))
-			return
-		}
-		if _, err := h.links.RedeemLinkCode(c.Request.Context(), code, userHuid); err != nil {
+	connectors, err := h.integrations.ExpressConnectors(c.Request.Context(), "", c.GetHeader("Authorization"))
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	for _, connector := range connectors {
+		if err := h.commands.NotificationResult(c.Request.Context(), connector, body); err != nil {
 			WriteError(c, err)
 			return
 		}
-		writeCommandAccepted(c)
-		return
-	}
-
-	incidentID, userHuid, err := intexpress.ParseAckCommand(event)
-	if err != nil {
-		writeCommandAccepted(c)
-		return
-	}
-	id, err := uuid.Parse(incidentID)
-	if err != nil {
-		WriteError(c, apperrors.Validation("invalid incident id", nil))
-		return
-	}
-	if _, err := h.incidents.AcknowledgeByExpressHuid(c.Request.Context(), id, userHuid); err != nil {
-		WriteError(c, err)
-		return
 	}
 	writeCommandAccepted(c)
 }

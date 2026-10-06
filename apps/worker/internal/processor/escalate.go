@@ -3,8 +3,10 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
@@ -96,7 +98,18 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		ExpressUserHuid: db.ExpressHuidString(user),
 	}
 
+	var deliveryErrors []error
+	ref.URL = strings.TrimRight(p.publicURL, "/") + "/incidents?incident=" + incident.ID.String()
 	integrations.ForEachChat(reg.Registry, func(provider integrations.ChatProvider) error {
+		if durable, ok := p.store.(DeliveryStore); ok {
+			if integrationID, exists := reg.integrationID(provider.Kind()); exists {
+				err := deliverOnce(ctx, durable, incident.ID, integrationID, "personal:"+user.ID.String()+":escalation:"+job.ID, func() (string, error) { return provider.SendPage(ctx, ref, recipient) })
+				if err != nil {
+					deliveryErrors = append(deliveryErrors, err)
+				}
+			}
+			return nil
+		}
 		messageRef, err := provider.SendPage(ctx, ref, recipient)
 		status := "sent"
 		externalRef := messageRef
@@ -113,5 +126,5 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		}
 		return nil
 	})
-	return nil
+	return errors.Join(deliveryErrors...)
 }
