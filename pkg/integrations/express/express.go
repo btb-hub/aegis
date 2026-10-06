@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -68,7 +70,7 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 	body := fmt.Sprintf("%s: %s\n%s", incident.Severity, incident.Title, title)
 
 	payload := map[string]any{
-		"group_chat_id": nil,
+		"group_chat_id": "",
 		"notification": map[string]any{
 			"status": "ok",
 			"body":   body,
@@ -104,6 +106,11 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 		if err != nil {
 			return err
 		}
+		chatID, lookupErr := p.personalChat(ctx, *recipient.ExpressUserHuid, token)
+		if lookupErr != nil {
+			return lookupErr
+		}
+		payload["group_chat_id"] = chatID
 		respBody, err = p.postJSON(ctx, "/api/v4/botx/notifications/direct", payload, token)
 		return err
 	})
@@ -126,12 +133,16 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 	if parsed.Result.SyncID != "" {
 		return parsed.Result.SyncID, nil
 	}
-	return uuid.New().String(), nil
+	return "", fmt.Errorf("express notification response missing sync_id")
 }
 
-func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, _ string, teamName string, people []integrations.OnCallPerson, locale string) error {
+func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, group, teamName string, people []integrations.OnCallPerson, locale string) error {
+	_, err := p.AnnounceOnCallWithRef(ctx, channelID, group, teamName, people, locale)
+	return err
+}
+func (p *Provider) AnnounceOnCallWithRef(ctx context.Context, channelID, _ string, teamName string, people []integrations.OnCallPerson, locale string) (string, error) {
 	if strings.TrimSpace(channelID) == "" {
-		return fmt.Errorf("express chat id is required")
+		return "", fmt.Errorf("express chat id is required")
 	}
 	if locale == "" {
 		locale = "en"
@@ -142,12 +153,16 @@ func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, _ string, team
 	for _, person := range people {
 		if person.ExpressUserHuid == nil || strings.TrimSpace(*person.ExpressUserHuid) == "" {
 			if person.DisplayName != "" {
-				names = append(names, person.DisplayName)
+				names = append(names, integrations.OnCallName(person, locale))
 			}
 			continue
 		}
 		mentionID := uuid.New()
-		names = append(names, fmt.Sprintf("@{mention:%s}", mentionID.String()))
+		name := fmt.Sprintf("@{mention:%s}", mentionID.String())
+		if shift := integrations.ShiftTimeMSK(person.StartAt, person.EndAt, locale); shift != "" {
+			name += " (" + shift + ")"
+		}
+		names = append(names, name)
 		mentions = append(mentions, map[string]any{
 			"mention_type": "user",
 			"mention_id":   mentionID.String(),
@@ -176,26 +191,7 @@ func (p *Provider) AnnounceOnCall(ctx context.Context, channelID, _ string, team
 		},
 	}
 
-	return p.withRetry(ctx, func() error {
-		token, err := p.ensureToken(ctx)
-		if err != nil {
-			return err
-		}
-		respBody, err := p.postJSON(ctx, "/api/v4/botx/notifications", payload, token)
-		if err != nil {
-			return err
-		}
-		var parsed struct {
-			Status string `json:"status"`
-		}
-		if err := json.Unmarshal(respBody, &parsed); err != nil {
-			return err
-		}
-		if parsed.Status != "ok" {
-			return fmt.Errorf("express notification failed: %s", string(respBody))
-		}
-		return nil
-	})
+	return p.sendNotification(ctx, payload)
 }
 
 func (p *Provider) TestConnection(ctx context.Context) error {
@@ -266,7 +262,7 @@ func (p *Provider) postJSON(ctx context.Context, path string, payload any, token
 		return nil, err
 	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("express request failed: status %d: %s", resp.StatusCode, string(respBody))
+		return nil, &integrations.HTTPError{Provider: "express", Operation: "POST " + path, Status: resp.StatusCode, Message: "check bot permissions, destination chat and request configuration"}
 	}
 	return respBody, nil
 }
@@ -283,6 +279,10 @@ func (p *Provider) withRetry(ctx context.Context, fn func() error) error {
 			return nil
 		}
 		if attempt == 0 {
+			var httpErr *integrations.HTTPError
+			if errors.As(err, &httpErr) && httpErr.Status != http.StatusUnauthorized && !httpErr.Retryable() {
+				return err
+			}
 			p.mu.Lock()
 			p.token = ""
 			p.mu.Unlock()
@@ -294,4 +294,74 @@ func (p *Provider) withRetry(ctx context.Context, fn func() error) error {
 		}
 	}
 	return err
+}
+
+func (p *Provider) personalChat(ctx context.Context, huid, token string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.baseURL()+"/api/v1/botx/chats/personal?"+url.Values{"user_huid": {huid}}.Encode(), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return "", &integrations.HTTPError{Provider: "express", Operation: "personal chat lookup", Status: resp.StatusCode, Message: "open a personal chat with the Aegis bot before receiving private pages"}
+	}
+	var result struct {
+		Status string `json:"status"`
+		Result struct {
+			ChatID string `json:"group_chat_id"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+	if result.Status != "ok" || strings.TrimSpace(result.Result.ChatID) == "" {
+		return "", fmt.Errorf("open a personal chat with the Aegis bot before receiving private pages")
+	}
+	return result.Result.ChatID, nil
+}
+func (p *Provider) SendMessage(ctx context.Context, chatID, body, locale string) (string, error) {
+	if strings.TrimSpace(chatID) == "" {
+		return "", fmt.Errorf("express chat id is required")
+	}
+	payload := map[string]any{"group_chat_id": chatID, "notification": map[string]any{"status": "ok", "body": body}}
+	return p.sendNotification(ctx, payload)
+}
+func (p *Provider) SendIncidentToChannel(ctx context.Context, i integrations.IncidentRef, chatID, locale string) (string, error) {
+	payload := map[string]any{"group_chat_id": chatID, "notification": map[string]any{
+		"status": "ok", "body": fmt.Sprintf("%s: %s\n%s", i.Severity, i.Title, i.URL),
+		"bubble": [][]map[string]any{{{"command": ackCommand, "label": i18n.T(locale, "page.acknowledge_button", nil), "data": map[string]string{"incident_id": i.ID.String()}, "opts": map[string]any{"silent": true}}}},
+	}}
+	return p.sendNotification(ctx, payload)
+}
+func (p *Provider) sendNotification(ctx context.Context, payload any) (string, error) {
+	var raw []byte
+	err := p.withRetry(ctx, func() error {
+		token, err := p.ensureToken(ctx)
+		if err != nil {
+			return err
+		}
+		raw, err = p.postJSON(ctx, "/api/v4/botx/notifications/direct", payload, token)
+		return err
+	})
+	if err != nil {
+		return "", err
+	}
+	var result struct {
+		Status string `json:"status"`
+		Result struct {
+			SyncID string `json:"sync_id"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return "", err
+	}
+	if result.Status != "ok" || result.Result.SyncID == "" {
+		return "", fmt.Errorf("express notification response missing sync_id")
+	}
+	return result.Result.SyncID, nil
 }
