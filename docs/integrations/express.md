@@ -99,7 +99,7 @@ durably queued before returning HTTP 202; the worker then sends a private result
 to the clicking user in the originating chat. New channel and feedback sends use
 `/api/v4/botx/notifications/direct/sync`. Repeated clicks report the existing
 state, and unknown users receive identity-linking guidance. Apply migration
-000020 before upgrading the API and worker.
+000021 before upgrading the API and worker.
 
 See [Incident channel notifications](../features/incident-chat-notifications.md)
 for delivery retries and troubleshooting.

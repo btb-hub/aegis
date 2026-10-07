@@ -86,7 +86,7 @@ Interactive acknowledgement requests are authenticated and durably queued
 before returning an empty HTTP 200. The worker acknowledges the incident and
 sends an ephemeral result via `response_url`, with `chat.postEphemeral` as the
 fallback when the response URL is absent or expired. Feedback retries reuse the
-saved outcome. Apply migration 000020 before upgrading the API and worker.
+saved outcome. Apply migration 000021 before upgrading the API and worker.
 
 See [Incident channel notifications](../features/incident-chat-notifications.md)
 for delivery retries and troubleshooting.

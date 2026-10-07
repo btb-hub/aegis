@@ -18,7 +18,7 @@ this feature. Channel language follows the assignee, with English as the default
 
 ## Delivery and acknowledgement
 
-Migration 000020 adds independent channel and acknowledgement outboxes. The
+Migration 000021 adds independent channel and acknowledgement outboxes. The
 timeline trigger queues creation, acknowledgement, and resolution events in the
 same transaction as the state change. An escalation job queues one channel event
 per job before sending its existing DMs. Event details and channel destinations
