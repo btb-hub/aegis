@@ -23,7 +23,7 @@ Read them on GitHub (Markdown). HTML copies in the same folder are for a docs ho
 | [Routing rules](./docs/how-to/routing.md) | Filled-in forms: `team=platform` → Platform L2; NOC-first; shared DevOps |
 | [Escalation paths](./docs/how-to/paths.md) | L2 → L3, NOC chain, shared L3 |
 | [Work an incident](./docs/how-to/incidents.md) | Acknowledge, hand off, bounce, resolve |
-| [Connect Jira, Slack, eXpress](./docs/how-to/connect.md) | Global connectors, workspace inherit/custom slots, paging identity |
+| [Connect Jira, Slack, eXpress](./docs/how-to/connect.md) | Global bots, Jira Server/DC or Cloud, workspace slots, Account paging connections, shared channels |
 | [When it does not route](./docs/how-to/troubleshooting.md) | Alerts without incidents, empty on-call banner, missing handoff button |
 
 Hub: [`docs/how-to/README.md`](./docs/how-to/README.md). Russian: [`docs/how-to/ru/README.md`](./docs/how-to/ru/README.md). Installing the software (Docker, env, GHCR): [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md). Day-to-day by role: [`docs/user-guide.md`](./docs/user-guide.md).
@@ -123,38 +123,24 @@ Storybook: `cd apps/web && npm run storybook` → http://localhost:6006
 Use **Docker Compose** for local source builds. Production uses the GHCR all-in-one image and an
 **external** Postgres. Authoritative detail: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
 
-### Production-like rollout
+1. Run a versioned `ghcr.io/btb-hub/aegis` image with external PostgreSQL, strong
+   `SESSION_SECRET` / `WEBHOOK_SECRET`, and `PUBLIC_URL` set to the public HTTPS origin.
+   Configure OIDC callbacks and `ADMIN_EMAILS` before first sign-in. Follow the
+   [production image instructions](./docs/07-setup-deployment.md#production-image-ghcr) or
+   [Kubernetes example](./deploy/k8s/aegis.yaml).
+2. Run **one replica**. The image applies migrations at startup, then runs API, worker, and web.
+   Container port **3000** serves the UI, `/healthz`, `/readyz`, and `/metrics`.
+   Back up external PostgreSQL before upgrades; migrations through `000021` are required for
+   Account paging connections and shared incident notifications.
+3. Keep `DEV_AUTH_ENABLED`, `SEED_DEV`, and the alert simulator disabled. Allow provider HTTPS
+   traffic and signed bot callbacks through the ingress. See the deployment guide for proxy rules.
+4. Sign in as admin, configure bots under **Integrations**, then workspaces, teams, and schedules.
+   Each responder connects **Account → Paging messengers**. Verify a routed test alert, Jira
+   issue, personal page, shared channel post, and private acknowledgement result.
 
-1. **Host:** Docker 24+ with Compose v2; outbound HTTPS for OIDC and connectors; inbound HTTPS for
-   users and alert webhooks (terminate TLS on nginx/Caddy — not bundled in Compose).
-2. **Secrets:** copy `deploy/.env.example` → `.env`. Set strong `SESSION_SECRET` and `WEBHOOK_SECRET`.
-   Set `PUBLIC_URL` to the public HTTPS origin. Configure at least one OIDC provider with redirects
-   under `{PUBLIC_URL}/auth/...`. Set `ADMIN_EMAILS` so those operators become **admin** on first
-   OIDC sign-in.
-3. **Never enable in production:** `DEV_AUTH_ENABLED`, `SEED_DEV`, or Compose `--profile dev`.
-4. **Start** (repo root, `.env` present):
-
-   ```bash
-   make up-detached
-   make ps
-   curl -fsS "$PUBLIC_URL/healthz"
-   curl -fsS http://localhost:8080/readyz
-   ```
-
-5. **Day-2 in the UI:** sign in as admin → `/integrations` → `/workspaces` → teams/schedules → test
-   alert. See [`docs/integrations/README.md`](./docs/integrations/README.md).
-6. **Backup / rollback:** snapshot the `pgdata` volume; prefer restore over `make migrate-down`
-   unless you have a plan for that specific down SQL.
-
-| Service | Port (host) | Role |
-|---------|-------------|------|
-| postgres | 5432 | State (back this volume up) |
-| api | 8080 | HTTP API, OIDC, webhooks, `/healthz` `/readyz` `/metrics` |
-| worker | — | Jobs: alert processing, escalation, on-call, handoff notify |
-| web | 3000 | SPA; proxies `/api` and `/auth` to the API |
-
-Production image: `ghcr.io/btb-hub/aegis` — see
-[Production image (GHCR)](./docs/07-setup-deployment.md#production-image-ghcr).
+Shared messages and chat acknowledgements require the worker. See
+[`docs/features/incident-chat-notifications.md`](./docs/features/incident-chat-notifications.md)
+for delivery retries and [`docs/13-on-call-runbook.md`](./docs/13-on-call-runbook.md) for operations.
 
 ## Quick facts
 
@@ -194,6 +180,10 @@ Production image: `ghcr.io/btb-hub/aegis` — see
 **Phases 0–7 are complete** on `main` (MVP plus local dev auth). See [`backlog/roadmap.md`](./backlog/roadmap.md)
 for phase goals; further work is listed there under *Later*.
 
+Subsequent releases add workspace administration, API-backed incident and shift screens,
+Account paging connections, and shared incident notifications. The capability lists below
+describe the current implementation, beyond the original MVP phase table.
+
 | Phase | Exit (summary) | Status |
 |-------|----------------|--------|
 | 0 — Foundation | App runs locally; alert webhook; OIDC API; CI green; Storybook | Done |
@@ -215,11 +205,20 @@ for phase goals; further work is listed there under *Later*.
   worker job (on schedule change + nightly).
 - **Incidents:** routing rules CRUD; dedup by fingerprint; incident lifecycle (open → acknowledged →
   resolved); timeline events; ack/resolve endpoints.
-- **Integrations:** connector registry; Jira ticket provider; Slack + eXpress chat providers;
-  interactive ack callbacks; integration CRUD; test connection per provider; eXpress `/link` bootstrap.
+- **Integrations:** Jira Server/DC (REST v2) and Cloud (REST v3); Slack + eXpress bots;
+  global and workspace Inherit/Custom settings; admin connection tests; Slack callback verification
+  with the incident workspace's saved signing secret.
+- **Paging connections:** Slack / eXpress browser authorization from Account; connect, replace,
+  disconnect; independent from sign-in providers. Legacy eXpress `/link` remains API-compatible.
+- **Shared notifications:** opening, acknowledgement, resolution, and escalation posts to the
+  team's Slack channel and global eXpress on-call group; durable delivery and chat acknowledgement
+  queues, bounded retries, and private result feedback.
 - **L2 ↔ L3:** handoff and bounce APIs; shared incident timeline; `notify_handoff` worker job.
 - **Analytics:** MTTA/MTTR, noise, on-call load, handoffs, overview aggregation; setup test-alert endpoint.
-- **Worker jobs:** `process_alert`, `escalate_incident`, `materialise_oncall`, `notify_handoff`.
+- **Worker jobs:** `process_alert`, `escalate_incident`, `materialise_oncall`, `notify_handoff`,
+  `notify_incident`, `publish_oncall`.
+  Independent loops process shared incident messages, chat acknowledgements, and feedback.
+  On-call announcements use each team's Slack channel/user group and the global eXpress group.
 
 API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deploy/.env.example`](./deploy/.env.example).
 
@@ -243,13 +242,24 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000014_escalation_paths` | escalation paths |
 | `000015_workspace_integrations` | per-workspace integration rows |
 | `000016_integration_slot_mode` | slot `mode` (`inherit`/`custom`) + backfill three slots |
+| `000017_routing_rules_cross_workspace` | workspace-owned routing rules and explicit cross-workspace targets |
+| `000018_team_chat_channels` | team chat destinations and last announced on-call users |
+| `000019_slack_team_tag` | Slack user group for team mentions |
+| `000020_paging_connections` | session-bound paging authorizations and durable Slack connection management |
+| `000021_incident_chat_outboxes` | shared incident events, per-destination deliveries, queued chat acknowledgements and feedback |
 
 ### Frontend (`apps/web/`)
 
 - **Design system:** Tailwind tokens, base components, Storybook catalog.
-- **Shifts page:** on-call banner + month calendar (rotations and overrides).
+- **Shifts:** team landing page, on-call banner, month calendar, rotations and overrides;
+  API-backed team calendars with shared design-system components.
 - **Incidents page:** status filters, list/detail with timeline, alerts, Jira link, ack/resolve,
-  handoff and bounce (demo state in `App.tsx` today).
+  handoff and bounce; API-backed, responsive detail view; message links select the incident,
+  including resolved incidents.
+- **Administration:** workspaces, teams, members, support tiers, escalation paths, routing rules,
+  and user roles; protected screens with admin-only configuration controls.
+- **Account:** profile, language, connected sign-in providers, and Slack / eXpress paging
+  connections with Connect, Replace, and Disconnect actions.
 - **Integrations page:** list connectors and test connection (admin); API-backed; requires sign-in.
 - **Alerts page:** filter bar, paginated table, group-by, inline analytics, saved views, CSV export;
   API-backed; requires sign-in.
@@ -276,7 +286,7 @@ aegis/
 ├── pkg/                   # shared Go packages (config, db, integrations, routing, oncall, i18n)
 ├── apps/
 │   ├── api/               # Go/Gin HTTP service
-│   ├── worker/            # Go job poller (alert processing, escalations, on-call materialisation)
+│   ├── worker/            # Go jobs + shared incident delivery, chat ack and feedback loops
 │   └── web/               # React frontend + Storybook
 ├── db/                    # golang-migrate SQL migrations
 ├── deploy/                # docker-compose, Dockerfiles, env templates

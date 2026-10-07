@@ -5,10 +5,11 @@
 
 ## Problem
 
-There is no `/account` route. The shell shows display name + **Sign out** only. Locale is toggled from
-the header via `localStorage` and is **not** synced to `PATCH /auth/me` / `users.locale`. Express paging
-identity (`express_user_huid`) is bindable via API but has no UI. Users cannot see which SSO providers
-are linked or fix profile fields without admin intervention.
+The original Phase 8 gap was the absence of an `/account` route. The shell showed display name and
+**Sign out** only. Locale was stored in `localStorage` without syncing to `users.locale`. eXpress
+paging identity (`express_user_huid`) was bindable via API but had no UI. Users couldn't see which SSO providers
+were linked or fix profile fields without admin intervention. Account is now implemented, including
+browser-based paging connections; the sections below describe its current behavior.
 
 ## Goals
 
@@ -96,8 +97,8 @@ Data from expanded `GET /auth/me`:
 }
 ```
 
-Copy explains: connecting another **SSO** provider adds a sign-in identity. Paging bind (eXpress
-`/link`) is a separate section. Only providers returned by `GET /auth/providers` are listed;
+Copy explains: connecting another **SSO** provider adds a sign-in identity. Browser authorization
+for paging is a separate section. Only providers returned by `GET /auth/providers` are listed;
 Connect is a full-page `<a href="/auth/{provider}/login">` so unconfigured OIDC cannot silently
 route to `/shifts`.
 
@@ -130,11 +131,12 @@ Admin overwrite (out of scope for account page, AEG-064):
 
 ## OIDC backfill interaction (AEG-064)
 
-When user clicks **Connect Slack** on account page:
+For Slack under **Connected sign-in** (not **Paging messengers**):
 
 1. OAuth callback resolves identity.
 2. If `(provider, sub)` new but **email matches** existing user → attach identity to **same** user row.
-3. Backfill **only empty** fields: `slack_user_id`, `avatar_url`, `display_name`.
+3. Backfill **only empty** profile fields. `slack_user_id` is backfilled only if paging hasn't
+   been explicitly managed; a disconnected paging connection stays absent after later sign-in.
 4. Session continues as that user; redirect to `/account` with toast “Slack connected”.
 
 Never auto-overwrite user-edited `display_name` or chosen `avatar_url`.
@@ -144,7 +146,8 @@ Never auto-overwrite user-edited `display_name` or chosen `avatar_url`.
 ## Empty and error states
 
 - **Not signed in:** redirect to `/login?redirect=/account`.
-- **Express code expired:** inline error under link code; button to regenerate.
+- **Paging authorization expired or cancelled:** return to Account with an actionable error;
+  preserve the current connection and start Connect or Replace again.
 - **PATCH failed:** inline error under field; no silent fallback.
 
 ---
@@ -152,13 +155,13 @@ Never auto-overwrite user-edited `display_name` or chosen `avatar_url`.
 ## i18n
 
 New keys under `account.*` in `en` and `ru` locale files. Button labels match verbs used elsewhere
-(`Save`, `Connect Google`, `Generate link code`).
+(`Save`, `Connect Google`, `Replace Slack`, `Disconnect eXpress`).
 
 ---
 
 ## Tests & Storybook
 
-- Vitest: profile save, locale PATCH, express link code display.
+- Vitest: profile save, locale PATCH, paging status, authorization, replacement, and disconnect confirmation.
 - Storybook: `AccountPage` with linked / unlinked provider variants (en/ru).
 
 ---

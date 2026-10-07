@@ -49,23 +49,34 @@
       <div class="step">
         <div>
           <h3>Jira</h3>
-          <p>Click <b>Add integration</b> or <b>Configure</b> on the Jira row. Fill
-            <b>Jira base URL</b>, <b>Jira email</b>, <b>Jira API token</b>, and a default
-            <b>Jira project key</b>. <b>Save integration</b>, then <b>Test connection</b>.</p>
+          <p>Click <b>Add integration</b> or <b>Configure</b>. Choose <b>Server / Data Center</b> or <b>Cloud</b>
+            separately from authentication. Server/DC normally uses <b>Bearer</b> with a PAT; Cloud uses
+            <b>Basic</b> with email and API token. Fill the base URL (including any context path) and project
+            key. <b>Save integration</b>, then <b>Test connection</b>. A passing test checks authentication;
+            send a routed alert to verify ticket creation, assignment, and board visibility.</p>
         </div>
       </div>
       <div class="step">
         <div>
           <h3>Slack</h3>
-          <p>Bot token and signing secret. Test connection. On-call DMs use the user’s Slack user ID
-            (from Sign in with Slack). Team announcements use the channel ID on the team.</p>
+          <p>Click <b>Configure Slack</b> in the Slack bot summary. Install your Slack app with <code>chat:write</code>,
+            then save its <b>Bot User OAuth Token</b> and <b>Signing Secret</b>. Enable <b>Interactivity</b> in the
+            Slack app and use
+            the displayed Request URL: <code>https://&lt;public-aegis-origin&gt;/api/v1/callbacks/slack/interactive</code>.
+            Slack must reach this URL over HTTPS. <b>Test connection</b> checks the token; verify a real message
+            and its <b>Acknowledge</b> button separately. On-call DMs use the user's linked Slack user ID;
+            team announcements use the channel ID on the team, where the bot must have access.
+            Saved credentials take effect without environment changes or an API restart.
+            Bot configuration is separate from Sign in with Slack.</p>
         </div>
       </div>
       <div class="step">
         <div>
           <h3>eXpress</h3>
-          <p>Bot ID, host, and secret key. Test connection. Users who signed in with Google or Slack
-            still bind eXpress on <b>Account</b> before they can be paged there.</p>
+          <p>Save bot ID, CTS host, and secret key, then <b>Test connection</b>. Set the global
+            <b>eXpress on-call group chat ID</b> for shared announcements and incident updates. Add the bot
+            to that group. Responders connect eXpress on <b>Account → Paging messengers</b> and open a
+            personal chat with the bot for private pages.</p>
         </div>
       </div>
     </div>
@@ -99,6 +110,11 @@
         </tr>
       </tbody>
     </table>
+    <p>For Slack in <b>Inherit</b> mode, click <b>Configure global Slack</b> in the slot editor to set up
+      or edit the global bot. Choose <b>Custom</b> and save bot token/signing secret to use a separate
+      bot for this workspace. Teams use their workspace's bot.</p>
+    <p>Only administrators can save credentials or test connections. Members/viewers can inspect the
+      inventory and ask an administrator to complete setup.</p>
     <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">Status on the slot:
       <b>Ready</b>, <b>Using global</b>, <b>Needs setup</b>, <b>Missing — no global</b>, or
       <b>Disabled</b>. A disabled slot skips that provider at runtime without failing the incident.</p>
@@ -111,13 +127,26 @@
     <p class="sec-sub">SSO sign-in and paging are separate. A Google login does not, by itself,
       give Aegis a Slack DM target.</p>
     <ol class="plain">
-      <li>Each on-call user opens <b>Account</b>.</li>
-      <li>Slack: <b>Connect Slack</b> / sign in with Slack so <b>Slack user ID</b> is set.</li>
-      <li>eXpress: <b>Generate link code</b> and complete the <code>/link</code> flow in eXpress
-        so <b>eXpress user ID</b> is set.</li>
-      <li>Language (<b>English</b> / <b>Русский</b>) is also on Account — pages follow the
-        recipient’s language.</li>
+      <li>Each on-call user opens <b>Account → Paging messengers</b> and clicks <b>Connect</b> for Slack
+        or eXpress. Finish browser authorization and return to Account; no bot command or manual ID
+        is needed. This connects paging without adding a sign-in provider.</li>
+      <li><b>Replace</b> keeps the existing connection until authorization succeeds. <b>Disconnect</b> asks
+        for confirmation and stops pages through that messenger, without removing sign-in identities.</li>
+      <li>If Connect is unavailable, ask an administrator to configure that provider's OIDC credentials
+        and enabled global bot. Slack authorization must use the global bot's workspace; eXpress SSO
+        must provide a verified email that resolves to one active messenger user.</li>
+      <li>Language (<b>English</b> / <b>Русский</b>) is also on Account; personal pages and private chat
+        results follow the recipient's language.</li>
     </ol>
+    <p>Administrator prerequisites and legacy API compatibility: <a href="../features/paging-connections.md">Paging connections</a>.</p>
+    <h3>Shared channels and a real delivery check</h3>
+    <p>Set the team's <b>Slack channel ID</b> and optional <b>Slack team tag ID</b> (a Slack user group ID) on its team page.
+      The team's workspace bot must be able to post there. eXpress shared posts use the <b>global</b>
+      on-call group, even when personal pages use workspace credentials.</p>
+    <p>Create a routed test incident and verify the Jira issue, personal page, and shared post. Click
+      <b>Acknowledge</b> in chat and wait for the private result, then resolve in Aegis and confirm the
+      channel update. Opening, acknowledgement, resolution, and escalation produce separate posts;
+      handoffs and bounces are outside this shared-channel feature. The worker must be running.</p>
   </div>
 </section>
 
