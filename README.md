@@ -42,9 +42,6 @@ make setup          # copy deploy/.env.example → .env, install deps
 Edit `.env`:
 
 ```bash
-SESSION_SECRET=a-long-random-string
-WEBHOOK_SECRET=another-long-random-string
-PUBLIC_URL=http://localhost:3000
 DEV_AUTH_ENABLED=true
 ```
 
@@ -78,23 +75,23 @@ make dev-worker     # background job worker
 make dev-web        # Vite on :3000 (proxies /api and /auth to :8080)
 ```
 
-Stop Postgres: `make dev-db-down`. Same Dev sign in as option 1. Restart the API after any `.env` change.
+Stop Postgres: `make dev-db-down`. Same Dev sign in as option 1. Configure the app in **Settings**.
 
 <details>
 <summary>Seed users, Windows, and extra commands</summary>
 
 <br>
 
-After migrations, populate a local user directory for team pickers:
+After migrations and a local dev sign-in, populate a user directory for team pickers:
 
 ```bash
 make seed-dev
 ```
 
-Guarded to localhost `PUBLIC_URL` (or `SEED_DEV=1`). Idempotent. Seeds Alice (Google), Bob Slack,
+Guarded to the database's localhost public URL (or `SEED_DEV=1`). Idempotent. Seeds Alice (Google), Bob Slack,
 Carol eXpress, and Local Admin (`dev@localhost`).
 
-**Typical local on-call flow:** `make seed-dev` → sign in → follow
+**Typical local on-call flow:** sign in → `make seed-dev` → follow
 [`docs/how-to/setup.md`](./docs/how-to/setup.md) (workspace, teams, shifts, routing, test alert).
 
 On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up`.
@@ -123,24 +120,34 @@ Storybook: `cd apps/web && npm run storybook` → http://localhost:6006
 Use **Docker Compose** for local source builds. Production uses the GHCR all-in-one image and an
 **external** Postgres. Authoritative detail: [`docs/07-setup-deployment.md`](./docs/07-setup-deployment.md).
 
-1. Run a versioned `ghcr.io/btb-hub/aegis` image with external PostgreSQL, strong
-   `SESSION_SECRET` / `WEBHOOK_SECRET`, and `PUBLIC_URL` set to the public HTTPS origin.
-   Configure OIDC callbacks and `ADMIN_EMAILS` before first sign-in. Follow the
+1. For an existing installation, follow the [manual configuration migration](./docs/configuration-migration.md)
+   before starting updated services: backup → schema migrations → dry-run against the actual
+   production `.env` → apply → deploy → verify → remove migrated env variables.
+   For a fresh installation, use external PostgreSQL and `AEGIS_BOOTSTRAP_TOKEN` generated from
+   at least 32 random bytes. Open `/bootstrap`, submit the token through the form, configure
+   a provider, and verify sign-in with the first administrator's email. Follow the
    [production image instructions](./docs/07-setup-deployment.md#production-image-ghcr) or
    [Kubernetes example](./deploy/k8s/aegis.yaml).
 2. Run **one replica**. The image applies migrations at startup, then runs API, worker, and web.
    Container port **3000** serves the UI, `/healthz`, `/readyz`, and `/metrics`.
-   Back up external PostgreSQL before upgrades; migrations through `000021` are required for
-   Account paging connections and shared incident notifications.
+   Back up external PostgreSQL before upgrades; migration `000022` adds database settings,
+   provider drafts, authorization attempts, and permanent installation state.
 3. Keep `DEV_AUTH_ENABLED`, `SEED_DEV`, and the alert simulator disabled. Allow provider HTTPS
    traffic and signed bot callbacks through the ingress. See the deployment guide for proxy rules.
-4. Sign in as admin, configure bots under **Integrations**, then workspaces, teams, and schedules.
+4. Sign in as admin, configure bots under **Settings → Integrations**, then workspaces, teams, and schedules.
    Each responder connects **Account → Paging messengers**. Verify a routed test alert, Jira
    issue, personal page, shared channel post, and private acknowledgement result.
 
 Shared messages and chat acknowledgements require the worker. See
 [`docs/features/incident-chat-notifications.md`](./docs/features/incident-chat-notifications.md)
 for delivery retries and [`docs/13-on-call-runbook.md`](./docs/13-on-call-runbook.md) for operations.
+
+Application configuration lives in PostgreSQL and is edited under **Settings / Настройки**.
+Provider edits require a successful **Test sign-in** before activation. Blank secret inputs
+preserve stored values. Behavior changes apply to subsequent requests and jobs; listener
+changes require an API restart. `/setup` redirects to Settings and `/integrations` redirects
+to its Integrations section. The setup wizard has been removed. See the
+[settings feature guide](./docs/features/settings.md) and [migration manual](./docs/configuration-migration.md).
 
 ## Quick facts
 
@@ -265,8 +272,8 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
   API-backed; requires sign-in.
 - **Dashboard page:** five north-star widgets (MTTA, MTTR, noise, on-call load, handoffs,
   escalation); compare-to-previous; drill-down links; API-backed.
-- **Setup wizard:** multi-step guided setup (health, auth, integrations, test alert); progress in
-  localStorage; API-backed.
+- **Settings:** admin sign-in drafts and tests, access rules, integrations, behavior, deployment
+  settings and diagnostics; PostgreSQL-backed with a manual production env importer.
 - **Web auth:** login page (`/login`) with OIDC providers and **Dev sign in** when enabled,
   session in app shell, protected routes, OIDC callback redirect.
 - **i18n:** English + Russian locale files for all UI strings.

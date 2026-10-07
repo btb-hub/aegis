@@ -24,7 +24,9 @@ func (s *notifyIncidentTestStore) GetIncidentByID(context.Context, uuid.UUID) (d
 func (s *notifyIncidentTestStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
 	return db.User{}, pgx.ErrNoRows
 }
-func (s *notifyIncidentTestStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error { return nil }
+func (s *notifyIncidentTestStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error {
+	return nil
+}
 func (s *notifyIncidentTestStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
 	return nil
 }

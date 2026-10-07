@@ -70,12 +70,6 @@ incidents, or a handoff picker with no targets.
 4. **Routing** — Match a label (for example `team=platform`) to L2.
 5. **Connect + test** — Jira / chat, then **Send test alert**.
 
-> **Setup wizard is optional**
->
-> Sidebar **Setup** walks the same ground as a checklist. Prefer the dedicated pages —
-> **Workspaces**, **Teams**, **Shifts**, **Integrations** — when you need to change
-> one thing later. **Quick setup** on the wizard creates a workspace, L2, L3, and the
-> default L2→L3 path in one step.
 
 ---
 

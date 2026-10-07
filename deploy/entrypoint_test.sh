@@ -72,15 +72,15 @@ if grep -q "api start" "$TMP/log"; then
   exit 1
 fi
 
-# Test 3: successful migrate path forces loopback HTTP_ADDR
+# Test 3: entrypoint doesn't override settings with legacy environment values
 : >"$TMP/log"
 HTTP_ADDR="0.0.0.0:8080" DATABASE_URL="postgres://x" FAKE_LOG="$TMP/log" "$TMP/run-entrypoint" >/dev/null 2>&1 &
 ep_pid=$!
 sleep 0.5
-if ! grep -q "api start HTTP_ADDR=127.0.0.1:8080" "$TMP/log"; then
+if ! grep -q "api start HTTP_ADDR=0.0.0.0:8080" "$TMP/log"; then
   kill "$ep_pid" 2>/dev/null || true
   wait "$ep_pid" 2>/dev/null || true
-  echo "FAIL: api did not start with loopback HTTP_ADDR"
+  echo "FAIL: entrypoint overrode legacy HTTP_ADDR; API must read its saved database value"
   exit 1
 fi
 kill "$ep_pid" 2>/dev/null || true

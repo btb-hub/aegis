@@ -14,6 +14,7 @@ import (
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	intslack "github.com/aegis/aegis/pkg/integrations/slack"
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,11 @@ func (h *IntegrationHandler) Register(r gin.IRouter) {
 
 	admin := api.Group("")
 	admin.Use(middleware.RequireAdmin())
+	admin.Use(func(c *gin.Context) {
+		if runtimeconfig.Runtime(c.Request.Context(), nil) != nil {
+			middleware.RequireSameOrigin(runtimeconfig.PublicURL(c.Request.Context(), ""))(c)
+		}
+	})
 	admin.POST("/integrations", h.upsertIntegration)
 	admin.PATCH("/integrations/:id", h.patchIntegration)
 	admin.DELETE("/integrations/:id", h.deleteIntegration)
@@ -118,10 +124,11 @@ func (h *IntegrationHandler) patchIntegration(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name    *string          `json:"name"`
-		Enabled *bool            `json:"enabled"`
-		Config  *json.RawMessage `json:"config"`
-		Mode    *string          `json:"mode"`
+		Name              *string          `json:"name"`
+		ExpectedUpdatedAt *time.Time       `json:"expected_updated_at"`
+		Enabled           *bool            `json:"enabled"`
+		Config            *json.RawMessage `json:"config"`
+		Mode              *string          `json:"mode"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		WriteError(c, service.ErrInvalidBody())
@@ -131,7 +138,11 @@ func (h *IntegrationHandler) patchIntegration(c *gin.Context) {
 	if body.Config != nil {
 		config = *body.Config
 	}
-	item, err := h.integrations.Update(c.Request.Context(), id, body.Name, body.Enabled, config, body.Mode)
+	ctx := c.Request.Context()
+	if body.ExpectedUpdatedAt != nil {
+		ctx = db.WithIntegrationVersion(ctx, *body.ExpectedUpdatedAt)
+	}
+	item, err := h.integrations.Update(ctx, id, body.Name, body.Enabled, config, body.Mode)
 	if err != nil {
 		WriteError(c, err)
 		return

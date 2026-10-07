@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"log/slog"
 
 	"github.com/aegis/aegis/pkg/db"
@@ -55,7 +56,7 @@ func (p *NotifyIncidentProcessor) Handle(ctx context.Context, job Job) error {
 	if incident.Status == "resolved" {
 		return nil
 	}
-	return notifyIncidentIntegrations(ctx, p.log, p.store, incident, p.publicURL)
+	return notifyIncidentIntegrations(ctx, p.log, p.store, incident, runtimeconfig.PublicURL(ctx, p.publicURL))
 }
 
 func notifyIncidentIntegrations(

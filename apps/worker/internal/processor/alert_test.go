@@ -74,7 +74,9 @@ func (notifyIncidentMockStore) GetIncidentByID(_ context.Context, _ uuid.UUID) (
 func (notifyIncidentMockStore) GetUserByID(context.Context, uuid.UUID) (db.User, error) {
 	return db.User{}, pgx.ErrNoRows
 }
-func (notifyIncidentMockStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error { return nil }
+func (notifyIncidentMockStore) UpdateIncidentJiraKey(context.Context, uuid.UUID, string) error {
+	return nil
+}
 func (notifyIncidentMockStore) AppendTimelineEvent(context.Context, uuid.UUID, string, *uuid.UUID, []byte) error {
 	return nil
 }

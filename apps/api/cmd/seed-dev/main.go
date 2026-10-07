@@ -23,11 +23,6 @@ func run() error {
 	if databaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
-	publicURL := strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_URL")), "/")
-	if err := config.SeedDevAllowed(publicURL); err != nil {
-		return err
-	}
-
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -36,6 +31,13 @@ func run() error {
 	defer pool.Close()
 
 	store := db.NewStore(pool)
+	doc, err := store.GetSettings(ctx)
+	if err != nil {
+		return fmt.Errorf("initialize settings by starting the local API before seeding users")
+	}
+	if err := config.SeedDevAllowed(doc.Values["PUBLIC_URL"]); err != nil {
+		return err
+	}
 	users, err := store.SeedDevUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("seed dev users: %w", err)

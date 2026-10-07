@@ -30,7 +30,7 @@
     <h1>Connect Jira, Slack, and eXpress from the UI.</h1>
     <p class="lede">Tickets and pages are not required for an incident to exist, but they are how
       the rest of the company sees the work. Configure connectors on <b>Integrations</b> and on
-      each workspace. You do not need the setup wizard to change one credential.</p>
+      each workspace. Open Settings → Integrations for global credentials.</p>
     <div class="toc">
       <a href="#global">Global connectors</a>
       <a href="#slots">Workspace slots</a>
@@ -157,11 +157,7 @@
       open an incident. The timeline gets an <code>integration_skipped</code> event with a reason
       (slot disabled, no global, incomplete custom config). Fix the slot; do not re-send the
       webhook unless you also want a duplicate alert.</p>
-    <div class="callout info">
-      <b>Setup wizard</b>
-      <p><b>Setup</b> can save the same Jira / Slack / eXpress forms. Day-two changes belong on
-        <b>Integrations</b> and the workspace panel.</p>
-    </div>
+
   </div>
 </section>
 

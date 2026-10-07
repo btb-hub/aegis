@@ -46,8 +46,7 @@ The sidebar links to the main areas:
 | Incidents | `/incidents` | Open work items — ack, resolve, hand off |
 | Alerts | `/alerts` | Raw monitoring signals; search and export |
 | Dashboard | `/dashboard` | MTTA, MTTR, noise, load, handoffs |
-| Integrations | `/integrations` | Jira, Slack, eXpress connectors |
-| Setup | `/setup` | Guided first-time configuration |
+| Settings | `/settings` | Admin authentication, integrations, behavior, deployment and diagnostics |
 
 ### Account
 
@@ -70,7 +69,7 @@ Open **Account** (`/account`) from the header to:
 
 | Area | Actions |
 |------|---------|
-| **Setup wizard** | Run all steps: health check, sign-in, workspace + L2/L3 teams, integrations, test alert |
+| **Settings** | Manage sign-in/access, integrations, behavior, deployment; run diagnostics and send test alerts |
 | **Workspaces** | Create and edit projects; open workspace detail for routing rules |
 | **Teams** | Create, edit, delete teams; set support tier (L1 / L2 / L3 / NOC); add/remove members |
 | **Escalation paths** | On team detail: add or remove allowed handoff targets |
@@ -83,13 +82,13 @@ Open **Account** (`/account`) from the header to:
 
 **Typical first-day workflow:**
 
-1. Sign in as admin → open **Setup** (`/setup`).
+1. Sign in as admin → open **Settings** (`/settings`).
 2. Confirm API health and complete OIDC sign-in.
 3. Create a **workspace** (for example Platform) with L2 and L3 teams and an L2→L3 escalation path.
 4. Add **integrations** — global Jira credentials plus optional per-workspace `project_key` overrides.
 5. Add a **routing rule** (for example `team=platform` → Platform L2).
 6. Create a **schedule** on the L2 team shifts page and add team members.
-7. Send a **test alert** from the wizard and confirm an incident appears under **Incidents**.
+7. Send a **test alert** from Settings → Diagnostics and confirm an incident appears under **Incidents**.
 
 **Admin checklist after go-live:**
 
@@ -290,7 +289,7 @@ must be running. See [Incident channel notifications](./features/incident-chat-n
 | Create teams, schedules, overrides | ✓ | — | — |
 | Configure routing rules & escalation paths | ✓ | — | — |
 | Manage integrations | ✓ | — | — |
-| Run setup wizard test alert | ✓ | — | — |
+| Send diagnostic test alert | ✓ | — | — |
 | Save alert filter views | ✓ | ✓ | ✓ |
 | Export alerts CSV | ✓ | ✓ | ✓ |
 | Edit own account | ✓ | ✓ | ✓ |
@@ -303,7 +302,7 @@ must be running. See [Incident channel notifications](./features/incident-chat-n
 | Add someone to a rotation | **Teams** → team → **Shifts** → schedule (admin) |
 | Route alerts to a team | **Workspaces** → routing rules (admin) |
 | Allow L2 → L3 handoff | **Teams** → L2 team → escalation paths (admin) |
-| Connect Jira / Slack / eXpress | **Integrations** (admin) or **Setup** wizard |
+| Connect Jira / Slack / eXpress | **Settings → Integrations** (admin) |
 | Connect my paging messenger | **Account → Paging messengers** (all roles) |
 | Set shared notification destinations | Team page for Slack; global **Integrations** for eXpress (admin) |
 | Work an active outage | **Incidents** or acknowledge from chat |

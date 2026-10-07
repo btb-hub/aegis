@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   authorizePaging, disconnectPaging, fetchPagingConnections, PagingRequestError,
@@ -11,7 +11,7 @@ import { Modal } from '../ui/Modal';
 import { Toast } from '../ui/Toast';
 
 const providers: PagingProvider[] = ['slack', 'express'];
-const errorCodes = ['setup_required', 'provider_unavailable', 'invalid_authorization', 'cancelled',
+const errorCodes = ['setup_required', 'authentication_required', 'bot_required', 'bot_disabled', 'provider_unavailable', 'invalid_authorization', 'cancelled',
   'workspace_mismatch', 'email_unverified', 'email_match_failed', 'identity_in_use'];
 
 export function PagingConnections() {
@@ -123,7 +123,11 @@ export function PagingConnections() {
                     </Button> : null}
                   </div>
                 </div>
-                {!connection?.available ? <p className="text-sm text-zinc-600">{t('account.paging_error.setup_required')}</p> : null}
+                {!connection?.available ? <div className="space-y-1">
+                  <p className="text-sm text-zinc-600">{t(`account.paging_error.${errorCodes.includes(connection?.unavailable_reason ?? '') ? connection!.unavailable_reason : 'setup_required'}`)}</p>
+                  {user?.role === 'admin' ? <Link className="text-sm text-accent hover:underline"
+                    to={`/settings?section=${connection?.unavailable_reason === 'authentication_required' ? 'authentication' : 'integrations'}`}>{t('settings.open_settings')}</Link> : null}
+                </div> : null}
               </li>
             );
           })}

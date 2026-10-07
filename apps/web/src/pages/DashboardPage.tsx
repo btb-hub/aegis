@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { MetricTrendChart } from '../components/analytics/MetricTrendChart';
 import { Button } from '../components/ui/Button';
 import { Banner } from '../components/ui/Banner';
@@ -213,11 +213,6 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <p className="text-sm text-zinc-600">
-        <Link className="text-accent hover:underline" to="/setup">
-          {t('dashboard.setup_link')}
-        </Link>
-      </p>
     </PageContent>
   );
 }

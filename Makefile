@@ -143,21 +143,14 @@ image:
 # Requires a running Postgres and env file. Example:
 #   make dev-db
 #   DATABASE_URL=postgres://aegis:aegis@host.docker.internal:5432/aegis?sslmode=disable \
-#   SESSION_SECRET=x WEBHOOK_SECRET=x PUBLIC_URL=http://localhost:3000 \
 #   make image-smoke
 image-smoke: image
 	@test -n "$${DATABASE_URL}" || (echo "DATABASE_URL required" >&2; exit 1)
-	@test -n "$${SESSION_SECRET}" || (echo "SESSION_SECRET required" >&2; exit 1)
-	@test -n "$${WEBHOOK_SECRET}" || (echo "WEBHOOK_SECRET required" >&2; exit 1)
-	@test -n "$${PUBLIC_URL}" || (echo "PUBLIC_URL required" >&2; exit 1)
 	@set -euo pipefail; \
 	trap 'docker rm -f aegis-smoke >/dev/null 2>&1 || true' EXIT; \
 	docker run --rm -d --name aegis-smoke -p 3000:3000 \
 	  -e DATABASE_URL \
-	  -e SESSION_SECRET \
-	  -e WEBHOOK_SECRET \
-	  -e PUBLIC_URL \
-	  -e HTTP_ADDR=127.0.0.1:8080 \
+	  -e AEGIS_BOOTSTRAP_TOKEN \
 	  $(IMAGE_NAME); \
 	echo "Waiting for /healthz..."; \
 	for i in 1 2 3 4 5 6 7 8 9 10; do \

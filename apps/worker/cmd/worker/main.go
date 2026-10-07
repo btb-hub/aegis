@@ -21,14 +21,14 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load()
+	boot, err := config.LoadBootstrap()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := pgxpool.New(ctx, boot.DatabaseURL)
 	if err != nil {
 		log.Fatalf("db: %v", err)
 	}
@@ -39,7 +39,18 @@ func main() {
 	}
 
 	store := db.NewStore(pool)
-	go incidentchat.New(store, cfg.PublicURL).Run(ctx)
+	if err := store.InitializeSettings(ctx, boot); err != nil {
+		log.Fatal(err)
+	}
+	cfg, err := store.SettingsConfig(ctx, boot)
+	if err != nil {
+		log.Fatal("cannot load database settings")
+	}
+	chat := incidentchat.New(store, cfg.PublicURL)
+	chat.Runtime = func(ctx context.Context) (context.Context, error) {
+		return store.SettingsContext(ctx, boot)
+	}
+	go chat.Run(ctx)
 	adapter := &storeAdapter{store: store}
 	materialise := processor.NewMaterialiseProcessor(nil, store)
 	alert := processor.NewAlertProcessor(nil, store, cfg.IncidentDedupWindow, cfg.EscalationTimeout)
@@ -65,7 +76,12 @@ func main() {
 			cancel()
 			return
 		case <-ticker.C:
-			if err := worker.RunOnce(ctx); err != nil {
+			snapshot, err := store.SettingsContext(ctx, boot)
+			if err != nil {
+				log.Print("worker settings unavailable")
+				continue
+			}
+			if err := worker.RunOnce(snapshot); err != nil {
 				log.Printf("worker error: %v", err)
 			}
 		}

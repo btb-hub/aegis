@@ -7,6 +7,7 @@ import (
 
 	"github.com/aegis/aegis/pkg/alertparse"
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/google/uuid"
 )
@@ -31,7 +32,13 @@ func NewAlertService(secret string, fingerprintKeys []string, repo AlertReposito
 }
 
 func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw json.RawMessage) (uuid.UUID, error) {
-	if !alertparse.ValidateWebhookSecret(providedSecret, s.secret) {
+	secret := s.secret
+	keys := s.fingerprintKeys
+	if runtime := config.Runtime(ctx, nil); runtime != nil {
+		secret = runtime.WebhookSecret
+		keys = runtime.AlertFingerprintLabels
+	}
+	if !alertparse.ValidateWebhookSecret(providedSecret, secret) {
 		return uuid.Nil, apperrors.InvalidWebhookSecret()
 	}
 
@@ -41,7 +48,7 @@ func (s *AlertService) Ingest(ctx context.Context, providedSecret string, raw js
 	}
 
 	result, err := s.repo.CreateAlertAndJob(ctx, db.CreateAlertJobInput{
-		Fingerprint: alertparse.FingerprintFromKeys(parsed.Labels, s.fingerprintKeys),
+		Fingerprint: alertparse.FingerprintFromKeys(parsed.Labels, keys),
 		Status:      parsed.Status,
 		Severity:    parsed.Severity,
 		Title:       parsed.Title,
@@ -60,11 +67,15 @@ func (s *AlertService) SendTestAlert(ctx context.Context) (uuid.UUID, error) {
 	raw := json.RawMessage(`{
   "status": "firing",
   "severity": "warning",
-  "title": "Aegis setup test alert",
-  "annotations": {"summary": "Sent from the setup wizard"},
+  "title": "Aegis test alert",
+  "annotations": {"summary": "Sent from Settings diagnostics"},
   "labels": {"alertname": "AegisSetupTest", "team": "platform"}
 }`)
-	return s.Ingest(ctx, s.secret, raw)
+	secret := s.secret
+	if runtime := config.Runtime(ctx, nil); runtime != nil {
+		secret = runtime.WebhookSecret
+	}
+	return s.Ingest(ctx, secret, raw)
 }
 
 func (s *AlertService) List(ctx context.Context, params db.ListAlertsParams) (AlertListResult, error) {

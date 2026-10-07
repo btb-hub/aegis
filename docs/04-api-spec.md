@@ -2,7 +2,40 @@
 
 Base URL: `/api/v1`. JSON request/response unless noted. Errors: `{code, message, details}`.
 
-OpenAPI schema generated from code in `apps/api` (future story).
+Settings/installation OpenAPI schema: [`openapi-settings.yaml`](./openapi-settings.yaml).
+Generating the complete application schema from code remains a future story.
+
+## Admin settings and installation
+
+Admin settings require a live admin session; mutations require the saved app origin. Unknown
+fields/invalid values return `400`; stale revisions and untested activation return `409`.
+GET responses contain empty secret fields and `secret_present` flags, never secret values.
+`SESSION_SECRET` isn't exposed. Audits contain field names only.
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/v1/settings` | admin | `{values,secret_present,enabled,revision,bootstrap_closed}` |
+| PATCH | `/api/v1/settings/{section}` | admin + same origin | `{revision,values,confirm_public_url?}`; section `access`, `behavior`, `deployment`; blank secrets preserve existing values |
+| GET | `/api/v1/settings/providers/{provider}` | admin | Redacted active defaults or saved draft: `{provider,values,secret_present,revision,tested,expected_email}` |
+| PUT | `/api/v1/settings/providers/{provider}` | admin + same origin | Save `{revision,values}` as draft. Expected email comes from the initiating admin. New drafts start at revision zero. |
+| POST | `/api/v1/settings/providers/{provider}/test` | admin + same origin | `{authorization_url}` for a five-minute, single-use, session/provider/revision-bound verified sign-in; no user or paging mutations |
+| POST | `/api/v1/settings/providers/{provider}/activate` | admin + same origin | `{revision,draft_revision,enabled}`; enabling requires successful current draft test by this session; disabling the last active provider is rejected |
+| POST | `/api/v1/settings/test-alert` | admin + same origin | `202 {id}`; old `/api/v1/setup/test-alert` remains an alias |
+| GET | `/api/v1/bootstrap/status` | public | `{available,session_active}`; false for imported/completed installations |
+| POST | `/api/v1/bootstrap/session` | app origin + deployment token | `{token,public_url}` opens a 30-minute HttpOnly installation cookie; never pass the token in a URL |
+| GET | `/api/v1/bootstrap/configuration` | installation cookie | Only `{values:{PUBLIC_URL},revision}` |
+| GET / PUT | `/api/v1/bootstrap/providers/{provider}` | installation cookie; PUT same origin | Same draft shape; PUT also requires `expected_email` for first admin |
+| POST | `/api/v1/bootstrap/providers/{provider}/test` | installation cookie + same origin | Verified email must match the first admin email; callback atomically activates provider, creates admin/session and permanently closes installation |
+
+Supported providers: `google`, `slack`, `express`. Authentication callbacks stay at
+`/auth/{provider}/callback` and preserve normal login redirects and `format=json` responses.
+Changing public URL requires `confirm_public_url=true` and invalidates pending authorization
+attempts. Matching default callbacks follow the new URL; explicit custom callbacks are retained.
+Existing integration/account/paging responses keep their shapes. Paging unavailability reasons
+now distinguish `authentication_required`, `bot_required`, and `bot_disabled`.
+Connector PATCH requests may include `expected_updated_at` from the existing response to
+reject stale edits with `409`; Settings sends it automatically. Connector changes are audited
+in the database without values. Existing clients that omit this optional field keep working.
 
 ## Auth
 

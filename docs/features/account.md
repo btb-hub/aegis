@@ -1,6 +1,6 @@
 # Feature: Account page
 
-**Backlog:** Phase 8 — [AEG-071](../../backlog/epics/EPIC-09-teams-users-shifts.md)  
+**Backlog:** Phase 8 — [AEG-071](../../backlog/epics/EPIC-09-teams-users-shifts.md)
 **Related:** [web-auth.md](./web-auth.md), [EPIC-09](../../backlog/epics/EPIC-09-teams-users-shifts.md) (AEG-064 identity backfill)
 
 ## Problem
@@ -42,7 +42,7 @@ Route: `/account`, protected (session required). All roles.
 **Entry points:**
 
 - Header: display name becomes a link to `/account` (or add explicit **Account** next to Sign out).
-- Setup wizard auth step: link “Review your account” after sign-in.
+- Settings diagnostics links to Account paging connections.
 
 ---
 

@@ -15,8 +15,6 @@ fi
 echo "entrypoint: running migrations"
 migrate -path "$MIGRATIONS_PATH" -database "$DATABASE_URL" up
 
-export HTTP_ADDR="127.0.0.1:8080"
-
 pids=()
 
 cleanup() {
@@ -31,7 +29,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 143' TERM INT
 
-echo "entrypoint: starting api on ${HTTP_ADDR}"
+echo "entrypoint: starting api with database settings"
 "$API_BIN" &
 pids+=("$!")
 

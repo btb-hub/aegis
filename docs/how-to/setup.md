@@ -51,11 +51,6 @@ project tickets land in. One Aegis can have many workspaces (Platform and Data s
    You will configure teams, integrations, and routing on this detail page. Leave it
    open in a tab; you will come back for routing after teams exist.
 
-> **Shortcut: Setup → Quick setup**
->
-> On **Setup**, **Quick setup (new project)** creates the workspace, an L2 team, an L3
-> team, and the L2→L3 path together. Then skip to [members](#members) and
-> [shifts](#shifts). Use dedicated pages if the project already exists.
 
 <a id="teams"></a>
 
@@ -191,8 +186,8 @@ Connectors are optional for this check. Jira tickets and chat pages need
 [Connect Jira, Slack, eXpress](connect.md) first.
 
 1. **Send test alert**
-   Open sidebar **Setup**, go to **Test alert**, click **Send test alert**. You
-   should see a toast with an alert id.
+   Open **Settings → Diagnostics**, click **Send test alert**. You
+   should see an **Open test alert** link.
 
 2. **Open Incidents**
    A new incident should list for Platform L2, assigned to whoever the banner named.
@@ -202,7 +197,7 @@ Connectors are optional for this check. Jira tickets and chat pages need
 >
 > Every paging team has a schedule that covers now. Every workspace has at least one routing
 > rule. L2 teams have an L3 path. If you use Jira or chat, **Test connection** has passed
-> on **Integrations**.
+> on **Settings → Integrations**.
 
 ### Add another project later
 

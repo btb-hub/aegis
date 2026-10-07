@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/incidentack"
 	"github.com/google/uuid"
@@ -179,9 +180,9 @@ func (s *IncidentService) CreateFromAlert(ctx context.Context, input CreateFromA
 		TeamID:     input.TeamID,
 		AssigneeID: assigneeID,
 		ActorID:    &actorID,
-		DedupSince: now.Add(-s.dedupWindow),
+		DedupSince: now.Add(-config.DedupWindow(ctx, s.dedupWindow)),
 		PostCreate: &db.IncidentPostCreateJobs{
-			EscalationRunAt: now.Add(s.escalationTimeout),
+			EscalationRunAt: now.Add(config.EscalationDelay(ctx, s.escalationTimeout)),
 		},
 	})
 	if err != nil {

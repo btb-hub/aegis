@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: Aegis settings and installation API
+  version: '1'
+  description: Settings supplement to docs/04-api-spec.md. Secret values are write-only; GET returns presence flags and blank inputs.
+paths:
+  /api/v1/settings:
+    get:
+      security: [{ session: [] }]
+      summary: Read admin settings
+      responses:
+        '200': { description: Redacted settings, content: { application/json: { schema: { $ref: '#/components/schemas/Settings' } } } }
+  /api/v1/settings/{section}:
+    parameters:
+      - { name: section, in: path, required: true, schema: { type: string, enum: [access, behavior, deployment] } }
+    patch:
+      security: [{ session: [] }]
+      summary: Save validated settings with revision and same-origin checks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, values]
+              properties:
+                revision: { type: integer, format: int64 }
+                values: { $ref: '#/components/schemas/Values' }
+                confirm_public_url: { type: boolean }
+      responses:
+        '200': { description: Redacted updated settings, content: { application/json: { schema: { $ref: '#/components/schemas/Settings' } } } }
+        '400': { description: Invalid section or values }
+        '409': { description: Stale revision or public URL confirmation required }
+  /api/v1/settings/providers/{provider}:
+    parameters: [{ $ref: '#/components/parameters/Provider' }]
+    get:
+      security: [{ session: [] }]
+      summary: Read redacted provider draft
+      responses:
+        '200': { description: Redacted provider draft, content: { application/json: { schema: { $ref: '#/components/schemas/Draft' } } } }
+    put:
+      security: [{ session: [] }]
+      summary: Save draft; administrator email is taken from the session
+      requestBody: { $ref: '#/components/requestBodies/Draft' }
+      responses:
+        '200': { description: Redacted draft, content: { application/json: { schema: { $ref: '#/components/schemas/Draft' } } } }
+        '400': { description: Invalid credentials }
+        '409': { description: Stale draft }
+  /api/v1/settings/providers/{provider}/test:
+    parameters: [{ $ref: '#/components/parameters/Provider' }]
+    post:
+      security: [{ session: [] }]
+      summary: Start session-bound five-minute verified sign-in test
+      responses:
+        '200': { $ref: '#/components/responses/Authorization' }
+        '400': { description: Save a valid draft first }
+  /api/v1/settings/providers/{provider}/activate:
+    parameters: [{ $ref: '#/components/parameters/Provider' }]
+    post:
+      security: [{ session: [] }]
+      summary: Activate tested draft or disable provider, preserving at least one active provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, draft_revision, enabled]
+              properties:
+                revision: { type: integer, format: int64 }
+                draft_revision: { type: integer, format: int64 }
+                enabled: { type: boolean }
+      responses:
+        '200': { description: Redacted settings, content: { application/json: { schema: { $ref: '#/components/schemas/Settings' } } } }
+        '409': { description: Stale or untested draft, wrong session, or last active provider }
+  /api/v1/settings/test-alert:
+    post:
+      security: [{ session: [] }]
+      summary: Send diagnostic alert, same-origin required
+      responses: { '202': { description: Alert ID, content: { application/json: { schema: { type: object, properties: { id: { type: string, format: uuid } } } } } } }
+  /api/v1/setup/test-alert:
+    post:
+      security: [{ session: [] }]
+      summary: Compatibility alias for settings/test-alert
+      responses: { '202': { description: Alert ID } }
+  /api/v1/bootstrap/status:
+    get:
+      summary: Read first-install availability
+      responses:
+        '200':
+          description: Availability
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available: { type: boolean }
+                  session_active: { type: boolean }
+  /api/v1/bootstrap/session:
+    post:
+      summary: Submit deployment token through same-origin form to open limited 30-minute session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, public_url]
+              properties:
+                token: { type: string, writeOnly: true, minLength: 32 }
+                public_url: { type: string, format: uri }
+      responses:
+        '200': { description: Installation cookie set; session_active true }
+        '401': { description: Invalid token }
+        '404': { description: Installation closed }
+        '409': { description: Another browser already owns installation access }
+  /api/v1/bootstrap/configuration:
+    get:
+      security: [{ installation: [] }]
+      summary: Read public URL and revision only
+      responses: { '200': { description: Limited configuration }, '401': { description: Installation expired or closed } }
+  /api/v1/bootstrap/providers/{provider}:
+    parameters: [{ $ref: '#/components/parameters/Provider' }]
+    get:
+      security: [{ installation: [] }]
+      summary: Read installation provider draft
+      responses:
+        '200': { description: Redacted draft, content: { application/json: { schema: { $ref: '#/components/schemas/Draft' } } } }
+    put:
+      security: [{ installation: [] }]
+      summary: Save provider draft and first admin email, same-origin required
+      requestBody: { $ref: '#/components/requestBodies/Draft' }
+      responses: { '200': { description: Redacted draft }, '409': { description: Stale revision } }
+  /api/v1/bootstrap/providers/{provider}/test:
+    parameters: [{ $ref: '#/components/parameters/Provider' }]
+    post:
+      security: [{ installation: [] }]
+      summary: Verify first admin sign-in and atomically close installation on callback
+      responses: { '200': { $ref: '#/components/responses/Authorization' }, '401': { description: Installation session expired } }
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: aegis_session }
+    installation: { type: apiKey, in: cookie, name: aegis_installation }
+  parameters:
+    Provider: { name: provider, in: path, required: true, schema: { type: string, enum: [google, slack, express] } }
+  requestBodies:
+    Draft:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [revision, values]
+            properties:
+              revision: { type: integer, format: int64 }
+              values: { $ref: '#/components/schemas/Values' }
+              expected_email: { type: string, format: email, description: Required for installation; ignored for admin sessions }
+  responses:
+    Authorization:
+      description: Redirect browser to authorization_url
+      content:
+        application/json:
+          schema: { type: object, properties: { authorization_url: { type: string, format: uri } } }
+  schemas:
+    Values: { type: object, additionalProperties: { type: string } }
+    SecretPresence: { type: object, additionalProperties: { type: boolean } }
+    Settings:
+      type: object
+      required: [values, secret_present, enabled, revision, bootstrap_closed]
+      properties:
+        values: { $ref: '#/components/schemas/Values' }
+        secret_present: { $ref: '#/components/schemas/SecretPresence' }
+        enabled: { type: object, additionalProperties: { type: boolean } }
+        revision: { type: integer, format: int64 }
+        bootstrap_closed: { type: boolean }
+    Draft:
+      type: object
+      properties:
+        provider: { type: string, enum: [google, slack, express] }
+        values: { $ref: '#/components/schemas/Values' }
+        secret_present: { $ref: '#/components/schemas/SecretPresence' }
+        revision: { type: integer, format: int64 }
+        tested: { type: boolean }
+        expected_email: { type: string, format: email }

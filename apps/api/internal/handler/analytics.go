@@ -10,6 +10,7 @@ import (
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,7 +42,20 @@ func (h *AnalyticsHandler) Register(r gin.IRouter) {
 
 	admin := api.Group("")
 	admin.Use(middleware.RequireAdmin())
-	admin.POST("/setup/test-alert", h.testAlert)
+	admin.POST("/setup/test-alert", func(c *gin.Context) {
+		if config.Runtime(c.Request.Context(), nil) != nil {
+			middleware.RequireSameOrigin(config.PublicURL(c.Request.Context(), ""))(c)
+		}
+		if !c.IsAborted() {
+			h.testAlert(c)
+		}
+	})
+	admin.POST("/settings/test-alert", func(c *gin.Context) {
+		middleware.RequireSameOrigin(config.PublicURL(c.Request.Context(), ""))(c)
+		if !c.IsAborted() {
+			h.testAlert(c)
+		}
+	})
 }
 
 func (h *AnalyticsHandler) handoffStats(c *gin.Context) {

@@ -18,6 +18,8 @@ type PagingIdentity struct {
 	EmailVerified bool
 	SlackUserID   string
 	SlackTeamID   string
+	DisplayName   string
+	AvatarURL     string
 }
 
 // PagingClient deliberately does not use the legacy login payload parser.
@@ -33,12 +35,12 @@ func NewPagingClient(cfg *config.Config) *PagingClient {
 }
 
 func (c *PagingClient) provider(ctx context.Context, name string) (*coreoidc.Provider, *oauth2.Config, error) {
-	p, err := c.cfg.Provider(name)
+	p, err := config.Runtime(ctx, c.cfg).Provider(name)
 	if err != nil {
 		return nil, nil, err
 	}
 	c.mu.Lock()
-	discovered := c.providers[name]
+	discovered := c.providers[p.Issuer]
 	c.mu.Unlock()
 	if discovered == nil {
 		discovered, err = coreoidc.NewProvider(coreoidc.ClientContext(ctx, c.client), p.Issuer)
@@ -46,7 +48,7 @@ func (c *PagingClient) provider(ctx context.Context, name string) (*coreoidc.Pro
 			return nil, nil, err
 		}
 		c.mu.Lock()
-		c.providers[name] = discovered
+		c.providers[p.Issuer] = discovered
 		c.mu.Unlock()
 	}
 	return discovered, &oauth2.Config{ClientID: p.ClientID, ClientSecret: p.ClientSecret,
@@ -91,10 +93,12 @@ func (c *PagingClient) ExchangePaging(ctx context.Context, provider, code, nonce
 		EmailVerified bool   `json:"email_verified"`
 		SlackUserID   string `json:"https://slack.com/user_id"`
 		SlackTeamID   string `json:"https://slack.com/team_id"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
 	}
 	if err := verified.Claims(&claims); err != nil {
 		return PagingIdentity{}, err
 	}
 	return PagingIdentity{Subject: verified.Subject, Email: claims.Email, EmailVerified: claims.EmailVerified,
-		SlackUserID: claims.SlackUserID, SlackTeamID: claims.SlackTeamID}, nil
+		SlackUserID: claims.SlackUserID, SlackTeamID: claims.SlackTeamID, DisplayName: claims.Name, AvatarURL: claims.Picture}, nil
 }
