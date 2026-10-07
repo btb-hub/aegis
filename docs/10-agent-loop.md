@@ -5,11 +5,11 @@ Full detail for the contract in [`CLAUDE.md`](../CLAUDE.md).
 ## Loop
 
 1. **Sync** — `git checkout main && git pull`
-2. **Pick** — highest-priority `Ready` story in [`backlog/epics/`](../backlog/epics/) whose dependencies are `Done`
-3. **Branch** — `feat/<epic>-<story-id>-<short-slug>` off fresh `main`
+2. **Pick** — explicit user request, or highest-priority `Ready` story in [`backlog/epics/`](../backlog/epics/) whose dependencies are `Done`
+3. **Branch** — `codex/<short-slug>` off fresh `main`, unless the user specifies another name
 4. **Plan** — 3–8 lines in story file or PR: files, approach, test plan
 5. **Build** — vertical slice; tests with code
-6. **Verify** — `make lint type test` green
+6. **Verify** — `make lint type test` for application changes; documentation checks below for docs-only requests
 7. **Self-review** — acceptance criteria + Definition of Done
 8. **PR** — template, link story, set story `In Review`
 9. **Merge** — set story `Done`, loop
@@ -17,12 +17,16 @@ Full detail for the contract in [`CLAUDE.md`](../CLAUDE.md).
 ## Gate commands
 
 ```bash
-make lint    # golangci-lint, eslint
-make type    # go vet, tsc --noEmit
-make test    # go test ./..., vitest
+make lint    # go vet, eslint, Storybook build
+make type    # Go builds, tsc --noEmit
+make test    # Go coverage gates, locale keys, Vitest coverage
 ```
 
 Or combined: `make lint type test`.
+
+For documentation-only changes, verify local links and anchors, compare instructions with current
+source/configuration, keep affected EN/RU Markdown and HTML guides aligned, and run
+`git diff --check`. Record the checks in the PR; no application tests are needed when only docs change.
 
 ## Test coverage (NFR-5)
 
@@ -66,7 +70,7 @@ Before building or changing web UI:
 ## Definition of Done
 
 - Acceptance criteria met with tests
-- `make lint type test` green
+- Application gate or documentation checks above pass; limitations recorded in the PR
 - API changes in [`04-api-spec.md`](./04-api-spec.md)
 - DB changes: golang-migrate up **and** down
 - No secrets committed

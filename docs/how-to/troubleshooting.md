@@ -27,6 +27,9 @@ routing rule, an empty rotation, or a person who never signed in. Software insta
 | Incident, but no Slack / eXpress page | Connector skipped, or the on-call user has no paging identity. | Test connection. User opens **Account** and links Slack or eXpress. |
 | Test alert toast succeeds, still no incident | Test payload labels do not match your rule. | Open the new row on **Alerts**, read labels, align the routing matcher. Worker must be running — if alerts never move, ask whoever operates the host. |
 | Wrong Jira project | Workspace still using the global project key. | Workspace → Integrations → Jira **Inherit** with a project key override, or Custom. |
+| **Connect** is unavailable on Account | Provider OIDC or the global bot isn't configured. | Ask an admin to complete [paging setup](../features/paging-connections.md). A workspace override alone doesn't enable Account authorization. |
+| Personal page arrives, shared post doesn't | Shared destination missing or bot lacks channel access. | Check team Slack channel and workspace bot; for eXpress check the global on-call group and global bot. |
+| Chat click has no private result | Request receipt isn't acknowledgement; worker processing or feedback may have failed. | Check incident status in the web app. Ask the operator to inspect worker logs and `chat_ack_requests`; see [delivery troubleshooting](../features/incident-chat-notifications.md). |
 
 <a id="alerts"></a>
 
@@ -52,7 +55,8 @@ This distinction is the whole product.
 - **On call now** names a person on every paging team.
 - Each workspace has at least one **routing rule** that matches real alert labels.
 - **Test connection** passed for every connector you rely on.
-- On-call people have Slack and/or eXpress IDs on **Account**.
+- On-call people have connected Slack and/or eXpress in **Account → Paging messengers**.
+- A routed test incident produces a ticket, personal page, shared post, and private chat acknowledgement result where configured.
 
 > **Still installing the app?**
 >

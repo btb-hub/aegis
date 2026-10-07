@@ -1,7 +1,8 @@
 # Integrations
 
-Aegis talks to external systems through a small set of connectors. All outbound calls run in the
-**worker** with retry, idempotency keys, and recorded fixtures in tests.
+Aegis talks to external systems through a small set of connectors. Incident delivery runs in the
+**worker**. Admin connection tests and Account authorization checks call providers from the API.
+Automated connector tests use recorded fixtures rather than live credentials.
 
 Local first-day path in the product (workspace, teams, routing, then a routed alert):
 [`../how-to/setup.md`](../how-to/setup.md). Connector screens:
@@ -57,9 +58,28 @@ the connector `kind`, a reason code, and an actionable message. Reason codes are
 
 ## Failure handling (REQ-INT-06)
 
-- Errors logged; `notifications.status = failed`.
-- Retry via job `attempts` with backoff.
-- One connector down does not block others.
+Shared channel messages and chat acknowledgements use the durable queues added by migration
+`000021`, independently of existing personal-page jobs. Delivery and feedback retry up to five
+attempts; permanent failures stop immediately. Failed rows remain available for inspection.
+One destination's failure doesn't repeat another destination's successful post or a personal page.
+See [Incident channel notifications](../features/incident-chat-notifications.md) for retry delays,
+queue tables, private acknowledgement feedback, and at-least-once delivery limits.
+
+Existing `jobs` processing marks a failed job as `failed`; it doesn't inherit the shared-message
+retry policy. Inspect job status and worker logs before arranging any replay.
+
+## Destinations and paging identities
+
+| Purpose | Slack | eXpress |
+| --- | --- | --- |
+| Personal page | Linked user ID, with the team's workspace bot | Linked HUID, with the team's workspace bot |
+| On-call announcement | Team channel and optional user group | Global bot and `oncall_group_chat_id` |
+| Shared incident update | Team channel, with workspace Inherit/Custom bot | Global bot and `oncall_group_chat_id` |
+
+Responders manage their own connections in **Account → Paging messengers**. Browser authorization
+uses configured OIDC plus the enabled global bot and doesn't add a sign-in identity. See
+[Paging connections](../features/paging-connections.md). Test connection checks authentication;
+verify real issue creation, pages, channel posts, and chat acknowledgements before rollout.
 
 ## Admin configuration
 

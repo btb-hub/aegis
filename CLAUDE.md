@@ -8,14 +8,16 @@ this is the short, always-on version.
 
 1. **Sync.** Check out and pull the latest `main`. Never start work on a stale branch.
 2. **Pick.** Open `backlog/epics/` and take the highest-priority story with status `Ready` whose
-   dependencies are all `Done`. If nothing is `Ready`, stop and report — don't invent work.
-3. **Branch.** Create a new branch off fresh `main`: `feat/<epic>-<story-id>-<short-slug>`
-   (e.g. `feat/shifts-AEG-014-current-oncall-endpoint`). One story per branch.
+   dependencies are all `Done`. An explicit user request defines the scope when no story is given.
+   Without either a request or a Ready story, stop and report.
+3. **Branch.** Create a new `codex/<short-slug>` branch off fresh `main`, unless the user specifies
+   another name. One request or story per branch.
 4. **Plan.** Write a 3–8 line plan as a comment in the story file (or PR description): what you'll
    change, which files, how you'll test. Keep it honest and short.
 5. **Build.** Implement the story. Write tests alongside the code, not after.
-6. **Verify.** Run the full gate locally and make it green: `make lint type test`. A red gate is a
-   blocked story — fix it or hand it back, don't merge around it.
+6. **Verify.** Application changes require `make lint type test`. For documentation-only changes,
+   check links, examples against source, Markdown/HTML parity, and `git diff --check`. Report the
+   checks actually run and any limitations in the PR.
 7. **Self-review.** Re-read the story's acceptance criteria and the Definition of Done below. Tick
    each one. If anything fails, you're not finished.
 8. **PR.** Open a pull request using the template, link the story, set the story status to
@@ -34,7 +36,8 @@ A story is done only when **all** of these hold:
 - Non-IaC code meets **≥ 90% unit-test coverage on business logic** (handlers wired through services,
   parsers, validators, state machines — not `main`, generated sqlc, or thin config/DI glue). IaC
   (`deploy/`, Dockerfiles, migrations, CI YAML) is excluded. See [`docs/10-agent-loop.md`](./docs/10-agent-loop.md).
-- `make lint type test` is green. No skipped tests without a reason in the PR.
+- Application changes pass `make lint type test`; documentation-only changes pass the checks above.
+  No skipped tests without a reason in the PR.
 - Public API changes are reflected in `docs/04-api-spec.md` and the OpenAPI schema.
 - DB changes ship with a golang-migrate migration (up **and** down), named after the story.
 - Secrets are read from config/env, never committed. No credentials in code, logs, or fixtures.
@@ -47,7 +50,7 @@ A story is done only when **all** of these hold:
 
 ## Conventions
 
-- **Language/stack:** Go 1.22+ (`apps/api`, `apps/worker`), React + TS + Vite (`apps/web`),
+- **Language/stack:** Go 1.25+ (`apps/api`, `apps/worker`, `pkg`), React + TS + Vite (`apps/web`),
   PostgreSQL 16 only (no Redis). Don't introduce a new framework or language without an ADR
   (`docs/` + a story).
 - **Go style:** Gin HTTP layer, sqlc for queries, golangci-lint. Layout: `cmd/`, `internal/handler/`,
@@ -61,17 +64,23 @@ A story is done only when **all** of these hold:
   every external connector use recorded fixtures, never live calls in CI. `make test` enforces
   ≥ 90% coverage on business-logic packages (Go: `-coverprofile`; web: Vitest thresholds).
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`).
-- **Migrations:** golang-migrate in `db/migrations/`, one migration per PR that changes schema.
-- **Config:** all settings via env vars / `.env`, parsed once into typed config at startup.
-- **Auth:** OIDC only (Google, Slack, eXpress). No local passwords or self-hosted IdP.
+- **Migrations:** golang-migrate in `db/migrations/`, with matching up/down files. Check existing
+  versions on fresh main before assigning the next number. The production image migrates at startup.
+- **Config:** startup settings use env / `.env`. Bot credentials and workspace slots are saved
+  through admin integration settings; saved changes take effect without an API restart.
+- **Auth:** OIDC (Google, Slack, eXpress), plus opt-in localhost dev sign-in. No local passwords.
+  Account paging authorization is separate from sign-in; preserve existing connections on failure.
+- **Chat delivery:** shared lifecycle posts and chat acknowledgements use durable outboxes processed
+  by the worker. A callback receipt isn't an acknowledgement result. See
+  [`docs/features/incident-chat-notifications.md`](./docs/features/incident-chat-notifications.md).
 - **Errors are interface:** API errors return a structured body `{code, message, details}`. UI errors
   say what happened and how to fix it — never a bare stack trace, never "Something went wrong."
 
 ## Guardrails (hard stops)
 
-- **Read-only is read-only.** `docs/` and `backlog/` are the spec. You may *append* status updates to
-  story files, but don't rewrite requirements to match your code. If the spec is wrong, raise it in
-  the PR and propose a change — don't silently diverge.
+- **Preserve requirements.** `docs/` and `backlog/` are the spec. Keep the README, operational guides,
+  and connector docs current when behavior changes. Don't silently rewrite product requirements
+  to match code; identify proposed requirement changes in the PR.
 - **No live credentials in tests or CI.** Ever.
 - **No new third-party network calls** from the request path without it being in the story.
 - **Don't weaken security** to make a test pass (no disabling auth, no `verify=False`, no wildcard
@@ -89,6 +98,10 @@ the user what to do next. No emoji in product copy. Errors don't apologise and a
 **Localization:** English is the source language; every new UI or chat-template string needs matching
 keys in `apps/web/src/locales/en/` and `apps/web/src/locales/ru/` (and `pkg/i18n/messages/` for
 worker templates). Russian is a faithful translation, not a rewrite.
+
+**User guides:** update the affected English and Russian how-tos and their adjacent HTML copies
+together. Distinguish personal pages, team Slack channels, and the global eXpress on-call group.
+Link Account instructions to [`docs/features/paging-connections.md`](./docs/features/paging-connections.md).
 
 ## When you're unsure
 

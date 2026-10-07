@@ -55,7 +55,7 @@ Open **Account** (`/account`) from the header to:
 
 - Edit display name and language (`en` / `ru`)
 - See connected sign-in providers
-- Link eXpress for paging (`/link` flow)
+- Connect, replace, or disconnect Slack/eXpress under **Paging messengers** through browser authorization
 - View your access role (read-only)
 
 ---
@@ -114,7 +114,7 @@ Open **Account** (`/account`) from the header to:
 | **Alerts** | Search, filter, group, save personal saved views, export CSV |
 | **Dashboard** | View analytics |
 | **Integrations** | View connector list (no add/edit/test) |
-| **Account** | Edit profile and locale |
+| **Account** | Edit profile and locale; manage own paging connections |
 
 **Cannot do:** create teams, change schedules, edit routing rules, or manage integrations.
 
@@ -146,7 +146,7 @@ instead of opening the web app when you are on mobile or in a war room.
 | **Shifts** | View calendars and current on-call |
 | **Teams / workspaces** | View configuration (read-only) |
 | **Integrations** | View connector list |
-| **Account** | Edit own profile and locale |
+| **Account** | Edit own profile and locale; manage own paging connections |
 
 **Cannot do:** acknowledge, resolve, hand off, bounce, or change any configuration.
 
@@ -265,7 +265,17 @@ Admins open routing with **Configure routing** on Alerts, or from **Workspaces**
 | **eXpress** | Sign in with eXpress (OIDC) | BotX direct message | Bubble action |
 | **Web** | Any provider | — | **Incidents** detail buttons |
 
-Link eXpress for paging on **Account** if you sign in with Google or Slack but page via eXpress.
+Every responder opens **Account → Paging messengers** to connect Slack or eXpress through browser
+authorization. **Replace** keeps the current connection until success; **Disconnect** stops pages
+through that messenger and preserves sign-in providers. If Connect is unavailable, ask an admin
+to complete OIDC and global bot setup. See [Paging connections](./features/paging-connections.md).
+
+Shared incident updates appear in the team's configured Slack channel and the global eXpress
+on-call group. Opening and escalation posts include mentions and an acknowledge button while open;
+acknowledgement and resolution posts identify the actor. Personal pages continue separately.
+After clicking **Acknowledge** in chat, wait for the private result to confirm the action. A callback
+receipt only confirms the request was queued. Repeated clicks report the existing state. The worker
+must be running. See [Incident channel notifications](./features/incident-chat-notifications.md).
 
 ---
 
@@ -294,6 +304,8 @@ Link eXpress for paging on **Account** if you sign in with Google or Slack but p
 | Route alerts to a team | **Workspaces** → routing rules (admin) |
 | Allow L2 → L3 handoff | **Teams** → L2 team → escalation paths (admin) |
 | Connect Jira / Slack / eXpress | **Integrations** (admin) or **Setup** wizard |
+| Connect my paging messenger | **Account → Paging messengers** (all roles) |
+| Set shared notification destinations | Team page for Slack; global **Integrations** for eXpress (admin) |
 | Work an active outage | **Incidents** or acknowledge from chat |
 | Find noisy alerts | **Alerts** or **Dashboard** → noise widget |
 | Review response-time trends | **Dashboard** |

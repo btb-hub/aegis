@@ -20,9 +20,11 @@ Sidebar → **Integrations**. These credentials are the default every
 workspace can inherit.
 
 1. **Jira**
-   Click **Add integration** or **Configure** on the Jira row. Fill
-   **Jira base URL**, **Jira email**, **Jira API token**, and a default
-   **Jira project key**. **Save integration**, then **Test connection**.
+   Click **Add integration** or **Configure**. Choose **Server / Data Center** or **Cloud**
+   separately from authentication. Server/DC normally uses **Bearer** with a PAT; Cloud uses
+   **Basic** with email and API token. Fill the base URL (including any context path) and project
+   key. **Save integration**, then **Test connection**. A passing test checks authentication;
+   send a routed alert to verify ticket creation, assignment, and board visibility.
 
 2. **Slack**
    Click **Configure Slack** in the Slack bot summary. Install your Slack app with `chat:write`,
@@ -35,8 +37,10 @@ workspace can inherit.
    Bot configuration is separate from Sign in with Slack.
 
 3. **eXpress**
-   Bot ID, host, and secret key. Test connection. Users who signed in with Google or Slack
-   still bind eXpress on **Account** before they can be paged there.
+   Save bot ID, CTS host, and secret key, then **Test connection**. Set the global
+   **eXpress on-call group chat ID** for shared announcements and incident updates. Add the bot
+   to that group. Responders connect eXpress on **Account → Paging messengers** and open a
+   personal chat with the bot for private pages.
 
 > **Checkpoint**
 >
@@ -73,12 +77,29 @@ Status on the slot:
 SSO sign-in and paging are separate. A Google login does not, by itself,
 give Aegis a Slack DM target.
 
-- Each on-call user opens **Account**.
-- Slack: **Connect Slack** / sign in with Slack so **Slack user ID** is set.
-- eXpress: **Generate link code** and complete the `/link` flow in eXpress
-  so **eXpress user ID** is set.
-- Language (**English** / **Русский**) is also on Account — pages follow the
-  recipient’s language.
+- Each on-call user opens **Account → Paging messengers** and clicks **Connect** for Slack
+  or eXpress. Finish browser authorization and return to Account; no bot command or manual ID
+  is needed. This connects paging without adding a sign-in provider.
+- **Replace** keeps the existing connection until authorization succeeds. **Disconnect** asks
+  for confirmation and stops pages through that messenger, without removing sign-in identities.
+- If Connect is unavailable, ask an administrator to configure that provider's OIDC credentials
+  and enabled global bot. Slack authorization must use the global bot's workspace; eXpress SSO
+  must provide a verified email that resolves to one active messenger user.
+- Language (**English** / **Русский**) is also on Account; personal pages and private chat
+  results follow the recipient's language.
+
+Administrator prerequisites and legacy API compatibility: [Paging connections](../features/paging-connections.md).
+
+### Shared channels and a real delivery check
+
+Set the team's **Slack channel ID** and optional **Slack team tag ID** (a Slack user group ID) on its team page.
+The team's workspace bot must be able to post there. eXpress shared posts use the **global**
+on-call group, even when personal pages use workspace credentials.
+
+Create a routed test incident and verify the Jira issue, personal page, and shared post. Click
+**Acknowledge** in chat and wait for the private result, then resolve in Aegis and confirm the
+channel update. Opening, acknowledgement, resolution, and escalation produce separate posts;
+handoffs and bounces are outside this shared-channel feature. The worker must be running.
 
 <a id="skip"></a>
 
