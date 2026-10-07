@@ -2,11 +2,25 @@ package integrations
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
 )
 
 type HTTPError struct {
 	Provider, Operation, Message string
 	Status                       int
+	RetryAfter                   time.Duration
+}
+
+func ParseRetryAfter(value string) time.Duration {
+	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	if at, err := http.ParseTime(value); err == nil && time.Until(at) > 0 {
+		return time.Until(at)
+	}
+	return 0
 }
 
 func (e *HTTPError) Error() string {

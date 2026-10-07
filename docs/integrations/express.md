@@ -26,7 +26,7 @@ If the BotX admin already has `{PUBLIC_URL}/api/v1/callbacks/express/bot`, that 
 | Method | Path | Auth | Response |
 |--------|------|------|----------|
 | GET | `{base}/status` | BotX JWT optional | **200** `{status:"ok", result:{enabled, status_message, commands}}` listing `/link` and `/ack_incident`. Missing integration: **503** `{reason:"bot_disabled", …}`. Invalid JWT: **401** |
-| POST | `{base}/command` | BotX JWT | **202** `{"result":"accepted"}` (≤5s). `/link` and ack are processed synchronously, then accepted. `system:*` and unknown commands also 202 |
+| POST | `{base}/command` | BotX JWT | **202** `{"result":"accepted"}` (≤5s). `/link` is processed synchronously; ack is durably queued, then accepted. `system:*` and unknown commands also 202 |
 | POST | `{base}/bot` | BotX JWT | Deprecated alias of `/command` |
 
 Must not sit behind interactive Google/IAP login.
@@ -63,7 +63,7 @@ That is the documented eXpress user-contact link. The client can start a DM from
 
 ## Outbound on-call announce
 
-- `POST /api/v4/botx/notifications` with `group_chat_id` = global `oncall_group_chat_id`.
+- `POST /api/v4/botx/notifications/direct` with `group_chat_id` = global `oncall_group_chat_id`.
 - `teams.express_chat_id` is retained for rollback compatibility but is not used for on-call publication.
 - Body mentions on-call users with `@{mention:<mention_id>}` and `mentions[]` (`mention_type: "user"`, `mention_data.user_huid`). Users without a huid are listed by name only.
 - Worker job `publish_oncall` (daily, rotation change, or `POST /api/v1/teams/{id}/on-call/publish`). Do not reuse incident DM `SendPage`.
@@ -75,7 +75,7 @@ That is the documented eXpress user-contact link. The client can start a DM from
 - `POST /api/v1/callbacks/express/bot` — deprecated alias of `/command`
 - Verify BotX JWT in `Authorization` header (HS256, `secret_key`) on `/command`. Status verifies JWT when the header is present.
 - `/link <code>` → bind huid, then 202
-- `/ack_incident` (or bubble `data.incident_id`) → acknowledge incident, then 202
+- `/ack_incident` (or bubble `data.incident_id`) → durably queue acknowledgement, then 202
 
 ## Test connection
 
@@ -89,3 +89,17 @@ That is the documented eXpress user-contact link. The client can start a DM from
 ## References
 
 - REQ-INT-04, REQ-INT-05, REQ-AUTH-01
+
+## Shared incident channels and acknowledge results
+
+Incident lifecycle posts use the global `oncall_group_chat_id` and global bot.
+Opening and escalation messages mention the incident team's current on-call users.
+Personal paging remains separate. Acknowledgement commands are authenticated and
+durably queued before returning HTTP 202; the worker then sends a private result
+to the clicking user in the originating chat. New channel and feedback sends use
+`/api/v4/botx/notifications/direct/sync`. Repeated clicks report the existing
+state, and unknown users receive identity-linking guidance. Apply migration
+000021 before upgrading the API and worker.
+
+See [Incident channel notifications](../features/incident-chat-notifications.md)
+for delivery retries and troubleshooting.

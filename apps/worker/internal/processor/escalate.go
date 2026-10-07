@@ -52,6 +52,13 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 	if incident.Status != "open" {
 		return nil
 	}
+	if channelStore, ok := p.store.(interface {
+		QueueChannelEscalation(context.Context, uuid.UUID, string) error
+	}); ok {
+		if err := channelStore.QueueChannelEscalation(ctx, incident.ID, job.ID); err != nil {
+			return err
+		}
+	}
 	if incident.AssigneeID == nil {
 		return nil
 	}

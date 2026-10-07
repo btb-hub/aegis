@@ -14,6 +14,7 @@ import (
 	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/i18n"
+	"github.com/aegis/aegis/pkg/incidentchat"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +26,8 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("db: %v", err)
@@ -37,6 +39,7 @@ func main() {
 	}
 
 	store := db.NewStore(pool)
+	go incidentchat.New(store, cfg.PublicURL).Run(ctx)
 	adapter := &storeAdapter{store: store}
 	materialise := processor.NewMaterialiseProcessor(nil, store)
 	alert := processor.NewAlertProcessor(nil, store, cfg.IncidentDedupWindow, cfg.EscalationTimeout)
@@ -59,6 +62,7 @@ func main() {
 	for {
 		select {
 		case <-stop:
+			cancel()
 			return
 		case <-ticker.C:
 			if err := worker.RunOnce(ctx); err != nil {

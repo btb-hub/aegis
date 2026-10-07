@@ -33,8 +33,8 @@ func TestRoutingRulesUpdateInvalidTeamID(t *testing.T) {
 func TestSlackCallbackInvalidIncidentID(t *testing.T) {
 	r, _ := setupPhase2Router(t)
 	payload := map[string]any{
-		"type": "block_actions",
-		"user": map[string]string{"id": "U123"},
+		"type":    "block_actions",
+		"user":    map[string]string{"id": "U123"},
 		"actions": []map[string]string{{"action_id": "ack_incident", "value": "not-a-uuid"}},
 	}
 	raw, _ := json.Marshal(payload)
@@ -130,8 +130,8 @@ func TestSlackCallbackAcknowledgeConflict(t *testing.T) {
 	seedSlackWorkspace(repo, incidentID, "secret")
 
 	payload := map[string]any{
-		"type": "block_actions",
-		"user": map[string]string{"id": slackID},
+		"type":    "block_actions",
+		"user":    map[string]string{"id": slackID},
 		"actions": []map[string]string{{"action_id": "ack_incident", "value": incidentID.String()}},
 	}
 	raw, _ := json.Marshal(payload)
@@ -148,7 +148,8 @@ func TestSlackCallbackAcknowledgeConflict(t *testing.T) {
 	req.Header.Set("X-Slack-Signature", sig)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusConflict, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, repo.chatAckRequests, 1)
 }
 
 func TestIncidentsGetAlertsError(t *testing.T) {

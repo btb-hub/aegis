@@ -170,7 +170,8 @@ func TestExpressCallbackAckUserNotFound(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Equal(t, http.StatusAccepted, w.Code)
+	require.Len(t, repo.chatAckRequests, 1)
 }
 
 func TestExpressStatusOK(t *testing.T) {

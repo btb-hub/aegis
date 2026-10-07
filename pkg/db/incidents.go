@@ -183,6 +183,17 @@ func (s *Store) AcknowledgeIncident(ctx context.Context, incidentID, actorID uui
 		return Incident{}, err
 	}
 	defer tx.Rollback(ctx)
+	incident, err := acknowledgeIncidentTx(ctx, tx, incidentID, actorID)
+	if err != nil {
+		return Incident{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Incident{}, err
+	}
+	return incident, nil
+}
+
+func acknowledgeIncidentTx(ctx context.Context, tx pgx.Tx, incidentID, actorID uuid.UUID) (Incident, error) {
 
 	const q = `
 UPDATE incidents
@@ -190,7 +201,7 @@ SET status = 'acknowledged', acknowledged_at = now()
 WHERE id = $1 AND status = 'open'
 RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at`
 	var incident Incident
-	err = tx.QueryRow(ctx, q, incidentID).Scan(
+	err := tx.QueryRow(ctx, q, incidentID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
 		&incident.ResolvedAt, &incident.CreatedAt,
@@ -204,9 +215,6 @@ RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_i
 		return Incident{}, err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return Incident{}, err
-	}
 	return incident, nil
 }
 
@@ -305,11 +313,11 @@ RETURNING id, incident_id, integration_id, status, external_ref, sent_at, create
 }
 
 func (s *Store) CancelEscalationJobs(ctx context.Context, incidentID uuid.UUID) error {
-	payload := `"incident_id":"` + incidentID.String() + `"`
+	payload := incidentID.String()
 	_, err := s.pool.Exec(ctx, `
 UPDATE jobs
 SET status = 'done', updated_at = now()
-WHERE kind = 'escalate_incident' AND status = 'pending' AND payload::text LIKE $1`, "%"+payload+"%")
+WHERE kind = 'escalate_incident' AND status = 'pending' AND payload->>'incident_id' = $1`, payload)
 	return err
 }
 

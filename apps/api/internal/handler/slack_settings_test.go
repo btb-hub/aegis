@@ -76,8 +76,9 @@ func TestSlackCallbackUsesUISavedCredentials(t *testing.T) {
 	require.NotContains(t, saved.Body.String(), "saved-secret")
 	w := sendSlackCallback(r, slackAckBody(t, incidentID.String(), slackID), "saved-secret", time.Now())
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	require.Equal(t, "acknowledged", repo.incidents[incidentID].Status)
-	require.Equal(t, []uuid.UUID{incidentID}, repo.cancelledEscalations)
+	require.Equal(t, "open", repo.incidents[incidentID].Status)
+	require.Len(t, repo.chatAckRequests, 1)
+	require.Empty(t, repo.cancelledEscalations)
 }
 
 func TestSlackCallbackWorkspaceCredentials(t *testing.T) {
@@ -161,8 +162,9 @@ func TestSlackCallbackWorkspaceCredentials(t *testing.T) {
 			require.Equal(t, tc.want, w.Code, w.Body.String())
 			require.NotContains(t, w.Body.String(), signingSecret)
 			if tc.want == http.StatusOK {
-				require.Equal(t, "acknowledged", repo.incidents[incidentID].Status)
-				require.Equal(t, []uuid.UUID{incidentID}, repo.cancelledEscalations)
+				require.Equal(t, "open", repo.incidents[incidentID].Status)
+				require.Len(t, repo.chatAckRequests, 1)
+				require.Empty(t, repo.cancelledEscalations)
 			} else {
 				require.Equal(t, "open", repo.incidents[incidentID].Status)
 				require.Nil(t, repo.incidents[incidentID].AcknowledgedAt)
@@ -195,7 +197,8 @@ func TestSlackCallbackSecretRotationWithoutRestart(t *testing.T) {
 	require.Empty(t, repo.cancelledEscalations)
 	accepted := sendSlackCallback(r, body, "new-secret", time.Now())
 	require.Equal(t, http.StatusOK, accepted.Code, accepted.Body.String())
-	require.Equal(t, "acknowledged", repo.incidents[incidentID].Status)
+	require.Equal(t, "open", repo.incidents[incidentID].Status)
+	require.Len(t, repo.chatAckRequests, 1)
 }
 
 type slackCallbackFailureRepo struct {

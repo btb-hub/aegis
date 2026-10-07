@@ -77,8 +77,8 @@ func TestSlackCallbackUserNotFound(t *testing.T) {
 	seedSlackWorkspace(repo, incidentID, "secret")
 
 	payload := map[string]any{
-		"type": "block_actions",
-		"user": map[string]string{"id": "U404"},
+		"type":    "block_actions",
+		"user":    map[string]string{"id": "U404"},
 		"actions": []map[string]string{{"action_id": "ack_incident", "value": incidentID.String()}},
 	}
 	raw, _ := json.Marshal(payload)
@@ -95,7 +95,8 @@ func TestSlackCallbackUserNotFound(t *testing.T) {
 	req.Header.Set("X-Slack-Signature", sig)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Len(t, repo.chatAckRequests, 1)
 }
 
 func setupPhase2RouterWithRepo(t *testing.T, repo *failingPhase2Repo) *gin.Engine {

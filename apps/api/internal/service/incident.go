@@ -8,6 +8,7 @@ import (
 
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/db"
+	"github.com/aegis/aegis/pkg/incidentack"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -100,11 +101,7 @@ func (s *IncidentService) Acknowledge(ctx context.Context, incidentID, actorID u
 }
 
 func (s *IncidentService) AcknowledgeBySlackUser(ctx context.Context, incidentID uuid.UUID, slackUserID string) (db.Incident, error) {
-	user, err := s.repo.GetUserBySlackID(ctx, slackUserID)
-	if err != nil {
-		return db.Incident{}, mapIncidentError(err)
-	}
-	return s.Acknowledge(ctx, incidentID, user.ID)
+	return s.acknowledgeChat(ctx, incidentID, "slack", slackUserID)
 }
 
 func (s *IncidentService) AcknowledgeByExpressHuid(ctx context.Context, incidentID uuid.UUID, expressHuidRaw string) (db.Incident, error) {
@@ -112,11 +109,28 @@ func (s *IncidentService) AcknowledgeByExpressHuid(ctx context.Context, incident
 	if err != nil {
 		return db.Incident{}, apperrors.Validation("invalid express_user_huid", nil)
 	}
-	user, err := s.repo.GetUserByExpressHuid(ctx, huid)
+	return s.acknowledgeChat(ctx, incidentID, "express", huid.String())
+}
+
+func (s *IncidentService) acknowledgeChat(ctx context.Context, id uuid.UUID, provider, identity string) (db.Incident, error) {
+	result, err := incidentack.Acknowledge(ctx, s.repo, id, provider, identity)
 	if err != nil {
-		return db.Incident{}, mapIncidentError(err)
+		return db.Incident{}, err
 	}
-	return s.Acknowledge(ctx, incidentID, user.ID)
+	if result.Code == "link_required" || result.Code == "not_found" {
+		return db.Incident{}, apperrors.NotFound("incident or linked user not found")
+	}
+	return result.Incident, nil
+}
+
+func (s *IncidentService) EnqueueChatAck(ctx context.Context, request db.ChatAckRequest) error {
+	repo, ok := s.repo.(interface {
+		EnqueueChatAck(context.Context, db.ChatAckRequest) error
+	})
+	if !ok {
+		return errors.New("chat acknowledgement queue unavailable")
+	}
+	return repo.EnqueueChatAck(ctx, request)
 }
 
 func (s *IncidentService) Resolve(ctx context.Context, incidentID, actorID uuid.UUID) (db.Incident, error) {
