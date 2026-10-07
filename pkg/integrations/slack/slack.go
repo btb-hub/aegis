@@ -255,7 +255,11 @@ func VerifySignature(secret string, timestamp, signature string, body []byte) er
 }
 
 type InteractivePayload struct {
-	Type string `json:"type"`
+	Type        string `json:"type"`
+	ResponseURL string `json:"response_url"`
+	Channel     struct {
+		ID string `json:"id"`
+	} `json:"channel"`
 	User struct {
 		ID string `json:"id"`
 	} `json:"user"`

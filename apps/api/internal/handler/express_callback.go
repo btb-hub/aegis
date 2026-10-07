@@ -1,12 +1,15 @@
 package handler
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/db"
 	intexpress "github.com/aegis/aegis/pkg/integrations/express"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -70,17 +73,22 @@ func (h *ExpressCallbackHandler) status(c *gin.Context) {
 }
 
 func (h *ExpressCallbackHandler) command(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+	controller := http.NewResponseController(c.Writer)
+	_ = controller.SetReadDeadline(time.Now().Add(2 * time.Second))
+	body, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, 64*1024))
+	_ = controller.SetReadDeadline(time.Time{})
 	if err != nil {
 		WriteError(c, apperrors.Validation("invalid body", nil))
 		return
 	}
-	secret, err := h.integrations.ExpressSecretKey(c.Request.Context())
+	integration, config, err := h.integrations.ExpressCallbackIntegration(ctx)
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	if err := intexpress.VerifyAuthorization(c.GetHeader("Authorization"), secret); err != nil {
+	if err := intexpress.VerifyAuthorization(c.GetHeader("Authorization"), config.SecretKey); err != nil {
 		WriteError(c, apperrors.Unauthorized("invalid express signature"))
 		return
 	}
@@ -115,7 +123,18 @@ func (h *ExpressCallbackHandler) command(c *gin.Context) {
 		WriteError(c, apperrors.Validation("invalid incident id", nil))
 		return
 	}
-	if _, err := h.incidents.AcknowledgeByExpressHuid(c.Request.Context(), id, userHuid); err != nil {
+	if _, err := uuid.Parse(event.SyncID); err != nil {
+		WriteError(c, apperrors.Validation("invalid command sync_id", nil))
+		return
+	}
+	if _, err := db.ParseExpressHuid(userHuid); err != nil {
+		WriteError(c, apperrors.Validation("invalid express_user_huid", nil))
+		return
+	}
+	if err := h.incidents.EnqueueChatAck(ctx, db.ChatAckRequest{
+		Provider: "express", DedupKey: event.SyncID, IncidentID: id, IntegrationID: integration.ID,
+		UserIdentity: userHuid, ChatID: event.From.ChatID, Locale: event.From.Locale,
+	}); err != nil {
 		WriteError(c, err)
 		return
 	}

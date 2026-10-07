@@ -1,13 +1,21 @@
 package handler
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/db"
+	intslack "github.com/aegis/aegis/pkg/integrations/slack"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -176,7 +184,12 @@ func (h *SlackCallbackHandler) Register(r gin.IRouter) {
 }
 
 func (h *SlackCallbackHandler) interactive(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+	controller := http.NewResponseController(c.Writer)
+	_ = controller.SetReadDeadline(time.Now().Add(2 * time.Second))
+	body, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, 64*1024))
+	_ = controller.SetReadDeadline(time.Time{})
 	if err != nil {
 		WriteError(c, apperrors.Validation("invalid body", nil))
 		return
@@ -193,12 +206,12 @@ func (h *SlackCallbackHandler) interactive(c *gin.Context) {
 	}
 	// The unverified payload selects credentials only. No mutations occur until
 	// Slack's signature has been verified against the original raw body.
-	workspaceID, err := h.incidents.WorkspaceID(c.Request.Context(), id)
+	workspaceID, err := h.incidents.WorkspaceID(ctx, id)
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	secret, err := h.integrations.SlackSigningSecret(c.Request.Context(), workspaceID)
+	secret, err := h.integrations.SlackSigningSecret(ctx, workspaceID)
 	if err != nil {
 		WriteError(c, err)
 		return
@@ -207,10 +220,25 @@ func (h *SlackCallbackHandler) interactive(c *gin.Context) {
 		WriteError(c, apperrors.Unauthorized("invalid slack signature"))
 		return
 	}
-	incident, err := h.incidents.AcknowledgeBySlackUser(c.Request.Context(), id, slackUserID)
+	integration, err := h.integrations.SlackCallbackIntegration(ctx, workspaceID)
 	if err != nil {
 		WriteError(c, err)
 		return
 	}
-	WriteJSON(c, http.StatusOK, service.IncidentJSON(incident))
+	values, _ := url.ParseQuery(string(body))
+	var payload intslack.InteractivePayload
+	if err := json.Unmarshal([]byte(values.Get("payload")), &payload); err != nil || strings.TrimSpace(slackUserID) == "" {
+		WriteError(c, apperrors.Validation("invalid slack user", nil))
+		return
+	}
+	hash := sha256.Sum256(body)
+	if err := h.incidents.EnqueueChatAck(ctx, db.ChatAckRequest{
+		Provider: "slack", DedupKey: hex.EncodeToString(hash[:]), IncidentID: id, IntegrationID: integration.ID,
+		WorkspaceID:  &workspaceID,
+		UserIdentity: slackUserID, ChatID: payload.Channel.ID, ResponseURL: payload.ResponseURL, Locale: "en",
+	}); err != nil {
+		WriteError(c, err)
+		return
+	}
+	c.Status(http.StatusOK)
 }

@@ -25,10 +25,11 @@ import { validEscalationTargetTiers, type SupportTier } from '../lib/teamTypes';
 export function IncidentsPage() {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
+  const linkedIncidentId = searchParams.get('incident_id');
   const initialStatus = (searchParams.get('status') as IncidentStatus | 'all' | null) ?? 'all';
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(linkedIncidentId ?? undefined);
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [handoffTargets, setHandoffTargets] = useState<HandoffTarget[]>([]);
   const [owningTeamName, setOwningTeamName] = useState<string | undefined>();
@@ -45,10 +46,10 @@ export function IncidentsPage() {
     try {
       const items = await fetchIncidents(statusFilter === 'all' ? undefined : statusFilter);
       setIncidents(items);
-      if (items.length === 0) {
+      if (items.length === 0 && !linkedIncidentId) {
         setSelectedId(undefined);
         setSelectedIncident(null);
-      } else if (!selectedId || !items.some((item) => item.id === selectedId)) {
+      } else if (!selectedId || (!linkedIncidentId && !items.some((item) => item.id === selectedId))) {
         setSelectedId(items[0].id);
       }
     } catch {
@@ -57,7 +58,15 @@ export function IncidentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedId, statusFilter, t]);
+  }, [linkedIncidentId, selectedId, statusFilter, t]);
+
+  useEffect(() => {
+    if (linkedIncidentId) {
+      setSelectedIncident(null);
+      setHandoffTargets([]);
+      setSelectedId(linkedIncidentId);
+    }
+  }, [linkedIncidentId]);
 
   useEffect(() => {
     void loadList();

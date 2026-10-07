@@ -99,3 +99,18 @@ Full role tables: [user-guide.md](../user-guide.md).
 Alerts vs incidents: raw signals live on **Alerts**; incidents are the work items you ack.
 If you have alerts and no incidents, the workflow is not fully set up —
 [fix-it](troubleshooting.md).
+
+
+## Follow incidents in the on-call channel
+
+Slack posts lifecycle messages to the team's configured channel. eXpress uses
+the global on-call group. Opening and escalation messages tag on-call users and
+include an acknowledge button while the incident is open. Personal pages continue
+as before. Message links open the selected incident, including resolved incidents.
+
+Clicking acknowledge first receives a receipt, then a private result in the chat.
+Wait for that result to confirm the change. Repeated clicks report that the
+incident is already acknowledged or resolved. If your identity isn't linked,
+follow the linking guidance in the response.
+
+See [Incident channel notifications](../features/incident-chat-notifications.md).

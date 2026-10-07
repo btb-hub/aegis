@@ -224,7 +224,7 @@ func (p *Provider) ensureToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("express token request failed: status %d: %s", resp.StatusCode, string(body))
+		return "", &integrations.HTTPError{Provider: "express", Operation: "token request", Status: resp.StatusCode, Message: "check bot credentials and server configuration"}
 	}
 	var parsed struct {
 		Status string `json:"status"`

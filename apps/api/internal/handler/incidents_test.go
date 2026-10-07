@@ -21,39 +21,50 @@ import (
 )
 
 type phase2HandlerRepo struct {
+	chatAckRequests      []db.ChatAckRequest
 	cancelledEscalations []uuid.UUID
-	slackUserLookups int
+	slackUserLookups     int
 	teamRepoMock
-	incidents         map[uuid.UUID]db.Incident
-	events            map[uuid.UUID][]db.TimelineEvent
-	alerts            map[uuid.UUID][]db.Alert
-	rules             map[uuid.UUID]db.RoutingRule
-	integrations      map[uuid.UUID]db.Integration
-	listIncidentsErr  error
+	incidents           map[uuid.UUID]db.Incident
+	events              map[uuid.UUID][]db.TimelineEvent
+	alerts              map[uuid.UUID][]db.Alert
+	rules               map[uuid.UUID]db.RoutingRule
+	integrations        map[uuid.UUID]db.Integration
+	listIncidentsErr    error
 	listIntegrationsErr error
-	alertListErr      error
-	handoffStats      db.HandoffStats
-	handoffStatsErr   error
-	mttaSeries        db.MetricTimeSeries
-	mttaSeriesErr     error
-	mttrSeries        db.MetricTimeSeries
-	mttrSeriesErr     error
-	noiseStats        db.NoiseStats
-	noiseErr          error
-	onCallLoad        db.OnCallLoadStats
-	onCallLoadErr     error
-	escalationStats   db.EscalationStats
-	escalationErr     error
-	escalationPaths   []db.EscalationPath
-	alertRepo         *authMockAlertRepo
-	bounceFails       bool
-	firingAlerts      map[uuid.UUID]db.Alert
-	alertOpenLinks    map[uuid.UUID]db.Incident
-	fingerprintOpen   map[string]db.Incident
-	onCallByTeam      map[uuid.UUID][]db.OnCallUser
-	enqueuedJobs      []string
-	manualCreateErr   error
-	manualCreateResult *db.ManualCreateFromAlertResult
+	alertListErr        error
+	handoffStats        db.HandoffStats
+	handoffStatsErr     error
+	mttaSeries          db.MetricTimeSeries
+	mttaSeriesErr       error
+	mttrSeries          db.MetricTimeSeries
+	mttrSeriesErr       error
+	noiseStats          db.NoiseStats
+	noiseErr            error
+	onCallLoad          db.OnCallLoadStats
+	onCallLoadErr       error
+	escalationStats     db.EscalationStats
+	escalationErr       error
+	escalationPaths     []db.EscalationPath
+	alertRepo           *authMockAlertRepo
+	bounceFails         bool
+	firingAlerts        map[uuid.UUID]db.Alert
+	alertOpenLinks      map[uuid.UUID]db.Incident
+	fingerprintOpen     map[string]db.Incident
+	onCallByTeam        map[uuid.UUID][]db.OnCallUser
+	enqueuedJobs        []string
+	manualCreateErr     error
+	manualCreateResult  *db.ManualCreateFromAlertResult
+}
+
+func (m *phase2HandlerRepo) EnqueueChatAck(_ context.Context, request db.ChatAckRequest) error {
+	for _, existing := range m.chatAckRequests {
+		if existing.Provider == request.Provider && existing.DedupKey == request.DedupKey {
+			return nil
+		}
+	}
+	m.chatAckRequests = append(m.chatAckRequests, request)
+	return nil
 }
 
 func newPhase2HandlerRepo() *phase2HandlerRepo {
@@ -64,9 +75,9 @@ func newPhase2HandlerRepo() *phase2HandlerRepo {
 			teams:            map[uuid.UUID]db.Team{},
 			memberships:      map[uuid.UUID]map[uuid.UUID]db.TeamMembership{},
 		},
-		incidents: map[uuid.UUID]db.Incident{},
-		events:    map[uuid.UUID][]db.TimelineEvent{},
-		alerts:    map[uuid.UUID][]db.Alert{},
+		incidents:    map[uuid.UUID]db.Incident{},
+		events:       map[uuid.UUID][]db.TimelineEvent{},
+		alerts:       map[uuid.UUID][]db.Alert{},
 		rules:        map[uuid.UUID]db.RoutingRule{},
 		integrations: map[uuid.UUID]db.Integration{},
 	}
