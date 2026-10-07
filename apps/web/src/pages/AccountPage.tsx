@@ -6,10 +6,10 @@ import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toast } from '../components/ui/Toast';
+import { PagingConnections } from '../components/account/PagingConnections';
 import { useAuth } from '../context/AuthContext';
 import {
   AUTH_PROVIDERS,
-  createExpressLinkCode,
   fetchAuthProviders,
   patchAuthMe,
   type AuthProviderId,
@@ -38,17 +38,11 @@ export function AccountPage() {
   const [savingLocale, setSavingLocale] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [localeError, setLocaleError] = useState<string | null>(null);
-  const [expressCommand, setExpressCommand] = useState<string | null>(null);
-  const [expressError, setExpressError] = useState<string | null>(null);
-  const [generatingCode, setGeneratingCode] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: 'default' | 'success' } | null>(null);
   const [ssoProviders, setSsoProviders] = useState<AuthProviderId[]>([]);
-  const [ssoLoaded, setSsoLoaded] = useState(false);
 
   useEffect(() => {
-    void fetchAuthProviders()
-      .then(setSsoProviders)
-      .finally(() => setSsoLoaded(true));
+    void fetchAuthProviders().then(setSsoProviders);
   }, []);
 
   useEffect(() => {
@@ -115,19 +109,6 @@ export function AccountPage() {
     },
     [refresh, t],
   );
-
-  const generateExpressCode = useCallback(async () => {
-    setGeneratingCode(true);
-    setExpressError(null);
-    try {
-      const data = await createExpressLinkCode();
-      setExpressCommand(data.command);
-    } catch (error) {
-      setExpressError(error instanceof Error ? error.message : t('account.express_code_error'));
-    } finally {
-      setGeneratingCode(false);
-    }
-  }, [t]);
 
   if (!user) {
     return (
@@ -219,34 +200,7 @@ export function AccountPage() {
         </ul>
       </section>
 
-      <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
-        <h2 className="text-lg font-semibold">{t('account.paging_title')}</h2>
-        <p className="text-sm text-zinc-600">{t('account.paging_body')}</p>
-        <div className="space-y-2 text-sm">
-          <p>
-            <span className="font-medium">{t('account.slack_id_label')}:</span>{' '}
-            {user.slack_user_id ??
-              (!ssoLoaded || ssoProviders.includes('slack')
-                ? t('account.slack_id_empty')
-                : t('account.slack_id_unconfigured'))}
-          </p>
-          <p>
-            <span className="font-medium">{t('account.express_id_label')}:</span>{' '}
-            {user.express_user_huid ?? t('account.express_id_empty')}
-          </p>
-        </div>
-        {!user.express_user_huid ? (
-          <div className="space-y-2">
-            <Button variant="secondary" disabled={generatingCode} onClick={() => void generateExpressCode()}>
-              {t('account.generate_link_code')}
-            </Button>
-            {expressCommand ? (
-              <p className="rounded-md bg-surface px-3 py-2 font-mono text-sm">{expressCommand}</p>
-            ) : null}
-            {expressError ? <p className="text-sm text-red-700">{expressError}</p> : null}
-          </div>
-        ) : null}
-      </section>
+      <PagingConnections />
 
       {toast ? <Toast message={toast.message} variant={toast.variant} /> : null}
     </PageContent>

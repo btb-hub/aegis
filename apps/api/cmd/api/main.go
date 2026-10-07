@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aegis/aegis/apps/api/internal/handler"
+	"github.com/aegis/aegis/apps/api/internal/oidc"
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
@@ -58,13 +59,15 @@ func main() {
 	expressLinks := service.NewExpressLinkService(store)
 	savedViews := service.NewSavedViewService(store)
 	users := service.NewUserService(store, cfg)
+	paging := handler.NewPagingHandler(service.NewPagingService(cfg, store, oidc.NewPagingClient(cfg)), auth, cfg.PublicURL)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
 
 	handler.NewHealthHandler(health).Register(r)
-	handler.NewAuthHandler(auth, cfg.PublicURL).Register(r)
+	handler.NewAuthHandler(auth, cfg.PublicURL, paging.Callback).Register(r)
+	paging.Register(r)
 	handler.NewAlertHandler(alerts, teams, auth).Register(r)
 	handler.NewTeamHandler(teams, auth).Register(r)
 	handler.NewWorkspaceHandler(workspaces, teams, auth).Register(r)

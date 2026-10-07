@@ -18,12 +18,17 @@ const (
 )
 
 type AuthHandler struct {
-	auth      *service.AuthService
-	publicURL string
+	auth           *service.AuthService
+	publicURL      string
+	pagingCallback gin.HandlerFunc
 }
 
-func NewAuthHandler(auth *service.AuthService, publicURL string) *AuthHandler {
-	return &AuthHandler{auth: auth, publicURL: publicURL}
+func NewAuthHandler(auth *service.AuthService, publicURL string, pagingCallback ...gin.HandlerFunc) *AuthHandler {
+	h := &AuthHandler{auth: auth, publicURL: publicURL}
+	if len(pagingCallback) > 0 {
+		h.pagingCallback = pagingCallback[0]
+	}
+	return h
 }
 
 func (h *AuthHandler) Register(r gin.IRouter) {
@@ -119,6 +124,14 @@ func (h *AuthHandler) unconfiguredProviderURL(provider string) string {
 
 func (h *AuthHandler) callback(c *gin.Context) {
 	state := c.Query("state")
+	if strings.HasPrefix(state, "paging.") {
+		if h.pagingCallback != nil {
+			h.pagingCallback(c)
+		} else {
+			c.Redirect(http.StatusFound, h.appRedirectURL("/account?paging_error=invalid_authorization"))
+		}
+		return
+	}
 	cookie, err := c.Cookie(oauthStateCookie)
 	if err != nil || state == "" || state != cookie {
 		WriteError(c, service.ErrInvalidOAuthState())

@@ -43,6 +43,10 @@ HTML page that says "Secured with OAuth2 Proxy" is the oauth2-proxy gate. Diagno
 - **OIDC client** — human login to Aegis UI.
 - **Bot token** — outbound pages only. Never used for session establishment.
 
+### Paging authorization
+
+Account messenger connections use separate, single-use, five-minute authorizations bound to the initiating Aegis session and user. Signed ID tokens are verified through OIDC discovery and JWKS, including issuer, client audience, expiry, subject, and nonce. Slack workspace identity must match the global bot; eXpress maps verified SSO email through the authenticated BotX directory. Paging callbacks never create users, merge accounts, or replace the session. Browser mutations require same-origin Origin/Referer. See [paging connections](./features/paging-connections.md).
+
 ## Authorization (REQ-AUTH-04)
 
 | Role | Capabilities |

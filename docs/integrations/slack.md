@@ -41,7 +41,7 @@ Block Kit message (text from `pkg/i18n` using recipient `users.locale`):
 - Section: summary, team, link to Aegis
 - Actions: **Acknowledge** button (`action_id: ack_incident`) — label translated
 
-Post to DM using `slack_user_id` on user row (mapped at login or admin link).
+Post to DM using `slack_user_id` on the user row. Users can connect, replace, and disconnect Slack in **Account → Paging messengers** through browser authorization. The authorized workspace must match the global paging bot's workspace. This doesn't add a sign-in provider. See [paging connections](../features/paging-connections.md) for setup and API details.
 
 ## Contact deep links (AEG-107)
 
