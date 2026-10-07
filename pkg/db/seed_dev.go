@@ -96,13 +96,36 @@ func (s *Store) UpsertSeedDevUser(ctx context.Context, input SeedDevUser) (User,
 }
 
 func upsertSeedDevUserTx(ctx context.Context, tx pgx.Tx, input SeedDevUser) (User, error) {
+	if err := lockPagingProvider(ctx, tx, "slack"); err != nil {
+		return User{}, err
+	}
+	if err := lockPagingProvider(ctx, tx, "express"); err != nil {
+		return User{}, err
+	}
 	avatarURL := optionalString(input.AvatarURL)
 	slackUserID := optionalString(input.SlackUserID)
 	expressHuid := ExpressHuidToPg(input.ExpressUserHuid)
+	expressHuid.Valid = input.ExpressUserHuid != uuid.Nil
 
 	userID, err := findUserIDByIdentityTx(ctx, tx, input.Provider, input.ProviderSub)
 	if err != nil {
 		return User{}, err
+	}
+	var slackManaged, expressManaged bool
+	if err := tx.QueryRow(ctx, `SELECT
+        EXISTS (SELECT 1 FROM user_paging_settings WHERE user_id = $1 AND provider = 'slack'),
+        EXISTS (SELECT 1 FROM user_paging_settings WHERE user_id = $1 AND provider = 'express')`, userID).Scan(&slackManaged, &expressManaged); err != nil {
+		return User{}, err
+	}
+	if !slackManaged {
+		if err := checkPagingOwnerTx(ctx, tx, userID, "slack", input.SlackUserID); err != nil {
+			return User{}, err
+		}
+	}
+	if expressHuid.Valid && !expressManaged {
+		if err := checkPagingOwnerTx(ctx, tx, userID, "express", input.ExpressUserHuid.String()); err != nil {
+			return User{}, err
+		}
 	}
 
 	var user User
@@ -114,8 +137,8 @@ UPDATE users SET
     role = $4,
     locale = $5,
     avatar_url = $6,
-    slack_user_id = $7,
-    express_user_huid = CASE WHEN $8::uuid IS NULL THEN express_user_huid ELSE $8 END
+    slack_user_id = CASE WHEN EXISTS (SELECT 1 FROM user_paging_settings WHERE user_id = users.id AND provider = 'slack') THEN slack_user_id ELSE $7 END,
+    express_user_huid = CASE WHEN $8::uuid IS NULL OR EXISTS (SELECT 1 FROM user_paging_settings WHERE user_id = users.id AND provider = 'express') THEN express_user_huid ELSE $8 END
 WHERE id = $1
 RETURNING ` + userSelectColumns
 		user, err = scanUser(tx.QueryRow(

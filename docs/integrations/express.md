@@ -31,7 +31,11 @@ If the BotX admin already has `{PUBLIC_URL}/api/v1/callbacks/express/bot`, that 
 
 Must not sit behind interactive Google/IAP login.
 
-## Identity bootstrap (`/link`)
+## Connect from Account
+
+Users connect, replace, and disconnect eXpress in **Account → Paging messengers** through browser authorization. Aegis resolves the verified SSO email through BotX to one active `user_huid`; the OIDC subject isn't used as a HUID. See [paging connections](../features/paging-connections.md) for administrator setup and API details.
+
+## Legacy identity bootstrap (`/link`)
 
 1. User signs in to Aegis and calls `POST /api/v1/users/me/express-link-code`.
 2. Response includes a short-lived code and the command to send in eXpress: `/link <code>`.

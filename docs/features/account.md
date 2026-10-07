@@ -33,7 +33,7 @@ are linked or fix profile fields without admin intervention.
 ├── Profile          — avatar, display name, email (read-only)
 ├── Language         — en | ru → PATCH /auth/me
 ├── Connected sign-in — Google / Slack / eXpress status + “Add …” links
-└── Paging identity  — Slack user id (read-only), eXpress link flow
+└── Paging messengers — Slack / eXpress browser authorization, replace, disconnect
 ```
 
 Route: `/account`, protected (session required). All roles.
@@ -101,17 +101,17 @@ Copy explains: connecting another **SSO** provider adds a sign-in identity. Pagi
 Connect is a full-page `<a href="/auth/{provider}/login">` so unconfigured OIDC cannot silently
 route to `/shifts`.
 
-### Section 4 — Paging identity
+### Section 4 — Paging messengers
 
 Used by incident pages (Slack DM, eXpress bubble). Distinct from “sign-in” — you may sign in with Google
 but page via Slack once `slack_user_id` is set.
 
 | Channel | Field | UI |
 |---------|-------|-----|
-| Slack | `slack_user_id` | Read-only. If Slack OIDC is configured: “Set when you sign in with Slack” or show id. If Slack is not a configured provider: say the provider is not configured (no Connect that 400s). |
-| eXpress | `express_user_huid` | If missing: **Generate link code** → calls `POST /users/me/express-link-code`, shows `/link <code>` instruction + copy button. If set: read-only UUID |
+| Slack | `slack_user_id` | Connect through browser authorization; Replace preserves the current ID until success; Disconnect requires confirmation. |
+| eXpress | `express_user_huid` | Same account flow, resolving the verified SSO email through the BotX directory. No bot command required. |
 
-Reuse wording from [`integrations/express.md`](../integrations/express.md).
+Availability comes from the paging-connections API and requires configured OIDC and an enabled global bot. Paging links remain separate from sign-in identities. Disconnect stays effective after subsequent logins. See [paging connections](./paging-connections.md) for the current API, verification rules, compatibility, and administrator setup.
 
 ---
 
