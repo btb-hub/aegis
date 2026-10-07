@@ -17,26 +17,48 @@ func (s *Store) GetUserByExpressHuid(ctx context.Context, expressHuid uuid.UUID)
 }
 
 func (s *Store) UpdateUserExpressHuid(ctx context.Context, userID, expressHuid uuid.UUID) (User, error) {
-	q := `
-UPDATE users SET express_user_huid = $2
-WHERE id = $1
-RETURNING ` + userSelectColumns
-	return scanUser(s.pool.QueryRow(ctx, q, userID, expressHuid))
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return User{}, err
+	}
+	defer tx.Rollback(ctx)
+	if err := lockPagingProvider(ctx, tx, "express"); err != nil {
+		return User{}, err
+	}
+	user, err := setPagingIdentityTx(ctx, tx, userID, "express", expressHuid.String(), true)
+	if err != nil {
+		return User{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return User{}, err
+	}
+	return user, nil
 }
 
 func (s *Store) CreateExpressLinkCode(ctx context.Context, userID uuid.UUID, ttl time.Duration) (string, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+	if err := lockPagingProvider(ctx, tx, "express"); err != nil {
+		return "", err
+	}
 	code, err := randomLinkCode()
 	if err != nil {
 		return "", err
 	}
 	expiresAt := time.Now().Add(ttl)
-	_, err = s.pool.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 INSERT INTO express_link_codes (code, user_id, expires_at)
 VALUES ($1, $2, $3)
 ON CONFLICT (code) DO UPDATE SET user_id = EXCLUDED.user_id, expires_at = EXCLUDED.expires_at`,
 		code, userID, expiresAt,
 	)
-	return code, err
+	if err != nil {
+		return "", err
+	}
+	return code, tx.Commit(ctx)
 }
 
 func (s *Store) RedeemExpressLinkCode(ctx context.Context, code string, expressHuid uuid.UUID) (User, error) {
@@ -45,6 +67,9 @@ func (s *Store) RedeemExpressLinkCode(ctx context.Context, code string, expressH
 		return User{}, err
 	}
 	defer tx.Rollback(ctx)
+	if err := lockPagingProvider(ctx, tx, "express"); err != nil {
+		return User{}, err
+	}
 
 	var userID uuid.UUID
 	err = tx.QueryRow(ctx, `
@@ -58,16 +83,7 @@ FOR UPDATE`, code).Scan(&userID)
 		return User{}, err
 	}
 
-	var user User
-	err = tx.QueryRow(ctx, `
-UPDATE users SET express_user_huid = $2
-WHERE id = $1
-RETURNING `+userSelectColumns,
-		userID, expressHuid,
-	).Scan(
-		&user.ID, &user.Provider, &user.ProviderSub, &user.Email, &user.DisplayName,
-		&user.Role, &user.Locale, &user.AvatarURL, &user.SlackUserID, &user.ExpressUserHuid, &user.CreatedAt,
-	)
+	user, err := setPagingIdentityTx(ctx, tx, userID, "express", expressHuid.String(), true)
 	if err != nil {
 		return User{}, err
 	}
@@ -91,7 +107,14 @@ func ExpressHuidString(user User) *string {
 }
 
 func ParseExpressHuid(raw string) (uuid.UUID, error) {
-	return uuid.Parse(raw)
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if id == uuid.Nil {
+		return uuid.Nil, fmt.Errorf("express HUID must not be zero")
+	}
+	return id, nil
 }
 
 func ExpressHuidToPg(huid uuid.UUID) pgtype.UUID {

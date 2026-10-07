@@ -42,6 +42,9 @@ func (s *Store) ResolveOIDCLogin(ctx context.Context, input OIDCLoginInput) (OID
 }
 
 func resolveOIDCLoginTx(ctx context.Context, tx pgx.Tx, input OIDCLoginInput) (OIDCLoginResult, error) {
+	if err := lockPagingProvider(ctx, tx, "slack"); err != nil {
+		return OIDCLoginResult{}, err
+	}
 	identityUserID, err := findUserIDByIdentityTx(ctx, tx, input.Provider, input.ProviderSub)
 	if err != nil {
 		return OIDCLoginResult{}, err
@@ -220,29 +223,24 @@ func createUserWithIdentityTx(ctx context.Context, tx pgx.Tx, input OIDCLoginInp
 	if v := strings.TrimSpace(input.AvatarURL); v != "" {
 		avatarURL = &v
 	}
-	var slackUserID *string
-	if v := strings.TrimSpace(input.SlackUserID); v != "" {
-		slackUserID = &v
-	}
 
 	const q = `
 INSERT INTO users (provider, provider_sub, email, display_name, role, locale, avatar_url, slack_user_id)
 VALUES ($1, $2, $3, $4, 'member', 'en', $5, $6)
 RETURNING ` + userSelectColumns
-	user, err := scanUser(tx.QueryRow(ctx, q, input.Provider, input.ProviderSub, email, displayName, avatarURL, slackUserID))
+	user, err := scanUser(tx.QueryRow(ctx, q, input.Provider, input.ProviderSub, email, displayName, avatarURL, nil))
 	if err != nil {
 		return User{}, err
 	}
 	if err := insertIdentityTx(ctx, tx, user.ID, input.Provider, input.ProviderSub); err != nil {
 		return User{}, err
 	}
-	return user, nil
+	return autoBindSlackTx(ctx, tx, user, strings.TrimSpace(input.SlackUserID))
 }
 
 func backfillUserProfileTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, input OIDCLoginInput) (User, error) {
 	displayName := strings.TrimSpace(input.DisplayName)
 	avatarURL := strings.TrimSpace(input.AvatarURL)
-	slackUserID := strings.TrimSpace(input.SlackUserID)
 
 	const q = `
 UPDATE users SET
@@ -250,11 +248,14 @@ UPDATE users SET
         WHEN display_name = '' AND $2 <> '' THEN $2
         ELSE display_name
     END,
-    avatar_url = COALESCE(avatar_url, NULLIF($3, '')),
-    slack_user_id = COALESCE(slack_user_id, NULLIF($4, ''))
+    avatar_url = COALESCE(avatar_url, NULLIF($3, ''))
 WHERE id = $1
 RETURNING ` + userSelectColumns
-	return scanUser(tx.QueryRow(ctx, q, userID, displayName, avatarURL, slackUserID))
+	user, err := scanUser(tx.QueryRow(ctx, q, userID, displayName, avatarURL))
+	if err != nil {
+		return User{}, err
+	}
+	return autoBindSlackTx(ctx, tx, user, strings.TrimSpace(input.SlackUserID))
 }
 
 func listUserIdentitiesTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID) ([]UserIdentity, error) {

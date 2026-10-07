@@ -99,8 +99,8 @@ describe('AccountPage', () => {
     });
   });
 
-  it('generates express link code', async () => {
-    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+  it('shows paging messengers without link-code instructions', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
         return { ok: true, json: async () => baseUser } as Response;
@@ -108,21 +108,22 @@ describe('AccountPage', () => {
       if (url.includes('/auth/providers')) {
         return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
       }
-      if (url.includes('/express-link-code') && init?.method === 'POST') {
-        return { ok: true, json: async () => ({ code: 'abc', command: '/link abc' }) } as Response;
+      if (url.includes('/paging-connections')) {
+        return { ok: true, json: async () => ({ connections: [
+          { provider: 'slack', identity: null, available: true },
+          { provider: 'express', identity: null, available: true },
+        ] }) } as Response;
       }
       return { ok: false, status: 401, json: async () => ({}) } as Response;
     });
 
     renderPage();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Generate link code' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Connect eXpress' })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Generate link code' }));
-    await waitFor(() => {
-      expect(screen.getByText('/link abc')).toBeInTheDocument();
-    });
+    expect(screen.queryByRole('button', { name: 'Generate link code' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect Slack' })).toBeInTheDocument();
   });
 
   it('prompts sign in when session missing', async () => {
@@ -153,7 +154,7 @@ describe('AccountPage', () => {
     expect(connect).toHaveAttribute('href', '/auth/slack/login?redirect=/account');
     expect(screen.queryByRole('link', { name: 'Connect eXpress' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'SSO' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Bind eXpress for paging' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Paging messengers' })).toBeInTheDocument();
   });
 
   it('uses full-page OAuth hrefs for unlinked Slack and eXpress', async () => {
@@ -195,7 +196,7 @@ describe('AccountPage', () => {
     expect(await screen.findByText('Slack connected')).toBeInTheDocument();
   });
 
-  it('says Slack paging is unconfigured when Slack OIDC is missing', async () => {
+  it('shows administrator setup when Slack paging is unavailable', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
@@ -204,13 +205,20 @@ describe('AccountPage', () => {
       if (url.includes('/auth/providers')) {
         return { ok: true, json: async () => ({ providers: ['google'] }) } as Response;
       }
+      if (url.includes('/paging-connections')) {
+        return { ok: true, json: async () => ({ connections: [
+          { provider: 'slack', identity: null, available: false, unavailable_reason: 'setup_required' },
+          { provider: 'express', identity: null, available: true },
+        ] }) } as Response;
+      }
       return { ok: false, status: 401, json: async () => ({}) } as Response;
     });
 
     renderPage();
     expect(
-      await screen.findByText('Slack sign-in is not configured for this deployment.'),
+      await screen.findByText('An administrator needs to configure messenger authorization and enable the paging bot before you can connect.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Connect Slack' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect Slack' })).toBeDisabled();
   });
 });

@@ -310,6 +310,9 @@ continues the Aegis incident lifecycle and other provider deliveries.
 |--------|------|-------------|
 | POST | `/users/me/express-link-code` | Generate `/link` code (session) |
 | POST | `/users/me/express-link` | Direct bind `express_user_huid` stub (session) |
+| GET | `/users/me/paging-connections` | Current Slack/eXpress paging IDs and authorization availability (session) |
+| POST | `/users/me/paging-connections/{provider}/authorize` | Start browser authorization; returns `authorization_url` (session, same-origin) |
+| DELETE | `/users/me/paging-connections/{provider}` | Disconnect paging; preserves sign-in providers (session, same-origin) |
 
 ## Callbacks (Phase 2–3)
 
