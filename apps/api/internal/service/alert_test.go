@@ -1,14 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"bytes"
 	"io"
 	"testing"
 
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,23 @@ import (
 type mockAlertRepo struct {
 	last db.CreateAlertJobInput
 	id   uuid.UUID
+}
+
+func TestAlertIngestUsesRequestSnapshot(t *testing.T) {
+	repo := &mockAlertRepo{}
+	svc := NewAlertService("old-secret", []string{"alertname"}, repo)
+	raw := json.RawMessage(`{"status":"firing","labels":{"alertname":"HighCPU","team":"platform"},"annotations":{"summary":"CPU"}}`)
+	_, err := svc.Ingest(context.Background(), "old-secret", raw)
+	require.NoError(t, err)
+	oldFingerprint := repo.last.Fingerprint
+	ctx := config.WithRuntime(context.Background(), &config.Config{WebhookSecret: "new-secret", AlertFingerprintLabels: []string{"team"}})
+	_, err = svc.Ingest(ctx, "old-secret", raw)
+	require.Error(t, err)
+	_, err = svc.Ingest(ctx, "new-secret", raw)
+	require.NoError(t, err)
+	require.NotEqual(t, oldFingerprint, repo.last.Fingerprint)
+	_, err = svc.SendTestAlert(ctx)
+	require.NoError(t, err)
 }
 
 func (m *mockAlertRepo) CreateAlertAndJob(ctx context.Context, input db.CreateAlertJobInput) (db.CreateAlertJobResult, error) {

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"net/http"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ type PagingDirectory interface {
 type botPagingDirectory struct{ publicURL string }
 
 func (d botPagingDirectory) SlackWorkspace(ctx context.Context, integration db.Integration) (string, error) {
-	provider, err := intslack.NewFromJSON(integration.Config, d.publicURL)
+	provider, err := intslack.NewFromJSON(integration.Config, runtimeconfig.PublicURL(ctx, d.publicURL))
 	if err != nil {
 		return "", err
 	}
@@ -83,21 +84,24 @@ func (s *PagingService) integration(ctx context.Context, provider string) (db.In
 	if !pagingProvider(provider) {
 		return db.Integration{}, PagingError("unknown_provider")
 	}
-	if _, err := s.cfg.Provider(provider); err != nil {
-		return db.Integration{}, PagingError("setup_required")
+	if _, err := config.Runtime(ctx, s.cfg).Provider(provider); err != nil {
+		return db.Integration{}, PagingError("authentication_required")
 	}
 	item, err := s.repo.GetIntegrationByKind(ctx, provider)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return item, PagingError("setup_required")
+			return item, PagingError("bot_required")
 		}
 		return item, err
 	}
-	if !item.Enabled || item.WorkspaceID != nil {
-		return item, PagingError("setup_required")
+	if !item.Enabled {
+		return item, PagingError("bot_disabled")
 	}
-	if err := parseProviderConfig(provider, item.Config, s.cfg.PublicURL); err != nil {
-		return item, PagingError("setup_required")
+	if item.WorkspaceID != nil {
+		return item, PagingError("bot_required")
+	}
+	if err := parseProviderConfig(provider, item.Config, config.Runtime(ctx, s.cfg).PublicURL); err != nil {
+		return item, PagingError("bot_required")
 	}
 	return item, nil
 }

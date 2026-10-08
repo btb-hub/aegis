@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"log/slog"
 
 	"github.com/aegis/aegis/pkg/db"
@@ -68,7 +69,7 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		return err
 	}
 
-	reg, notices, err := loadWorkspaceRegistry(ctx, p.store, incident.TeamID, p.publicURL)
+	reg, notices, err := loadWorkspaceRegistry(ctx, p.store, incident.TeamID, runtimeconfig.PublicURL(ctx, p.publicURL))
 	if err != nil {
 		return err
 	}

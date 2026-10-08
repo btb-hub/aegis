@@ -56,7 +56,7 @@ when disabled.
 Initial set (expand as pages wire to API):
 
 - `/integrations` (admin integrations list + test connection)
-- Future: shifts/incidents admin views, alerting workspace, setup wizard
+- Admin application configuration lives in [Settings](settings.md); the setup wizard is removed.
 
 Demo-only pages (shifts/incidents fixtures) stay public until wired to API in later stories.
 

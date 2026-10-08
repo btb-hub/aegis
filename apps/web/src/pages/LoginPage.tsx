@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import { AppVersion } from '../components/layout/AppVersion';
 import { Button } from '../components/ui/Button';
@@ -32,6 +32,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams();
   const [devAuthEnabled, setDevAuthEnabled] = useState(false);
   const [providers, setProviders] = useState<AuthProviderId[]>([]);
+  const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
   const [devAuthLoading, setDevAuthLoading] = useState(true);
   const devAuthError = searchParams.get('dev_auth_error') === '1';
   const providerUnconfigured = searchParams.get('auth_error') === 'unconfigured';
@@ -42,6 +43,9 @@ export function LoginPage() {
       : unconfiguredProvider;
 
   useEffect(() => {
+    void fetch('/api/v1/bootstrap/status').then(async (response) => {
+      if (response.ok) { const status = await response.json() as { available?: boolean }; setBootstrapAvailable(Boolean(status.available)); }
+    }).catch(() => undefined);
     void Promise.all([fetchDevAuthEnabled(), fetchAuthProviders()])
       .then(([enabled, configured]) => {
         setDevAuthEnabled(enabled);
@@ -77,6 +81,8 @@ export function LoginPage() {
               {t('auth.provider_unconfigured', { provider: unconfiguredLabel })}
             </p>
           ) : null}
+          {searchParams.get('settings_error') ? <p role="alert" className="text-sm text-severity-p1">{t('settings.authorization_failed')}</p> : null}
+          {bootstrapAvailable ? <Link className="block text-center text-sm text-accent hover:underline" to="/bootstrap">{t('settings.initial_configuration')}</Link> : null}
           {pageLoading ? (
             <p className="text-center text-sm text-zinc-600">{t('auth.loading')}</p>
           ) : (

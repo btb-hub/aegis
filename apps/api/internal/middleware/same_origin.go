@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/gin-gonic/gin"
 )
 
 // RequireSameOrigin fails closed for browser mutations, including missing headers.
 func RequireSameOrigin(publicURL string) gin.HandlerFunc {
-	expected, expectedErr := url.Parse(publicURL)
 	return func(c *gin.Context) {
+		expected, expectedErr := url.Parse(config.PublicURL(c.Request.Context(), publicURL))
 		raw := c.GetHeader("Origin")
 		if raw == "" {
 			raw = c.GetHeader("Referer")

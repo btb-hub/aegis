@@ -106,9 +106,9 @@ func (s *UserService) UpdateUserRole(ctx context.Context, actorID, targetID uuid
 		return target, nil
 	}
 
-	if s.cfg.IsAdminEmail(target.Email) && parsed != rbac.RoleAdmin {
+	if config.Runtime(ctx, s.cfg).IsAdminEmail(target.Email) && parsed != rbac.RoleAdmin {
 		return db.User{}, apperrors.New("admin_emails_pinned",
-			"This user is pinned to admin by ADMIN_EMAILS. Remove the email from ADMIN_EMAILS and restart the API, then demote.",
+			"This user is pinned to admin. Remove the email from Settings access rules, then demote.",
 			http.StatusConflict)
 	}
 
@@ -142,6 +142,10 @@ func (s *UserService) UpdateUserRole(ctx context.Context, actorID, targetID uuid
 // IsRolePinned reports whether email is pinned to the admin role by ADMIN_EMAILS.
 func (s *UserService) IsRolePinned(email string) bool {
 	return s.cfg.IsAdminEmail(email)
+}
+
+func (s *UserService) IsRolePinnedContext(ctx context.Context, email string) bool {
+	return config.Runtime(ctx, s.cfg).IsAdminEmail(email)
 }
 
 // IdentitiesForUser loads the linked identities for a single user, for

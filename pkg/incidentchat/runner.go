@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/i18n"
 	"github.com/aegis/aegis/pkg/incidentack"
@@ -41,6 +42,7 @@ type Runner struct {
 	store     Store
 	publicURL string
 	log       *slog.Logger
+	Runtime   func(context.Context) (context.Context, error)
 }
 
 func New(store Store, publicURL string) *Runner {
@@ -63,6 +65,15 @@ func (r *Runner) loop(ctx context.Context, fn func(context.Context) error) {
 			return
 		case <-ticker.C:
 			taskCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+			if r.Runtime != nil {
+				var err error
+				taskCtx, err = r.Runtime(taskCtx)
+				if err != nil {
+					cancel()
+					r.log.Error("incident chat settings unavailable")
+					continue
+				}
+			}
 			err := fn(taskCtx)
 			cancel()
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) && !errors.Is(err, context.Canceled) {
@@ -140,7 +151,7 @@ func (r *Runner) sendChannel(ctx context.Context, d db.ChannelDelivery) (string,
 	}
 	i := d.Snapshot.Incident
 	post := integrations.IncidentChannelPost{
-		Incident: integrations.IncidentRef{ID: i.ID, TeamID: i.TeamID, AssigneeID: i.AssigneeID, Status: i.Status, Severity: i.Severity, Title: i.Title, URL: integrations.IncidentURL(r.publicURL, i.ID.String())},
+		Incident: integrations.IncidentRef{ID: i.ID, TeamID: i.TeamID, AssigneeID: i.AssigneeID, Status: i.Status, Severity: i.Severity, Title: i.Title, URL: integrations.IncidentURL(runtimeconfig.PublicURL(ctx, r.publicURL), i.ID.String())},
 		Kind:     d.Kind, TeamName: d.Snapshot.TeamName, ActorName: d.Snapshot.ActorName, Locale: d.Snapshot.Locale, SlackUserGroupID: d.Snapshot.SlackUserGroupID, OccurredAt: d.OccurredAt,
 		Actionable: (d.Kind == "created" || d.Kind == "escalated") && current.Status == "open",
 	}
@@ -169,7 +180,7 @@ func (r *Runner) sendChannel(ctx context.Context, d db.ChannelDelivery) (string,
 				return "", permanent("invalid slack workspace configuration")
 			}
 		}
-		provider, err = slack.NewFromJSON(config, r.publicURL)
+		provider, err = slack.NewFromJSON(config, runtimeconfig.PublicURL(ctx, r.publicURL))
 		if err != nil {
 			return "", permanent(err.Error())
 		}
@@ -314,7 +325,7 @@ func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result
 				return permanent("invalid slack workspace configuration")
 			}
 		}
-		p, err := slack.NewFromJSON(config, r.publicURL)
+		p, err := slack.NewFromJSON(config, runtimeconfig.PublicURL(ctx, r.publicURL))
 		if err != nil {
 			return permanent(err.Error())
 		}

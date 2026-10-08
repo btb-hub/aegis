@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"strings"
 
 	"github.com/aegis/aegis/pkg/apperrors"
@@ -85,7 +86,7 @@ func (s *IntegrationService) Upsert(ctx context.Context, kind, name string, conf
 	if workspaceID != nil {
 		return db.Integration{}, apperrors.Conflict("workspace integration slots must be updated with PATCH")
 	}
-	if err := validateGlobalIntegrationConfig(kind, config, s.publicURL); err != nil {
+	if err := validateGlobalIntegrationConfig(kind, config, runtimeconfig.PublicURL(ctx, s.publicURL)); err != nil {
 		return db.Integration{}, err
 	}
 	item, err := s.repo.UpsertIntegration(ctx, kind, name, config, enabled, nil, nil)
@@ -100,6 +101,9 @@ func (s *IntegrationService) Update(ctx context.Context, id uuid.UUID, name *str
 	existing, err := s.repo.GetIntegration(ctx, id)
 	if err != nil {
 		return db.Integration{}, mapIntegrationError(err)
+	}
+	if version := db.IntegrationVersion(ctx); version != nil && !version.Equal(existing.UpdatedAt) {
+		return db.Integration{}, apperrors.Conflict("integration changed; reload before saving")
 	}
 	nextName := existing.Name
 	if name != nil {
@@ -131,7 +135,7 @@ func (s *IntegrationService) Update(ctx context.Context, id uuid.UUID, name *str
 			if err != nil {
 				return db.Integration{}, apperrors.Validation("invalid integration config", nil)
 			}
-		} else if err := validateGlobalIntegrationConfig(existing.Kind, nextConfig, s.publicURL); err != nil {
+		} else if err := validateGlobalIntegrationConfig(existing.Kind, nextConfig, runtimeconfig.PublicURL(ctx, s.publicURL)); err != nil {
 			return db.Integration{}, err
 		}
 		mode = &nextMode
@@ -139,7 +143,7 @@ func (s *IntegrationService) Update(ctx context.Context, id uuid.UUID, name *str
 		if mode != nil {
 			return db.Integration{}, apperrors.Validation("mode is only valid for workspace integration slots", nil)
 		}
-		if err := validateGlobalIntegrationConfig(existing.Kind, nextConfig, s.publicURL); err != nil {
+		if err := validateGlobalIntegrationConfig(existing.Kind, nextConfig, runtimeconfig.PublicURL(ctx, s.publicURL)); err != nil {
 			return db.Integration{}, err
 		}
 	}
@@ -259,7 +263,7 @@ func (s *IntegrationService) Test(ctx context.Context, id uuid.UUID) error {
 		}
 		return nil
 	case "slack":
-		provider, err := intslack.NewFromJSON(cfg, s.publicURL)
+		provider, err := intslack.NewFromJSON(cfg, runtimeconfig.PublicURL(ctx, s.publicURL))
 		if err != nil {
 			return apperrors.Validation(err.Error(), map[string]any{"kind": item.Kind})
 		}
@@ -380,7 +384,7 @@ func (s *IntegrationService) LoadRegistry(ctx context.Context) (*integrations.Re
 	return s.buildRegistry(ctx, items)
 }
 
-func (s *IntegrationService) buildRegistry(_ context.Context, items []db.Integration) (*integrations.Registry, error) {
+func (s *IntegrationService) buildRegistry(ctx context.Context, items []db.Integration) (*integrations.Registry, error) {
 	reg := integrations.NewRegistry()
 	rows := make([]integrations.IntegrationRow, 0, len(items))
 	for _, item := range items {
@@ -388,7 +392,7 @@ func (s *IntegrationService) buildRegistry(_ context.Context, items []db.Integra
 			ID: item.ID, Kind: item.Kind, Name: item.Name, Config: item.Config, Enabled: item.Enabled,
 		})
 	}
-	loader.RegisterFromRows(reg, rows, s.publicURL)
+	loader.RegisterFromRows(reg, rows, runtimeconfig.PublicURL(ctx, s.publicURL))
 	return reg, nil
 }
 

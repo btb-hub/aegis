@@ -1,10 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { AuthProvider } from './context/AuthContext';
 import i18n from './i18n';
+
+function RouteLocation() {
+  const location = useLocation();
+  return <output data-testid="route-location">{location.pathname}{location.search}</output>;
+}
 
 function renderApp(initialPath = '/shifts') {
   return render(
@@ -12,6 +17,7 @@ function renderApp(initialPath = '/shifts') {
       <MemoryRouter initialEntries={[initialPath]}>
         <AuthProvider>
           <App />
+          <RouteLocation />
         </AuthProvider>
       </MemoryRouter>
     </I18nextProvider>,
@@ -232,5 +238,25 @@ describe('App', () => {
     renderApp('/integrations');
 
     expect(await screen.findByRole('link', { name: 'Sign in with Google' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['/setup?section=behavior&provider=express', '/settings?section=behavior&provider=express'],
+    ['/integrations?configure=slack&provider=express', '/settings?configure=slack&provider=express&section=integrations'],
+  ])('redirects %s while retaining configuration parameters', async (initialPath, expectedPath) => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/auth/me') {
+        return { ok: true, json: async () => ({ id: 'admin', email: 'admin@example.com', role: 'admin', locale: 'en' }) } as Response;
+      }
+      if (url === '/api/v1/settings') {
+        return { ok: true, json: async () => ({ values: {}, enabled: {}, secret_present: {}, revision: 1 }) } as Response;
+      }
+      return { ok: true, json: async () => ({ items: [] }) } as Response;
+    });
+    renderApp(initialPath);
+    await waitFor(() => expect(screen.getByTestId('route-location')).toHaveTextContent(expectedPath));
+    expect(await screen.findByRole('heading', { name: /^Settings$/ })).toBeInTheDocument();
+    expect(screen.queryByText('Setup wizard')).not.toBeInTheDocument();
   });
 });

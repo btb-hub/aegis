@@ -26,6 +26,7 @@ import type { Workspace } from '../lib/teamTypes';
 import { fetchWorkspaces } from '../lib/workspacesApi';
 
 type IntegrationItem = {
+	updated_at?: string;
   id: string;
   kind: string;
   name: string;
@@ -40,6 +41,7 @@ type IntegrationItem = {
 type EditorMode = 'create' | 'edit';
 
 type EditorState = {
+	expectedUpdatedAt?: string;
   mode: EditorMode;
   id?: string;
   kind: IntegrationKind;
@@ -65,7 +67,7 @@ const emptyEditor = (kind: IntegrationKind): EditorState => ({
   form: emptyIntegrationConfigForm(),
 });
 
-export function IntegrationsPage() {
+export function IntegrationsPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -189,6 +191,7 @@ export function IntegrationsPage() {
     setEditor({
       mode: 'edit',
       id: item.id,
+      expectedUpdatedAt: item.updated_at,
       kind,
       name: item.name,
       workspace_id: item.workspace_id ?? '',
@@ -288,11 +291,13 @@ export function IntegrationsPage() {
             editor.workspace_id
               ? {
                   mode: workspaceMode,
+                  expected_updated_at: editor.expectedUpdatedAt,
                   enabled: items.find((item) => item.id === editor.id)?.enabled ?? true,
                   config,
                 }
               : {
                   name: editor.name.trim() || editor.kind,
+                  expected_updated_at: editor.expectedUpdatedAt,
                   config,
                 },
           ),
@@ -325,7 +330,7 @@ export function IntegrationsPage() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !item.enabled }),
+        body: JSON.stringify({ enabled: !item.enabled, expected_updated_at: item.updated_at }),
       });
       if (!response.ok) {
         const body = (await response.json()) as { message?: string };
@@ -411,8 +416,11 @@ export function IntegrationsPage() {
   ).length;
 
   return (
-    <PageContent>
-      <PageHeader
+    <PageContent className={embedded ? 'max-w-none px-0 py-0' : undefined}>
+      {embedded ? <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">{t('integrations.page_title')}</h2>
+        {isAdmin && missingGlobalKinds.length > 0 ? <Button onClick={openCreate}>{t('integrations.add')}</Button> : null}
+      </div> : <PageHeader
         title={t('integrations.page_title')}
         subtitle={t('integrations.page_subtitle')}
         breadcrumb={{
@@ -427,7 +435,7 @@ export function IntegrationsPage() {
             <Button onClick={openCreate}>{t('integrations.add')}</Button>
           ) : undefined
         }
-      />
+      />}
 
       <p className="text-sm text-zinc-600">{t('integrations.jira_test_help')}</p>
       {loadError ? <Banner variant="warning">{loadError}</Banner> : null}

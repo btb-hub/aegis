@@ -34,6 +34,25 @@ type Config struct {
 	DevAuthDefaultRole     string
 	DevAuthEmail           string
 	AdminEmails            map[string]struct{}
+	BootstrapToken         string
+}
+
+// LoadBootstrap reads only the values required before PostgreSQL is reachable.
+// Application settings are loaded from the database, never from these env values.
+func LoadBootstrap() (*Config, error) {
+	cfg := &Config{DatabaseURL: os.Getenv("DATABASE_URL"), BootstrapToken: os.Getenv("AEGIS_BOOTSTRAP_TOKEN"),
+		DevAuthEnabled: parseBoolEnv("DEV_AUTH_ENABLED"), DevAuthDefaultRole: envOr("DEV_AUTH_DEFAULT_ROLE", "admin"),
+		DevAuthEmail: envOr("DEV_AUTH_EMAIL", "dev@localhost")}
+	if cfg.DatabaseURL == "" {
+		return nil, errors.New("DATABASE_URL is required")
+	}
+	if cfg.BootstrapToken != "" && len(cfg.BootstrapToken) < 32 {
+		return nil, errors.New("AEGIS_BOOTSTRAP_TOKEN must contain at least 32 random bytes")
+	}
+	if _, err := rbac.Parse(cfg.DevAuthDefaultRole); err != nil {
+		return nil, errors.New("invalid DEV_AUTH_DEFAULT_ROLE")
+	}
+	return cfg, nil
 }
 
 func Load() (*Config, error) {

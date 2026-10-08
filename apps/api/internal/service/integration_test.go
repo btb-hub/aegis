@@ -22,6 +22,18 @@ type integrationMockRepo struct {
 	lastUpsertMode *string
 }
 
+func TestIntegrationUpdateRejectsStaleSettingsForm(t *testing.T) {
+	item := db.Integration{ID: uuid.New(), Kind: "slack", Name: "Slack", Config: json.RawMessage(`{"bot_token":"fixture","signing_secret":"fixture"}`), Enabled: true, UpdatedAt: time.Now()}
+	repo := &integrationMockRepo{items: []db.Integration{item}}
+	svc := NewIntegrationService(repo, "http://aegis.test")
+	name := "Updated"
+	_, err := svc.Update(db.WithIntegrationVersion(context.Background(), item.UpdatedAt.Add(-time.Second)), item.ID, &name, nil, nil, nil)
+	require.Error(t, err)
+	require.Equal(t, "Slack", repo.items[0].Name)
+	_, err = svc.Update(db.WithIntegrationVersion(context.Background(), item.UpdatedAt), item.ID, &name, nil, nil, nil)
+	require.NoError(t, err)
+}
+
 func (m *integrationMockRepo) ListIntegrations(context.Context) ([]db.Integration, error) {
 	return m.items, nil
 }

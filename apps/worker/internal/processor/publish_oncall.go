@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	runtimeconfig "github.com/aegis/aegis/pkg/config"
 	"log/slog"
 	"sort"
 	"strings"
@@ -161,7 +162,7 @@ func (p *PublishOnCallProcessor) resolveAnnouncers(ctx context.Context, teamID u
 			return nil, nil, "", err
 		}
 	} else if slackChannelID != "" {
-		reg, _, err := loadWorkspaceRegistry(ctx, p.store, teamID, p.publicURL, "slack")
+		reg, _, err := loadWorkspaceRegistry(ctx, p.store, teamID, runtimeconfig.PublicURL(ctx, p.publicURL), "slack")
 		if err != nil {
 			return nil, nil, "", err
 		}

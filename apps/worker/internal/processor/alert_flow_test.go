@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/google/uuid"
@@ -17,6 +18,7 @@ import (
 )
 
 type flowAlertStore struct {
+	lastInput               db.ManualCreateFromAlertInput
 	alert                   db.Alert
 	teamID                  uuid.UUID
 	workspaceID             uuid.UUID
@@ -120,6 +122,7 @@ func (s *flowAlertStore) GetAlertByID(context.Context, uuid.UUID) (db.Alert, err
 	return s.alert, nil
 }
 func (s *flowAlertStore) ManualCreateFromAlert(_ context.Context, input db.ManualCreateFromAlertInput) (db.ManualCreateFromAlertResult, error) {
+	s.lastInput = input
 	if s.openLinkedIncident != nil && input.AlertID == s.alert.ID {
 		return db.ManualCreateFromAlertResult{}, db.ErrAlertAlreadyLinked
 	}
@@ -154,6 +157,21 @@ func (s *flowAlertStore) ManualCreateFromAlert(_ context.Context, input db.Manua
 		},
 		Created: true,
 	}, nil
+}
+
+func TestAlertProcessorUsesJobSettingsSnapshot(t *testing.T) {
+	store := newFlowAlertStore(t)
+	processor := NewAlertProcessor(nil, store, time.Hour, 15*time.Minute)
+	job := Job{Payload: json.RawMessage(`{"alert_id":"` + store.alert.ID.String() + `"}`)}
+	ctx := config.WithRuntime(context.Background(), &config.Config{IncidentDedupWindow: 2 * time.Hour, EscalationTimeout: 3 * time.Minute})
+	require.NoError(t, processor.Handle(ctx, job))
+	require.WithinDuration(t, time.Now().Add(-2*time.Hour), store.lastInput.DedupSince, time.Second)
+	require.WithinDuration(t, time.Now().Add(3*time.Minute), store.lastInput.PostCreate.EscalationRunAt, time.Second)
+	next := config.WithRuntime(context.Background(), &config.Config{IncidentDedupWindow: 4 * time.Hour, EscalationTimeout: 7 * time.Minute})
+	require.NoError(t, processor.Handle(next, job))
+	require.WithinDuration(t, time.Now().Add(-4*time.Hour), store.lastInput.DedupSince, time.Second)
+	require.WithinDuration(t, time.Now().Add(7*time.Minute), store.lastInput.PostCreate.EscalationRunAt, time.Second)
+	require.Equal(t, 2*time.Hour, config.Runtime(ctx, nil).IncidentDedupWindow)
 }
 func (s *flowAlertStore) EnsureIncidentPostCreateJobs(context.Context, uuid.UUID, time.Time) error {
 	return s.enqueueErr

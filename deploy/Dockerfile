@@ -7,6 +7,7 @@ COPY apps/api/ apps/api/
 WORKDIR /src/apps/api
 ENV GOWORK=off
 RUN CGO_ENABLED=0 go build -o /api ./cmd/api
+RUN CGO_ENABLED=0 go build -o /config-import ./cmd/config-import
 
 FROM golang:1.25-alpine AS go-worker
 WORKDIR /src
@@ -36,6 +37,7 @@ RUN apk add --no-cache bash curl ca-certificates \
   && apk del curl
 
 COPY --from=go-api /api /app/api
+COPY --from=go-api /config-import /app/config-import
 COPY --from=go-worker /worker /app/worker
 COPY pkg/i18n/messages /app/pkg/i18n/messages
 COPY --from=web /src/apps/web/dist /usr/share/nginx/html
@@ -44,7 +46,6 @@ COPY deploy/nginx.all-in-one.conf /etc/nginx/conf.d/default.conf
 COPY deploy/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /app/api /app/worker
 
-ENV HTTP_ADDR=127.0.0.1:8080
 EXPOSE 3000
 WORKDIR /app
 ENTRYPOINT ["/entrypoint.sh"]

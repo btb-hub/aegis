@@ -4,10 +4,10 @@ import { AppShell, type AppPage } from './components/layout/AppShell';
 import { useAuth } from './context/AuthContext';
 import { IncidentsPage } from './pages/IncidentsPage';
 import { AlertsPage } from './pages/AlertsPage';
-import { IntegrationsPage } from './pages/IntegrationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { SetupWizardPage } from './pages/SetupWizardPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { BootstrapPage } from './pages/BootstrapPage';
 import { AccountPage } from './pages/AccountPage';
 import { ShiftsLandingPage } from './pages/ShiftsLandingPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
@@ -16,6 +16,13 @@ import { TeamShiftsRoute } from './pages/TeamShiftsRoute';
 import { UsersPage } from './pages/UsersPage';
 import { WorkspaceDetailPage } from './pages/WorkspaceDetailPage';
 import { WorkspacesPage } from './pages/WorkspacesPage';
+
+function LegacySettingsRedirect({ integrations = false }: { integrations?: boolean }) {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (integrations) { params.set('section', 'integrations'); }
+  return <Navigate to={`/settings${params.size ? `?${params}` : ''}`} replace />;
+}
 
 function pageFromPath(pathname: string): AppPage {
   if (pathname.includes('/shifts')) {
@@ -27,14 +34,11 @@ function pageFromPath(pathname: string): AppPage {
   if (pathname.startsWith('/teams')) {
     return 'teams';
   }
-  if (pathname.startsWith('/setup')) {
-    return 'setup';
+  if (pathname.startsWith('/settings') || pathname.startsWith('/setup') || pathname.startsWith('/integrations')) {
+    return 'settings';
   }
   if (pathname.startsWith('/dashboard')) {
     return 'dashboard';
-  }
-  if (pathname.startsWith('/integrations')) {
-    return 'integrations';
   }
   if (pathname.startsWith('/alerts')) {
     return 'alerts';
@@ -139,7 +143,7 @@ function AppRoutes() {
           path="/integrations"
           element={
             <ProtectedRoute>
-              <IntegrationsPage />
+              <LegacySettingsRedirect integrations />
             </ProtectedRoute>
           }
         />
@@ -155,10 +159,11 @@ function AppRoutes() {
           path="/setup"
           element={
             <ProtectedRoute>
-              <SetupWizardPage />
+              <LegacySettingsRedirect />
             </ProtectedRoute>
           }
         />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
         <Route
           path="/users"
           element={
@@ -177,6 +182,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/bootstrap" element={<BootstrapPage />} />
       <Route path="/*" element={<AppRoutes />} />
     </Routes>
   );

@@ -22,13 +22,13 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load()
+	boot, err := config.LoadBootstrap()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := pgxpool.New(ctx, boot.DatabaseURL)
 	if err != nil {
 		log.Fatalf("db pool: %v", err)
 	}
@@ -37,11 +37,18 @@ func main() {
 	if err := loadI18n(); err != nil {
 		log.Fatalf("i18n: %v", err)
 	}
-	if cfg.DevAuthEnabled {
+	if boot.DevAuthEnabled {
 		log.Printf("WARNING: DEV_AUTH_ENABLED — dev login active; never use in production")
 	}
 
 	store := db.NewStore(pool)
+	if err := store.InitializeSettings(ctx, boot); err != nil {
+		log.Fatal(err)
+	}
+	cfg, err := store.SettingsConfig(ctx, boot)
+	if err != nil {
+		log.Fatal("cannot load database settings")
+	}
 	auth := service.NewAuthService(cfg, store, store, service.NewOAuthTokenExchanger(cfg))
 	alerts := service.NewAlertService(cfg.WebhookSecret, cfg.AlertFingerprintLabels, store)
 	health := service.NewHealthService(store)
@@ -64,9 +71,21 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
+	r.Use(func(c *gin.Context) {
+		snapshot, err := store.SettingsContext(c.Request.Context(), boot)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": "SETTINGS_UNAVAILABLE", "message": "Application settings are unavailable"})
+			return
+		}
+		c.Request = c.Request.WithContext(snapshot)
+	})
 
 	handler.NewHealthHandler(health).Register(r)
-	handler.NewAuthHandler(auth, cfg.PublicURL, paging.Callback).Register(r)
+	settings := handler.NewSettingsHandler(service.NewSettingsService(store, boot), auth)
+	authHandler := handler.NewAuthHandler(auth, cfg.PublicURL, paging.Callback)
+	authHandler.SettingsFlows(settings.Login, settings.Callback)
+	authHandler.Register(r)
+	settings.Register(r)
 	paging.Register(r)
 	handler.NewAlertHandler(alerts, teams, auth).Register(r)
 	handler.NewTeamHandler(teams, auth).Register(r)

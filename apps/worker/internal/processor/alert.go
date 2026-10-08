@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/aegis/aegis/pkg/routing"
@@ -86,10 +87,10 @@ func (p *AlertProcessor) Handle(ctx context.Context, job Job) error {
 		AlertID:                       alertID,
 		TeamID:                        teamID,
 		AssigneeID:                    assigneeID,
-		DedupSince:                    now.Add(-p.dedupWindow),
+		DedupSince:                    now.Add(-config.DedupWindow(ctx, p.dedupWindow)),
 		AllowCrossTeamFingerprintLink: true,
 		PostCreate: &db.IncidentPostCreateJobs{
-			EscalationRunAt: now.Add(p.escalationTimeout),
+			EscalationRunAt: now.Add(config.EscalationDelay(ctx, p.escalationTimeout)),
 		},
 	})
 	if errors.Is(err, db.ErrAlertAlreadyLinked) {
@@ -97,7 +98,7 @@ func (p *AlertProcessor) Handle(ctx context.Context, job Job) error {
 		if lookupErr != nil {
 			return lookupErr
 		}
-		return p.store.EnsureIncidentPostCreateJobs(ctx, incident.ID, now.Add(p.escalationTimeout))
+		return p.store.EnsureIncidentPostCreateJobs(ctx, incident.ID, now.Add(config.EscalationDelay(ctx, p.escalationTimeout)))
 	}
 	if err != nil {
 		return err

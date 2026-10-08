@@ -66,8 +66,10 @@ A story is done only when **all** of these hold:
 - **Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`).
 - **Migrations:** golang-migrate in `db/migrations/`, with matching up/down files. Check existing
   versions on fresh main before assigning the next number. The production image migrates at startup.
-- **Config:** startup settings use env / `.env`. Bot credentials and workspace slots are saved
-  through admin integration settings; saved changes take effect without an API restart.
+- **Config:** PostgreSQL is authoritative for app settings. Env retains database connection,
+  installation token and local development safeguards. Existing installs require the explicit
+  config-import tool before updated services start. Configure app settings and bots through
+  Settings; only listener changes require restart. Workspace slots stay on workspace pages.
 - **Auth:** OIDC (Google, Slack, eXpress), plus opt-in localhost dev sign-in. No local passwords.
   Account paging authorization is separate from sign-in; preserve existing connections on failure.
 - **Chat delivery:** shared lifecycle posts and chat acknowledgements use durable outboxes processed

@@ -153,7 +153,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
   if (inheritMode && kind === 'jira') {
     return (
       <Input
-        label={t('setup.integrations.jira.project_key')}
+        label={t('integrations.fields.jira.project_key')}
         value={form.project_key}
         onChange={(value) => onChange({ ...form, project_key: value })}
       />
@@ -164,16 +164,16 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
   }
 
   if (kind === 'jira') {
-    const tokenHint = secretHint ?? t('setup.integrations.jira.api_token_hint');
+    const tokenHint = secretHint ?? t('integrations.fields.jira.api_token_hint');
     return (
       <>
         <Input
-          label={t('setup.integrations.jira.base_url')}
+          label={t('integrations.fields.jira.base_url')}
           value={form.base_url}
           onChange={(value) => onChange({ ...form, base_url: value })}
         />
         <Select
-          label={t('setup.integrations.jira.deployment')}
+          label={t('integrations.fields.jira.deployment')}
           value={form.deployment}
           options={[
             { value: 'server_dc', label: 'Server / Data Center' },
@@ -182,23 +182,23 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           onChange={(value) => onChange({ ...form, deployment: value === 'cloud' ? 'cloud' : 'server_dc' })}
         />
         <Select
-          label={t('setup.integrations.jira.auth_type')}
+          label={t('integrations.fields.jira.auth_type')}
           value={form.auth_type}
           options={[
-            { value: 'bearer', label: t('setup.integrations.jira.auth_type_bearer') },
-            { value: 'basic', label: t('setup.integrations.jira.auth_type_basic') },
+            { value: 'bearer', label: t('integrations.fields.jira.auth_type_bearer') },
+            { value: 'basic', label: t('integrations.fields.jira.auth_type_basic') },
           ]}
           onChange={(value) => onChange({ ...form, auth_type: value === 'basic' ? 'basic' : 'bearer' })}
         />
         <Input
-          label={t('setup.integrations.jira.email')}
+          label={t('integrations.fields.jira.email')}
           value={form.email}
           onChange={(value) => onChange({ ...form, email: value })}
           autoComplete="off"
-          hint={t('setup.integrations.jira.email_hint')}
+          hint={t('integrations.fields.jira.email_hint')}
         />
         <Input
-          label={t('setup.integrations.jira.api_token')}
+          label={t('integrations.fields.jira.api_token')}
           value={form.api_token}
           onChange={(value) => onChange({ ...form, api_token: value })}
           type="password"
@@ -206,7 +206,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           hint={tokenHint}
         />
         <Input
-          label={t('setup.integrations.jira.project_key')}
+          label={t('integrations.fields.jira.project_key')}
           value={form.project_key}
           onChange={(value) => onChange({ ...form, project_key: value })}
         />
@@ -218,7 +218,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
     return (
       <>
         <Input
-          label={t('setup.integrations.slack.bot_token')}
+          label={t('integrations.fields.slack.bot_token')}
           value={form.bot_token}
           onChange={(value) => onChange({ ...form, bot_token: value })}
           type="password"
@@ -226,7 +226,7 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
           hint={secretHint ?? t('integrations.slack_setup.token_hint')}
         />
         <Input
-          label={t('setup.integrations.slack.signing_secret')}
+          label={t('integrations.fields.slack.signing_secret')}
           value={form.signing_secret}
           onChange={(value) => onChange({ ...form, signing_secret: value })}
           type="password"
@@ -251,24 +251,24 @@ export function IntegrationConfigFields({ kind, form, onChange, workspaceOnly, e
   return (
     <>
       <Input
-        label={t('setup.integrations.express.bot_id')}
+        label={t('integrations.fields.express.bot_id')}
         value={form.bot_id}
         onChange={(value) => onChange({ ...form, bot_id: value })}
       />
       <Input
-        label={t('setup.integrations.express.host')}
+        label={t('integrations.fields.express.host')}
         value={form.host}
         onChange={(value) => onChange({ ...form, host: value })}
       />
       {!workspaceOnly && (
         <Input
-          label={t('setup.integrations.express.oncall_group_chat_id')}
+          label={t('integrations.fields.express.oncall_group_chat_id')}
           value={form.oncall_group_chat_id}
           onChange={(value) => onChange({ ...form, oncall_group_chat_id: value })}
         />
       )}
       <Input
-        label={t('setup.integrations.express.secret_key')}
+        label={t('integrations.fields.express.secret_key')}
         value={form.secret_key}
         onChange={(value) => onChange({ ...form, secret_key: value })}
         type="password"

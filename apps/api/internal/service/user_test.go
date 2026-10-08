@@ -268,6 +268,17 @@ func TestUpdateUserRoleIdempotent(t *testing.T) {
 	require.Empty(t, repo.auditLogs)
 }
 
+func TestUserRolePinUsesRequestSettings(t *testing.T) {
+	actorID, targetID := uuid.New(), uuid.New()
+	repo := &userListRepoMock{users: []db.User{{ID: targetID, Email: "pinned@example.com", Role: "admin"}}}
+	svc := NewUserService(repo, &config.Config{})
+	ctx := config.WithRuntime(context.Background(), &config.Config{AdminEmails: map[string]struct{}{"pinned@example.com": {}}})
+	require.True(t, svc.IsRolePinnedContext(ctx, "pinned@example.com"))
+	_, err := svc.UpdateUserRole(ctx, actorID, targetID, "member")
+	require.Error(t, err)
+	require.False(t, svc.IsRolePinnedContext(context.Background(), "pinned@example.com"))
+}
+
 func TestUpdateUserRoleInvalid(t *testing.T) {
 	actorID := uuid.New()
 	targetID := uuid.New()

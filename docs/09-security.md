@@ -19,7 +19,9 @@ MVP supports exactly three identity providers:
 1. User chooses provider on the login page ([`docs/features/web-auth.md`](./features/web-auth.md); Phase 3.5).
 2. `GET /auth/{provider}/login` generates state/nonce, redirects to IdP. Unknown or unconfigured
    providers redirect to `/login?auth_error=unconfigured&provider={name}` (browser-safe).
-3. Callback validates state, exchanges code for tokens, fetches userinfo.
+3. Callback claims a single-use database authorization bound to the browser, provider, settings
+   revision and five-minute expiry. Verify the signed ID token through discovery/JWKS, including
+   issuer, audience, expiry, nonce and verified email, before creating or linking a user.
 4. Upsert `users` on `(provider, provider_sub)`.
 5. Create `sessions` row; set **HttpOnly**, **Secure** (prod), **SameSite=Lax** cookie.
 6. `POST /auth/logout` deletes session server-side.
@@ -27,8 +29,22 @@ MVP supports exactly three identity providers:
 ### Session
 
 - Random session ID stored hashed in `sessions`.
-- TTL configurable (default 7 days sliding).
+- TTL configurable in Settings (default 7 days). Existing session expiry timestamps are preserved.
 - Middleware rejects expired or missing session on protected routes.
+
+### Provider changes and first access
+
+Admin provider edits remain drafts until a signed-token test verifies the initiating admin's
+email. Tests bind the provider, draft/settings revision, and browser session, expire after
+five minutes, and cannot create users or paging links. Activation rejects stale tests and
+disabling the last active provider. Public URL changes invalidate pending authorizations.
+
+Fresh installations accept a deployment token generated from at least 32 random bytes through
+the bootstrap form, never a URL. Its hashed browser session expires after 30 minutes and only
+allows authentication setup. Verified sign-in with the nominated first admin email atomically
+creates the admin/session, activates the provider, and permanently closes bootstrap. Existing
+installations require the explicit configuration import and cannot enter bootstrap. See
+[Settings](./features/settings.md) and the [manual rollout](./configuration-migration.md).
 
 ### Outer proxy vs Aegis session
 
@@ -57,12 +73,17 @@ Account messenger connections use separate, single-use, five-minute authorizatio
 
 Enforced in service layer + handler checks.
 
-- `ADMIN_EMAILS` — standing allowlist: matching OIDC logins are forced to `admin` and audited as `user.role_changed` / `reason=admin_emails_env`. Treat as access-defining ops config.
+- `ADMIN_EMAILS` is a database-backed rule in Settings: matching verified logins are forced to
+  `admin`. These users cannot be demoted while pinned. Last-admin protection remains enforced.
 
 ## Secrets (REQ-AUTH-05, NFR-4)
 
-- All tokens in env or `integrations.config` — not in git.
-- `.env.example` lists keys with empty values.
+- App secrets live in `application_settings`, provider drafts and existing `integrations.config`.
+  Database backups and database access must be protected as secret storage.
+- Deployment env retains the database connection and first-install token; local dev safeguards
+  remain deployment-side and disabled in production.
+- Settings responses expose presence flags and empty secret inputs. Audits contain field names
+  only. Importer output contains key names/statuses only. Blank secret inputs retain values.
 - Logs redact `Authorization`, tokens, webhook secrets.
 - `GET /integrations` and `GET /integrations/{id}` redact secret config keys
   (`api_token`, `bot_token`, `signing_secret`, `secret_key`) as `***`. Prefer

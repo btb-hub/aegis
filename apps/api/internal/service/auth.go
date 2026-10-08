@@ -90,6 +90,10 @@ func (s *AuthService) ConfiguredProviders() []string {
 	return s.cfg.ConfiguredProviders()
 }
 
+func (s *AuthService) ConfiguredProvidersContext(ctx context.Context) []string {
+	return config.Runtime(ctx, s.cfg).ConfiguredProviders()
+}
+
 func (s *AuthService) DevLogin(ctx context.Context, role string) (token string, user db.User, err error) {
 	if !s.cfg.DevAuthEnabled {
 		return "", db.User{}, apperrors.NotFound("dev auth")
@@ -117,7 +121,7 @@ func (s *AuthService) DevLogin(ctx context.Context, role string) (token string, 
 	if err != nil {
 		return "", db.User{}, err
 	}
-	expires := s.now().Add(s.cfg.SessionTTL)
+	expires := s.now().Add(config.Runtime(ctx, s.cfg).SessionTTL)
 	if _, err := s.sessions.CreateSession(ctx, user.ID, hash, expires); err != nil {
 		return "", db.User{}, err
 	}
@@ -129,6 +133,11 @@ func (s *AuthService) CompleteLogin(ctx context.Context, provider, code string) 
 	if err != nil {
 		return "", db.User{}, apperrors.Validation("oidc exchange failed", map[string]any{"error": err.Error()})
 	}
+	return s.CompleteVerifiedLogin(ctx, provider, info)
+}
+
+// CompleteVerifiedLogin accepts claims only after the settings OIDC flow has verified them.
+func (s *AuthService) CompleteVerifiedLogin(ctx context.Context, provider string, info *OIDCUserInfo) (token string, user db.User, err error) {
 
 	result, err := s.users.ResolveOIDCLogin(ctx, db.OIDCLoginInput{
 		Provider:    provider,
@@ -143,7 +152,7 @@ func (s *AuthService) CompleteLogin(ctx context.Context, provider, code string) 
 	}
 	user = result.User
 
-	if s.cfg.IsAdminEmail(user.Email) && user.Role != string(rbac.RoleAdmin) {
+	if config.Runtime(ctx, s.cfg).IsAdminEmail(user.Email) && user.Role != string(rbac.RoleAdmin) {
 		oldRole := user.Role
 		updated, err := s.users.UpdateUserRole(ctx, user.ID, string(rbac.RoleAdmin))
 		if err != nil {
@@ -164,7 +173,7 @@ func (s *AuthService) CompleteLogin(ctx context.Context, provider, code string) 
 	if err != nil {
 		return "", db.User{}, err
 	}
-	expires := s.now().Add(s.cfg.SessionTTL)
+	expires := s.now().Add(config.Runtime(ctx, s.cfg).SessionTTL)
 	if _, err := s.sessions.CreateSession(ctx, user.ID, hash, expires); err != nil {
 		return "", db.User{}, err
 	}

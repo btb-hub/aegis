@@ -7,6 +7,7 @@ import (
 
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,9 +19,16 @@ const (
 )
 
 type AuthHandler struct {
-	auth           *service.AuthService
-	publicURL      string
-	pagingCallback gin.HandlerFunc
+	auth             *service.AuthService
+	publicURL        string
+	pagingCallback   gin.HandlerFunc
+	settingsLogin    gin.HandlerFunc
+	settingsCallback gin.HandlerFunc
+}
+
+func (h *AuthHandler) SettingsFlows(login, callback gin.HandlerFunc) {
+	h.settingsLogin = login
+	h.settingsCallback = callback
 }
 
 func NewAuthHandler(auth *service.AuthService, publicURL string, pagingCallback ...gin.HandlerFunc) *AuthHandler {
@@ -53,7 +61,7 @@ func (h *AuthHandler) devLogin(c *gin.Context) {
 	}
 	token, _, err := h.auth.DevLogin(c.Request.Context(), c.Query("role"))
 	if err != nil {
-		c.Redirect(http.StatusFound, h.devLoginFailureURL())
+		c.Redirect(http.StatusFound, strings.TrimRight(config.PublicURL(c.Request.Context(), h.publicURL), "/")+"/login?dev_auth_error=1")
 		return
 	}
 	c.SetCookie(sessionCookie, token, 0, "/", "", false, true)
@@ -87,14 +95,20 @@ func (h *AuthHandler) appRedirectURL(redirectPath string) string {
 }
 
 func (h *AuthHandler) devRedirectURL(c *gin.Context) string {
-	return h.appRedirectURL(c.Query("redirect"))
+	current := *h
+	current.publicURL = config.PublicURL(c.Request.Context(), h.publicURL)
+	return current.appRedirectURL(c.Query("redirect"))
 }
 
 func (h *AuthHandler) providers(c *gin.Context) {
-	WriteJSON(c, http.StatusOK, gin.H{"providers": h.auth.ConfiguredProviders()})
+	WriteJSON(c, http.StatusOK, gin.H{"providers": h.auth.ConfiguredProvidersContext(c.Request.Context())})
 }
 
 func (h *AuthHandler) login(c *gin.Context) {
+	if h.settingsLogin != nil {
+		h.settingsLogin(c)
+		return
+	}
 	provider := c.Param("provider")
 	loginURL, state, err := h.auth.LoginURL(provider)
 	if err != nil {
@@ -124,12 +138,20 @@ func (h *AuthHandler) unconfiguredProviderURL(provider string) string {
 
 func (h *AuthHandler) callback(c *gin.Context) {
 	state := c.Query("state")
+	if h.settingsCallback != nil && (strings.HasPrefix(state, "login.") || strings.HasPrefix(state, "provider_test.") || strings.HasPrefix(state, "bootstrap.")) {
+		h.settingsCallback(c)
+		return
+	}
 	if strings.HasPrefix(state, "paging.") {
 		if h.pagingCallback != nil {
 			h.pagingCallback(c)
 		} else {
 			c.Redirect(http.StatusFound, h.appRedirectURL("/account?paging_error=invalid_authorization"))
 		}
+		return
+	}
+	if h.settingsCallback != nil {
+		h.settingsCallback(c)
 		return
 	}
 	cookie, err := c.Cookie(oauthStateCookie)

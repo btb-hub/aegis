@@ -9,6 +9,7 @@ import (
 	"github.com/aegis/aegis/apps/api/internal/middleware"
 	"github.com/aegis/aegis/apps/api/internal/service"
 	"github.com/aegis/aegis/pkg/apperrors"
+	"github.com/aegis/aegis/pkg/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -76,5 +77,5 @@ func (h *PagingHandler) Callback(c *gin.Context) {
 		}
 		query.Set("paging_error", code)
 	}
-	c.Redirect(http.StatusFound, strings.TrimRight(h.publicURL, "/")+"/account?"+query.Encode())
+	c.Redirect(http.StatusFound, strings.TrimRight(config.PublicURL(c.Request.Context(), h.publicURL), "/")+"/account?"+query.Encode())
 }

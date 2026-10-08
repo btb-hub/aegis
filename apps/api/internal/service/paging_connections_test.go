@@ -152,7 +152,7 @@ func TestPagingServiceFailuresPreserveIdentity(t *testing.T) {
 		{name: "bot unavailable", provider: "slack", session: "session", code: "code", expected: "provider_unavailable", mutate: func(_ *pagingTestRepo, _ *pagingTestExchange, d *pagingTestDirectory) {
 			d.slackErr = errors.New("offline")
 		}},
-		{name: "disabled during exchange", provider: "slack", session: "session", code: "code", expected: "setup_required", mutate: func(r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
+		{name: "disabled during exchange", provider: "slack", session: "session", code: "code", expected: "bot_disabled", mutate: func(r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
 			item := r.items["slack"]
 			item.Enabled = false
 			r.items["slack"] = item
@@ -199,18 +199,18 @@ func TestPagingAvailabilityAndStartErrors(t *testing.T) {
 		expected string
 	}{
 		{name: "configured"},
-		{name: "no OIDC", expected: "setup_required", mutate: func(s *PagingService, _ *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
+		{name: "no OIDC", expected: "authentication_required", mutate: func(s *PagingService, _ *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
 			delete(s.cfg.OIDC, "slack")
 		}},
-		{name: "no bot", expected: "setup_required", mutate: func(_ *PagingService, r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
+		{name: "no bot", expected: "bot_required", mutate: func(_ *PagingService, r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
 			delete(r.items, "slack")
 		}},
-		{name: "disabled", expected: "setup_required", mutate: func(_ *PagingService, r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
+		{name: "disabled", expected: "bot_disabled", mutate: func(_ *PagingService, r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
 			i := r.items["slack"]
 			i.Enabled = false
 			r.items["slack"] = i
 		}},
-		{name: "bad bot config", expected: "setup_required", mutate: func(_ *PagingService, r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
+		{name: "bad bot config", expected: "bot_required", mutate: func(_ *PagingService, r *pagingTestRepo, _ *pagingTestExchange, _ *pagingTestDirectory) {
 			i := r.items["slack"]
 			i.Config = []byte(`{}`)
 			r.items["slack"] = i

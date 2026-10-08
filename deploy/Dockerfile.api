@@ -5,10 +5,12 @@ COPY apps/api/ apps/api/
 WORKDIR /src/apps/api
 ENV GOWORK=off
 RUN CGO_ENABLED=0 go build -o /api ./cmd/api
+RUN CGO_ENABLED=0 go build -o /config-import ./cmd/config-import
 
 FROM alpine:3.20
 WORKDIR /app
 COPY --from=build /api /app/api
+COPY --from=build /config-import /app/config-import
 COPY pkg/i18n/messages /app/pkg/i18n/messages
 EXPOSE 8080
 CMD ["/app/api"]

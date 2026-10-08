@@ -8,7 +8,7 @@
 
 Tickets and pages are not required for an incident to exist, but they are how
 the rest of the company sees the work. Configure connectors on **Integrations** and on
-each workspace. You do not need the setup wizard to change one credential.
+each workspace. Open Settings → Integrations for global credentials.
 
 [Global connectors](#global) | [Workspace slots](#slots) | [Paging identity](#paging) | [When a connector is skipped](#skip)
 
@@ -110,10 +110,6 @@ open an incident. The timeline gets an `integration_skipped` event with a reason
 (slot disabled, no global, incomplete custom config). Fix the slot; do not re-send the
 webhook unless you also want a duplicate alert.
 
-> **Setup wizard**
->
-> **Setup** can save the same Jira / Slack / eXpress forms. Day-two changes belong on
-> **Integrations** and the workspace panel.
 
 ---
 

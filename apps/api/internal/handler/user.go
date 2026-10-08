@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -44,7 +45,7 @@ func (h *UserHandler) listUsers(c *gin.Context) {
 
 	items := make([]map[string]any, 0, len(result.Items))
 	for _, profile := range result.Items {
-		items = append(items, h.userAdminJSON(profile.User, profile.Identities))
+		items = append(items, h.userAdminJSON(profile.User, profile.Identities, c.Request.Context()))
 	}
 	WriteJSON(c, http.StatusOK, gin.H{
 		"items":     items,
@@ -89,14 +90,18 @@ func (h *UserHandler) updateUserRole(c *gin.Context) {
 		return
 	}
 
-	WriteJSON(c, http.StatusOK, h.userAdminJSON(user, identities))
+	WriteJSON(c, http.StatusOK, h.userAdminJSON(user, identities, c.Request.Context()))
 }
 
 // userAdminJSON wraps the standard user JSON shape with role_pinned, which is
 // only surfaced on admin-facing user management endpoints (not /auth/me).
-func (h *UserHandler) userAdminJSON(user db.User, identities []db.UserIdentity) map[string]any {
+func (h *UserHandler) userAdminJSON(user db.User, identities []db.UserIdentity, contexts ...context.Context) map[string]any {
 	out := service.UserJSON(user, identities)
-	out["role_pinned"] = h.users.IsRolePinned(user.Email)
+	ctx := context.Background()
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	}
+	out["role_pinned"] = h.users.IsRolePinnedContext(ctx, user.Email)
 	return out
 }
 

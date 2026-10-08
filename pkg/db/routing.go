@@ -3,7 +3,10 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"time"
 
+	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -325,13 +328,27 @@ func (s *Store) UpdateIntegration(ctx context.Context, id uuid.UUID, name string
 	const q = `
 UPDATE integrations
 SET name = $2, config = $3, enabled = $4, mode = $5, updated_at = now()
-WHERE id = $1
+WHERE id = $1 AND ($6::timestamptz IS NULL OR updated_at=$6)
 RETURNING id, kind, name, config, enabled, workspace_id, mode, created_at, updated_at`
 	var item Integration
-	err := s.pool.QueryRow(ctx, q, id, name, config, enabled, mode).Scan(
+	expected, _ := ctx.Value(integrationVersionKey{}).(*time.Time)
+	err := s.pool.QueryRow(ctx, q, id, name, config, enabled, mode, expected).Scan(
 		&item.ID, &item.Kind, &item.Name, &item.Config, &item.Enabled, &item.WorkspaceID, &item.Mode, &item.CreatedAt, &item.UpdatedAt,
 	)
+	if expected != nil && errors.Is(err, pgx.ErrNoRows) {
+		return item, apperrors.Conflict("integration changed; reload before saving")
+	}
 	return item, err
+}
+
+type integrationVersionKey struct{}
+
+func WithIntegrationVersion(ctx context.Context, version time.Time) context.Context {
+	return context.WithValue(ctx, integrationVersionKey{}, &version)
+}
+func IntegrationVersion(ctx context.Context) *time.Time {
+	version, _ := ctx.Value(integrationVersionKey{}).(*time.Time)
+	return version
 }
 
 func (s *Store) EnsureWorkspaceSlots(ctx context.Context, workspaceID uuid.UUID) error {
