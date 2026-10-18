@@ -2,7 +2,24 @@
 
 This runs a separate local stack with synthetic data. It includes the actual Aegis API/worker/UI, private anomaly module, PostgreSQL with separate module credentials, Mimir 3.0.0, Prometheus 3.5.0 and a small control/exporter/chat-sink service. All published ports bind to loopback. It uses its own Compose project and named volumes.
 
-You need Docker Desktop and a checkout of `git@github.com:btb-hub/aegis-anomaly-detector.git`. The script finds `.worktrees/aegis-anomaly-detector` or a sibling checkout automatically. It does not change your normal `.env` or running application containers. The fixed credentials and dev login are for this sandbox only.
+You need Make, Git and Docker with Compose. In WSL, enable Docker Desktop's integration for your distribution. The fixed credentials and dev login are for this sandbox only. Your normal `.env` and running application containers are left alone.
+
+From the Aegis root in WSL or Linux, run one command:
+
+```sh
+make anomaly-sandbox
+```
+
+The launcher finds `.worktrees/aegis-anomaly-detector` or a sibling checkout. If neither exists, it clones `git@github.com:btb-hub/aegis-anomaly-detector.git`, so your WSL Git/SSH environment needs access to that private repository. Existing checkouts are built as they are, preserving local changes. No host Go, Node or Python installation is needed. To use another checkout, run `AEGIS_ANOMALY_SOURCE_DIR=/path/to/aegis-anomaly-detector make anomaly-sandbox`.
+
+The command builds and starts the stack, applies migrations, seeds the team/routing and Mimir examples, then waits for bootstrap to finish before printing the URLs. First-time builds can take several minutes.
+
+```sh
+make anomaly-sandbox-status  # Container status, including bootstrap exit code
+make anomaly-sandbox-logs    # Recent logs
+make anomaly-sandbox-down    # Stop; keep all persistent data
+make anomaly-sandbox         # Resume
+```
 
 From the Aegis root in PowerShell:
 
@@ -11,8 +28,6 @@ From the Aegis root in PowerShell:
 # Or select a private checkout explicitly:
 ./scripts/anomaly-sandbox.ps1 up -ModulePath C:/path/to/aegis-anomaly-detector
 ```
-
-On other shells, set `AEGIS_ANOMALY_SOURCE_DIR` to the absolute private checkout path and use `docker compose -f devtools/anomaly-sandbox/compose.yml up -d --build`, then `docker compose -f devtools/anomaly-sandbox/compose.yml wait bootstrap`.
 
 Open [controls](http://localhost:18081), then **Sign in to Aegis**. [Aegis](http://127.0.0.1:18080) has a Local sandbox team, routing for `team=platform`, Local Dev User on call, local Slack/eXpress connectors and an enabled interval metric. Use the `127.0.0.1` Aegis link to keep its session cookie separate from the usual `localhost` development app. Bootstrap records resource IDs in its own volume, preserving renamed resources and edited connector settings when you restart. If module access is paused, startup succeeds and leaves retained module data untouched.
 
@@ -38,7 +53,7 @@ The disabled statistical preview examples use `last_over_time(anomaly_demo_value
 | Query | `anomaly_demo_value{service="checkout"}` |
 | Exporter | http://localhost:18081/metrics |
 
-The control script also accepts `spike`, `dip`, `healthy`, `alert`, `status` and `logs`. `down` stops the stack and retains configuration, samples, history and captured messages. `up` resumes it. If ports 18080, 18081, 19009 or 19090 are occupied, stop that conflicting sandbox before starting this one. Don't change ports without also updating PUBLIC_URL and the control page links/origin configuration.
+The PowerShell control script also accepts `spike`, `dip`, `healthy`, `alert`, `status` and `logs`. `down` stops the stack and retains configuration, samples, history and captured messages. `up` resumes it. If ports 18080, 18081, 19009 or 19090 are occupied, stop that conflicting sandbox before starting this one. Don't change ports without also updating PUBLIC_URL and the control page links/origin configuration.
 
 The existing alert simulator still works with this stack:
 
