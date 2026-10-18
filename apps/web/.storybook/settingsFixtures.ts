@@ -1,6 +1,6 @@
 export const settingsFixture = {
-  values: { PUBLIC_URL: 'https://aegis.example', HTTP_ADDR: ':8080', WEBHOOK_SECRET: '', ADMIN_EMAILS: 'admin@example.com', SESSION_TTL: '168h', INCIDENT_DEDUP_WINDOW: '24h', ESCALATION_TIMEOUT: '15m', ALERT_FINGERPRINT_LABELS: 'alertname,team' },
-  revision: 1, enabled: { google: true }, secret_present: { WEBHOOK_SECRET: true }, bootstrap_closed: true,
+  values: { PUBLIC_URL: 'https://aegis.example', HTTP_ADDR: ':8080', WEBHOOK_SECRET: '', ADMIN_EMAILS: 'admin@example.com', SESSION_TTL: '168h', INCIDENT_DEDUP_WINDOW: '24h', ESCALATION_TIMEOUT: '15m', ALERT_FINGERPRINT_LABELS: 'alertname,team', AEGIS_ANOMALY_URL: 'http://anomaly-detector:8080', AEGIS_INSTALLATION_ID: 'example-installation', AEGIS_ANOMALY_IDENTITY_SECRET: '', AEGIS_ANOMALY_SERVICE_TOKEN: '', AEGIS_ANOMALY_ENABLED: 'false' },
+  revision: 1, enabled: { google: true }, secret_present: { WEBHOOK_SECRET: true, AEGIS_ANOMALY_IDENTITY_SECRET: true, AEGIS_ANOMALY_SERVICE_TOKEN: true }, bootstrap_closed: true,
 };
 
 // Runs before mounting a story and restores fetch when leaving it. No live service calls.

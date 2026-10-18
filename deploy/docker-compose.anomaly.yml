@@ -1,0 +1,17 @@
+services:
+  anomaly-detector:
+    image: ${AEGIS_ANOMALY_IMAGE:?Set a published private module image with an immutable tag or digest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${ANOMALY_DATABASE_URL:?Provision a separate module database and credentials}
+      AEGIS_URL: http://api:8080
+      AEGIS_INSTALLATION_ID: ${AEGIS_INSTALLATION_ID:?Match the host database settings}
+      AEGIS_ANOMALY_IDENTITY_SECRET: ${AEGIS_ANOMALY_IDENTITY_SECRET:?Match the host database settings}
+      AEGIS_ANOMALY_SERVICE_TOKEN: ${AEGIS_ANOMALY_SERVICE_TOKEN:?Match the host database settings}
+      ENCRYPTION_KEY: ${ANOMALY_ENCRYPTION_KEY:?Set the module credential encryption key}
+      MODULE_ENABLED: "true"
+      LISTEN_ADDR: ":8080"
+    expose: ["8080"]
+# Opt in with both -f deploy/docker-compose.yml -f deploy/docker-compose.anomaly.yml.
+# Set the host's database-backed module URL to http://anomaly-detector:8080 in Settings.
+# Run the private release's migration command before starting this service.

@@ -3,6 +3,7 @@
 Base URL: `/api/v1`. JSON request/response unless noted. Errors: `{code, message, details}`.
 
 Settings/installation OpenAPI schema: [`openapi-settings.yaml`](./openapi-settings.yaml).
+Anomaly module OpenAPI schema: [`openapi-anomaly-module.yaml`](./openapi-anomaly-module.yaml).
 Generating the complete application schema from code remains a future story.
 
 ## Admin settings and installation
@@ -15,7 +16,7 @@ GET responses contain empty secret fields and `secret_present` flags, never secr
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
 | GET | `/api/v1/settings` | admin | `{values,secret_present,enabled,revision,bootstrap_closed}` |
-| PATCH | `/api/v1/settings/{section}` | admin + same origin | `{revision,values,confirm_public_url?}`; section `access`, `behavior`, `deployment`; blank secrets preserve existing values |
+| PATCH | `/api/v1/settings/{section}` | admin + same origin | `{revision,values,confirm_public_url?}`; section `access`, `behavior`, `deployment`, `anomaly`; blank secrets preserve existing values |
 | GET | `/api/v1/settings/providers/{provider}` | admin | Redacted active defaults or saved draft: `{provider,values,secret_present,revision,tested,expected_email}` |
 | PUT | `/api/v1/settings/providers/{provider}` | admin + same origin | Save `{revision,values}` as draft. Expected email comes from the initiating admin. New drafts start at revision zero. |
 | POST | `/api/v1/settings/providers/{provider}/test` | admin + same origin | `{authorization_url}` for a five-minute, single-use, session/provider/revision-bound verified sign-in; no user or paging mutations |
@@ -444,3 +445,31 @@ Response `202`:
 - Architecture: [`02-architecture.md`](./02-architecture.md)
 - Security: [`09-security.md`](./09-security.md)
 - Localization: [`11-localization.md`](./11-localization.md)
+
+## Optional anomaly module
+
+See [module integration](features/anomaly-detection.md) and [OpenAPI](openapi-anomaly-module.yaml).
+The session-protected browser proxy keeps `/modules/anomaly-detector/` for all screens, assets
+and module data APIs. Admin writes and member history feedback require the saved Aegis origin;
+viewers and disabled installations retain read access. JWT identity is HS256, issued by `aegis`
+for audience `anomaly-detector`, expires after 60 seconds, and includes `sub`, `installation_id`,
+`role`, `locale`, `workspace_ids`, `entitled`, `iat`, `exp`. Incoming identity and browser credentials
+are removed before forwarding.
+
+| Method | Host path | Auth | Result |
+| --- | --- | --- | --- |
+| GET | `/api/v1/modules/anomaly-detector/capabilities` | session | `{configured,enabled,available,compatible,version?}` |
+| GET | `/api/v1/modules/anomaly-detector/entitlement` | module service bearer | `{contract_version:1,installation_id,enabled,expires_at}` with 60-second expiry, including disabled access |
+| POST | `/api/v1/modules/anomaly-detector/events` | module service bearer and enabled access | `202 {alert_id,duplicate,ignored}` after transactional persistence; conflicting replays return `409` |
+
+Settings section `anomaly` stores `AEGIS_ANOMALY_URL`, `AEGIS_ANOMALY_ENABLED`,
+`AEGIS_INSTALLATION_ID`, `AEGIS_ANOMALY_IDENTITY_SECRET`, `AEGIS_ANOMALY_SERVICE_TOKEN`.
+Enabled is a string `true` or `false` in the existing settings values map. Connection settings
+validate atomically and the two different 32-byte-minimum secrets are redacted and preserved
+when blank. They take effect on subsequent requests.
+
+Event receipts are durable and scoped by installation. Event, workspace, metric and episode
+IDs are canonical nonzero UUIDs; series identity is lowercase SHA256. The installation ID is
+an opaque bounded string. Every accepted episode has one alert and at most one processing
+job. Recovery marks the original alert resolved and appends a timeline event to linked incidents
+without closing them. A recovery that arrives before processing suppresses incident creation.

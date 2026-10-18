@@ -93,6 +93,9 @@ func (p *AlertProcessor) Handle(ctx context.Context, job Job) error {
 			EscalationRunAt: now.Add(config.EscalationDelay(ctx, p.escalationTimeout)),
 		},
 	})
+	if errors.Is(err, db.ErrAlertNotFiring) {
+		return nil
+	}
 	if errors.Is(err, db.ErrAlertAlreadyLinked) {
 		incident, lookupErr := p.store.GetOpenIncidentForAlert(ctx, alertID)
 		if lookupErr != nil {
@@ -116,6 +119,9 @@ func (p *AlertProcessor) matchTeam(ctx context.Context, labels map[string]string
 	}
 	parsed := make([]routing.Rule, 0, len(rules))
 	for _, rule := range rules {
+		if labels["aegis_module"] == "anomaly-detector" && rule.WorkspaceID.String() != labels["aegis_workspace_id"] {
+			continue
+		}
 		matchLabels, err := routing.ParseMatchLabels(rule.MatchLabels)
 		if err != nil {
 			continue

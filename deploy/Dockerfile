@@ -44,7 +44,7 @@ COPY --from=web /src/apps/web/dist /usr/share/nginx/html
 COPY db/migrations /migrations
 COPY deploy/nginx.all-in-one.conf /etc/nginx/conf.d/default.conf
 COPY deploy/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh /app/api /app/worker
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh /app/api /app/worker
 
 EXPOSE 3000
 WORKDIR /app

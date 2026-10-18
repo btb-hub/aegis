@@ -7,6 +7,7 @@ import type { AuthUser } from '../../lib/authTypes';
 import { Button } from '../ui/Button';
 
 export type AppPage =
+  | 'anomaly'
   | 'shifts'
   | 'teams'
   | 'workspaces'
@@ -25,6 +26,7 @@ type AppShellProps = {
 };
 
 const navigationIcons: Record<AppPage, ReactNode> = {
+  anomaly: <><path d="M2 12h4l3-8 5 16 3-8h5" /></>,
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   alerts: <><path d="M12 3 22 20H2L12 3Z" /><path d="M12 10v4" /><circle cx="12" cy="17" r=".7" fill="currentColor" /></>,
   incidents: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5" /><circle cx="12" cy="16" r=".7" fill="currentColor" /></>,
@@ -53,12 +55,13 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
 
   const isAdmin = user?.role === 'admin';
 
-  const navItems: Array<{ id: AppPage; label: string }> = [
+  const navItems: Array<{ id: AppPage; label: string; href?: string }> = [
     { id: 'shifts', label: t('nav.shifts') },
     { id: 'teams', label: t('nav.teams') },
     { id: 'workspaces', label: t('nav.workspaces') },
     { id: 'incidents', label: t('nav.incidents') },
     { id: 'alerts', label: t('nav.alerts') },
+    { id: 'anomaly', label: t('nav.anomaly'), href: '/modules/anomaly-detector/' },
     { id: 'dashboard', label: t('nav.dashboard') },
     ...(isAdmin ? [{ id: 'settings' as AppPage, label: t('nav.settings') }] : []),
     ...(isAdmin ? [{ id: 'users' as AppPage, label: t('nav.users') }] : []),
@@ -90,6 +93,9 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
         active ? 'bg-blue-50 font-semibold text-blue-700' : 'font-medium text-zinc-500 hover:bg-white hover:text-zinc-900'
       }`;
       const content = <><svg aria-hidden="true" viewBox="0 0 24 24" className="h-[17px] w-[17px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">{navigationIcons[item.id]}</svg><span>{item.label}</span></>;
+      if (item.href) {
+        return <a key={item.id} href={item.href} className={classes} aria-current={active ? 'page' : undefined} onClick={() => setNavigationOpen(false)}>{content}</a>;
+      }
       if (onNavigate) {
         return (
           <button

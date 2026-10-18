@@ -81,6 +81,7 @@ func main() {
 	})
 
 	handler.NewHealthHandler(health).Register(r)
+	handler.NewAnomalyHandler(cfg, store, auth).Register(r)
 	settings := handler.NewSettingsHandler(service.NewSettingsService(store, boot), auth)
 	authHandler := handler.NewAuthHandler(auth, cfg.PublicURL, paging.Callback)
 	authHandler.SettingsFlows(settings.Login, settings.Callback)

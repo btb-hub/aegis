@@ -1,5 +1,11 @@
 .git
 .github
+.worktrees/
+.cache/
+_bmad-output/
+.agents/
+.codex/
+_bmad/
 .env
 .env.*
 !.env.example

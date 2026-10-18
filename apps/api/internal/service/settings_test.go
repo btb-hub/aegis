@@ -264,3 +264,16 @@ func TestSettingsServiceTestDoesNotCreateIdentity(t *testing.T) {
 	require.Empty(t, token)
 	require.False(t, r.installed)
 }
+
+func TestAnomalySettingsSecretsAreRedacted(t *testing.T) {
+	doc := config.DefaultSettings()
+	doc.Values["AEGIS_ANOMALY_IDENTITY_SECRET"] = "private-identity-value"
+	doc.Values["AEGIS_ANOMALY_SERVICE_TOKEN"] = "private-service-value"
+	redacted := RedactedSettings(doc)
+	values := redacted["values"].(map[string]string)
+	require.Empty(t, values["AEGIS_ANOMALY_IDENTITY_SECRET"])
+	require.Empty(t, values["AEGIS_ANOMALY_SERVICE_TOKEN"])
+	present := redacted["secret_present"].(map[string]bool)
+	require.True(t, present["AEGIS_ANOMALY_IDENTITY_SECRET"])
+	require.True(t, present["AEGIS_ANOMALY_SERVICE_TOKEN"])
+}

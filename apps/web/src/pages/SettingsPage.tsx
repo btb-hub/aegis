@@ -5,15 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import { settingsRequest, type Settings } from '../lib/settings';
 import { AuthenticationSettings } from '../components/settings/AuthenticationSettings';
 import { Button } from '../components/ui/Button';
+import { Checkbox } from '../components/ui/Checkbox';
 import { Input } from '../components/ui/Input';
 import { PageContent } from '../components/ui/PageContent';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Modal } from '../components/ui/Modal';
 import { IntegrationsPage } from './IntegrationsPage';
 
-const sections = ['authentication', 'integrations', 'behavior', 'deployment', 'diagnostics'];
+const sections = ['authentication', 'integrations', 'behavior', 'deployment', 'anomaly', 'diagnostics'];
 const fields: Record<string, string[]> = {
   access: ['ADMIN_EMAILS'],
+  anomaly: ['AEGIS_ANOMALY_URL', 'AEGIS_INSTALLATION_ID', 'AEGIS_ANOMALY_IDENTITY_SECRET', 'AEGIS_ANOMALY_SERVICE_TOKEN', 'AEGIS_ANOMALY_ENABLED'],
   behavior: ['SESSION_TTL', 'INCIDENT_DEDUP_WINDOW', 'ESCALATION_TIMEOUT', 'ALERT_FINGERPRINT_LABELS'],
   deployment: ['PUBLIC_URL', 'HTTP_ADDR', 'WEBHOOK_SECRET'],
 };
@@ -30,6 +32,7 @@ export function SettingsPage() {
   const [busy, setBusy] = useState(false);
   const [confirmURL, setConfirmURL] = useState(false);
   const [health, setHealth] = useState<string | null>(null);
+  const [moduleStatus, setModuleStatus] = useState<string | null>(null);
   const [alertId, setAlertId] = useState<string | null>(null);
   const isAdmin = user?.role === 'admin';
 
@@ -46,12 +49,21 @@ export function SettingsPage() {
     if (group === 'deployment' && values.PUBLIC_URL !== settings.values.PUBLIC_URL && !confirmed) { setConfirmURL(true); return; }
     setBusy(true); setError(null); setMessage(null);
     try {
-      const patch = Object.fromEntries(fields[group].map((key) => [key, values[key] ?? '']));
+      const patch = Object.fromEntries(fields[group].map((key) => [key, values[key] ?? (key === 'AEGIS_ANOMALY_ENABLED' ? 'false' : '')]));
       const previousURL = settings.values.PUBLIC_URL;
       const next = await settingsRequest<Settings>(`/api/v1/settings/${group}`, 'PATCH', { revision: settings.revision, values: patch, confirm_public_url: confirmed });
       apply(next); setConfirmURL(false); setMessage(group === 'deployment' && patch.HTTP_ADDR !== settings.values.HTTP_ADDR ? 'settings.saved_restart' : 'settings.saved');
       if (group === 'deployment' && next.values.PUBLIC_URL !== previousURL) { window.location.assign(`${next.values.PUBLIC_URL}/settings?section=deployment`); }
     } catch (err) { setError(err instanceof Error ? err.message : 'settings.request_failed'); setConfirmURL(false); }
+    finally { setBusy(false); }
+  }
+
+  async function checkModule() {
+    setBusy(true); setError(null); setModuleStatus(null);
+    try {
+      const status = await settingsRequest<{ configured: boolean; enabled: boolean; available: boolean; compatible: boolean }>('/api/v1/modules/anomaly-detector/capabilities');
+      setModuleStatus(!status.configured ? 'settings.anomaly_not_configured' : !status.available ? 'settings.anomaly_unavailable' : !status.compatible ? 'settings.anomaly_incompatible' : status.enabled ? 'settings.anomaly_ready' : 'settings.anomaly_readonly');
+    } catch { setError('settings.request_failed'); }
     finally { setBusy(false); }
   }
 
@@ -74,10 +86,12 @@ export function SettingsPage() {
   const renderFields = (group: string) => <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
     <h2 className="text-lg font-semibold">{t(`settings.${group}`)}</h2>
     {group === 'deployment' ? <p className="text-sm text-zinc-600">{t('settings.deployment_body')}</p> : null}
-    {fields[group].map((key) => <Input key={key} label={t(`settings.field.${key.toLowerCase()}`)}
-      value={values[key] ?? ''} type={key === 'WEBHOOK_SECRET' ? 'password' : 'text'}
+    {group === 'anomaly' ? <p className="text-sm text-zinc-600">{t('settings.anomaly_body')}</p> : null}
+    {fields[group].filter((key) => key !== 'AEGIS_ANOMALY_ENABLED').map((key) => <Input key={key} label={t(`settings.field.${key.toLowerCase()}`)}
+      value={values[key] ?? ''} type={key === 'WEBHOOK_SECRET' || key === 'AEGIS_ANOMALY_IDENTITY_SECRET' || key === 'AEGIS_ANOMALY_SERVICE_TOKEN' ? 'password' : 'text'}
       hint={settings?.secret_present[key] ? t('settings.secret_saved') : undefined}
       onChange={(value) => { setValues((current) => ({ ...current, [key]: value })); setMessage(null); }} />)}
+    {group === 'anomaly' ? <Checkbox label={t('settings.field.aegis_anomaly_enabled')} checked={values.AEGIS_ANOMALY_ENABLED === 'true'} onChange={(checked) => { setValues((current) => ({ ...current, AEGIS_ANOMALY_ENABLED: String(checked) })); setMessage(null); }} /> : null}
     <Button disabled={busy} onClick={() => void save(group)}>{t('settings.save')}</Button>
   </section>;
 
@@ -97,6 +111,7 @@ export function SettingsPage() {
       {section === 'integrations' ? <IntegrationsPage embedded /> : null}
       {section === 'behavior' ? renderFields('behavior') : null}
       {section === 'deployment' ? renderFields('deployment') : null}
+      {section === 'anomaly' ? <>{renderFields('anomaly')}<section className="space-y-3"><Button variant="secondary" disabled={busy} onClick={() => void checkModule()}>{t('settings.anomaly_check')}</Button>{moduleStatus ? <p role="status">{t(moduleStatus)}</p> : null}<a className="block text-sm text-accent hover:underline" href="/modules/anomaly-detector/">{t('nav.anomaly')}</a></section></> : null}
       {section === 'diagnostics' ? <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="text-lg font-semibold">{t('settings.diagnostics')}</h2>
         <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy} onClick={() => void checkHealth()}>{t('settings.check_health')}</Button>

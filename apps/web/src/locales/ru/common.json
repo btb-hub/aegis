@@ -633,5 +633,20 @@
   "settings.back_login": "Вернуться к входу",
   "account.paging_error.authentication_required": "Администратору нужно настроить вход через этот мессенджер в Настройках.",
   "account.paging_error.bot_required": "Администратору нужно завершить настройку глобального бота в Настройках.",
-  "account.paging_error.bot_disabled": "Глобальный бот отключён. Попросите администратора включить его в Настройках."
+  "account.paging_error.bot_disabled": "Глобальный бот отключён. Попросите администратора включить его в Настройках.",
+  "nav.anomaly": "Обнаружение аномалий",
+  "settings.anomaly": "Обнаружение аномалий",
+  "settings.anomaly_body": "Подключите установленный модуль. Сохраните все параметры подключения вместе. Отключение доступа приостанавливает обнаружение и отправку новых событий, сохраняя данные доступными для чтения. Уже принятые Aegis события продолжают обрабатываться в обычном процессе работы с инцидентами.",
+  "settings.field.aegis_anomaly_url": "URL модуля",
+  "settings.field.aegis_installation_id": "Идентификатор установки",
+  "settings.field.aegis_anomaly_identity_secret": "Секрет подписи удостоверения",
+  "settings.field.aegis_anomaly_service_token": "Сервисный токен модуля",
+  "settings.field.aegis_anomaly_enabled": "Включить обнаружение и отправку оповещений",
+  "settings.anomaly_check": "Проверить сохранённое подключение",
+  "settings.anomaly_not_configured": "Сначала настройте и сохраните подключение модуля.",
+  "settings.anomaly_unavailable": "Модуль недоступен. Проверьте адрес и сервисные учётные данные.",
+  "settings.anomaly_incompatible": "Версия модуля несовместима. Установите поддерживаемую версию.",
+  "settings.anomaly_ready": "Модуль подключён, обнаружение включено.",
+  "settings.anomaly_readonly": "Модуль подключён с доступом только для чтения.",
+  "incidents.timeline.anomaly_recovered": "Аномалия устранена"
 }

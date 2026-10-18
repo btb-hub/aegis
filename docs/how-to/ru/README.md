@@ -76,3 +76,5 @@ DevOps. Большее число приоритета проверяется п
 Роли: [docs/user-guide.md](../../user-guide.md).
 Установка ПО: [docs/07-setup-deployment.md](../../07-setup-deployment.md).
 Стилизованная HTML-версия (для хостинга доков) лежит рядом с этими файлами.
+
+- [Обнаружение аномалий](anomaly-detection.md)

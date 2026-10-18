@@ -150,6 +150,36 @@ describe('Settings and installation', () => {
     fireEvent.click(button('settings.reload')); await screen.findByRole('button', { name: i18n.t('settings.check_health') });
   });
 
+  it('saves anomaly connection fields together with blank secrets and a string access flag', async () => {
+    show(<SettingsPage />, '/settings?section=anomaly');
+    await screen.findByLabelText('Module URL');
+    expect(screen.getByLabelText('Identity signing secret')).toHaveAttribute('type', 'password');
+    expect(screen.getByLabelText('Module service token')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Module URL'), { target: { value: 'https://module.example' } });
+    fireEvent.change(screen.getByLabelText('Installation ID'), { target: { value: 'customer-installation' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: i18n.t('settings.field.aegis_anomaly_enabled') }));
+    vi.mocked(fetch).mockResolvedValueOnce(response(settings)); fireEvent.click(button('settings.save'));
+    await screen.findByText(i18n.t('settings.saved'));
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/v1/settings/anomaly', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ revision: 3, values: { AEGIS_ANOMALY_URL: 'https://module.example', AEGIS_INSTALLATION_ID: 'customer-installation', AEGIS_ANOMALY_IDENTITY_SECRET: '', AEGIS_ANOMALY_SERVICE_TOKEN: '', AEGIS_ANOMALY_ENABLED: 'true' }, confirm_public_url: false }) }));
+    expect(screen.getByRole('link', { name: i18n.t('nav.anomaly') })).toHaveAttribute('href', '/modules/anomaly-detector/');
+  });
+
+  it('checks the saved module connection and explains every status', async () => {
+    show(<SettingsPage />, '/settings?section=anomaly'); await screen.findByLabelText('Module URL');
+    const variants = [
+      [{ configured: false }, 'settings.anomaly_not_configured'],
+      [{ configured: true, available: false }, 'settings.anomaly_unavailable'],
+      [{ configured: true, available: true, compatible: false }, 'settings.anomaly_incompatible'],
+      [{ configured: true, available: true, compatible: true, enabled: false }, 'settings.anomaly_readonly'],
+      [{ configured: true, available: true, compatible: true, enabled: true }, 'settings.anomaly_ready'],
+    ] as const;
+    for (const [status, key] of variants) {
+      vi.mocked(fetch).mockResolvedValueOnce(response(status)); fireEvent.click(button('settings.anomaly_check')); await screen.findByText(i18n.t(key));
+    }
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('private address')); fireEvent.click(button('settings.anomaly_check')); await screen.findByText(i18n.t('settings.request_failed'));
+    expect(screen.queryByText('private address')).not.toBeInTheDocument();
+  });
+
   it('does not load admin settings for a member', () => {
     user = { email: 'member@company.com', role: 'member' }; show();
     expect(screen.getByRole('alert')).toHaveTextContent(i18n.t('settings.access_denied'));

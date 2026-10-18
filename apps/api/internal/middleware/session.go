@@ -20,11 +20,23 @@ type SessionUserResolver interface {
 	CurrentUser(ctx context.Context, token string) (db.User, error)
 }
 
-func RequireSession(auth SessionUserResolver) gin.HandlerFunc {
+func RequireSession(auth SessionUserResolver) gin.HandlerFunc { return requireSession(auth, false) }
+
+// RequireBrowserSession redirects document navigation to sign-in, while APIs retain JSON errors.
+func RequireBrowserSession(auth SessionUserResolver) gin.HandlerFunc {
+	return requireSession(auth, true)
+}
+
+func requireSession(auth SessionUserResolver, redirectDocument bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := sessionToken(c)
 		user, err := auth.CurrentUser(c.Request.Context(), token)
 		if err != nil {
+			if redirectDocument && (c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead) && strings.Contains(c.GetHeader("Accept"), "text/html") && !strings.Contains(c.Request.URL.Path, "/api/") {
+				c.Redirect(http.StatusFound, "/login")
+				c.Abort()
+				return
+			}
 			writeError(c, err)
 			c.Abort()
 			return

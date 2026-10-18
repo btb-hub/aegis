@@ -633,5 +633,20 @@
   "settings.back_login": "Back to sign-in",
   "account.paging_error.authentication_required": "An administrator needs to configure sign-in for this messenger in Settings.",
   "account.paging_error.bot_required": "An administrator needs to complete the global bot configuration in Settings.",
-  "account.paging_error.bot_disabled": "The global bot is disabled. Ask an administrator to enable it in Settings."
+  "account.paging_error.bot_disabled": "The global bot is disabled. Ask an administrator to enable it in Settings.",
+  "nav.anomaly": "Anomaly detection",
+  "settings.anomaly": "Anomaly detection",
+  "settings.anomaly_body": "Connect your installed module. Save all connection fields together. Turning off access pauses detection and new event delivery while keeping retained data readable. Events already accepted by Aegis continue through its incident workflow.",
+  "settings.field.aegis_anomaly_url": "Module URL",
+  "settings.field.aegis_installation_id": "Installation ID",
+  "settings.field.aegis_anomaly_identity_secret": "Identity signing secret",
+  "settings.field.aegis_anomaly_service_token": "Module service token",
+  "settings.field.aegis_anomaly_enabled": "Enable detection and alert delivery",
+  "settings.anomaly_check": "Check saved connection",
+  "settings.anomaly_not_configured": "Configure and save the module connection first.",
+  "settings.anomaly_unavailable": "The module is unavailable. Check its address and service credentials.",
+  "settings.anomaly_incompatible": "This module version is incompatible. Install a supported release.",
+  "settings.anomaly_ready": "The module is connected and detection is enabled.",
+  "settings.anomaly_readonly": "The module is connected with read-only access.",
+  "incidents.timeline.anomaly_recovered": "Anomaly recovered"
 }
