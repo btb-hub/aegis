@@ -3,7 +3,8 @@
 	up up-detached up-dev up-dev-detached down logs ps \
 	dev-db dev-db-down dev-api dev-worker dev-web \
 	dev-simulator dev-simulator-bootstrap simulate-alert test-devtools \
-	image image-smoke
+	image image-smoke \
+	anomaly-sandbox anomaly-sandbox-down anomaly-sandbox-status anomaly-sandbox-logs
 
 GO_PKGS := ./pkg/... ./apps/api/... ./apps/worker/...
 
@@ -136,6 +137,18 @@ dev-simulator-bootstrap:
 
 test-devtools:
 	cd devtools/alert-simulator && go test ./...
+
+anomaly-sandbox:
+	bash scripts/anomaly-sandbox.sh up
+
+anomaly-sandbox-down:
+	bash scripts/anomaly-sandbox.sh down
+
+anomaly-sandbox-status:
+	bash scripts/anomaly-sandbox.sh status
+
+anomaly-sandbox-logs:
+	bash scripts/anomaly-sandbox.sh logs
 
 image:
 	docker build -f deploy/Dockerfile -t $(IMAGE_NAME) .

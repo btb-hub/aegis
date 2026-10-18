@@ -1,0 +1,125 @@
+name: aegis-anomaly-local
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: local_aegis_only
+      POSTGRES_DB: aegis
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/10-module.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U aegis -d aegis]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  host-init:
+    image: aegis-anomaly-host:local
+    build:
+      context: ../..
+      dockerfile: deploy/Dockerfile
+    environment:
+      DATABASE_URL: postgres://aegis:local_aegis_only@postgres:5432/aegis?sslmode=disable
+    volumes:
+      - ./host.env:/sandbox/host.env:ro
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - migrate -path /migrations -database "$$DATABASE_URL" up && /app/config-import --env-file /sandbox/host.env --apply
+    depends_on:
+      postgres: {condition: service_healthy}
+  seed-host:
+    image: postgres:16
+    environment:
+      PGHOST: postgres
+      PGUSER: aegis
+      PGPASSWORD: local_aegis_only
+      PGDATABASE: aegis
+    volumes:
+      - ./seed.sql:/sandbox/seed.sql:ro
+    command: [psql, -v, ON_ERROR_STOP=1, -f, /sandbox/seed.sql]
+    depends_on:
+      host-init: {condition: service_completed_successfully}
+  aegis:
+    image: aegis-anomaly-host:local
+    environment:
+      DATABASE_URL: postgres://aegis:local_aegis_only@postgres:5432/aegis?sslmode=disable
+      DEV_AUTH_ENABLED: "true"
+    ports: ["127.0.0.1:18080:3000"]
+    depends_on:
+      seed-host: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O /dev/null http://127.0.0.1:3000/healthz]
+      interval: 3s
+      timeout: 2s
+      retries: 30
+  anomaly-detector:
+    image: aegis-anomaly-detector:local
+    build:
+      context: ${AEGIS_ANOMALY_SOURCE_DIR:-../../.worktrees/aegis-anomaly-detector}
+    environment:
+      DATABASE_URL: postgres://anomaly:local_anomaly_only@postgres:5432/anomaly?sslmode=disable
+      AEGIS_URL: http://aegis:3000
+      AEGIS_INSTALLATION_ID: local-sandbox
+      AEGIS_ANOMALY_IDENTITY_SECRET: local-sandbox-identity-0123456789-abcdef
+      AEGIS_ANOMALY_SERVICE_TOKEN: local-sandbox-service-9876543210-fedcba
+      ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      MODULE_ENABLED: "true"
+      LISTEN_ADDR: :8080
+    depends_on:
+      postgres: {condition: service_healthy}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  mimir:
+    image: grafana/mimir:3.0.0
+    command: [-config.file=/etc/mimir.yaml]
+    volumes:
+      - ./mimir.yml:/etc/mimir.yaml:ro
+      - mimir:/data
+    ports: ["127.0.0.1:19009:9009"]
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=2d]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    ports: ["127.0.0.1:19090:9090"]
+    depends_on: [mimir, controls]
+  controls:
+    image: python:3.13-alpine
+    command: [python, /sandbox/sandbox.py]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./:/sandbox:ro
+      - controls:/data
+    ports: ["127.0.0.1:18081:8081"]
+  bootstrap:
+    image: python:3.13-alpine
+    command: [python, /sandbox/bootstrap.py]
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./:/sandbox:ro
+      - bootstrap:/state
+    depends_on:
+      aegis: {condition: service_healthy}
+      anomaly-detector: {condition: service_started}
+      prometheus: {condition: service_started}
+  alert-simulator:
+    profiles: [tools]
+    build:
+      context: ../..
+      dockerfile: devtools/alert-simulator/Dockerfile
+    environment:
+      AEGIS_API_URL: http://aegis:3000
+      AEGIS_WEBHOOK_URL: http://aegis:3000/api/v1/alerts/webhook
+      WEBHOOK_SECRET: local-sandbox-webhook-only
+    command: [-once, -team, platform]
+volumes:
+  postgres:
+  mimir:
+  prometheus:
+  controls:
+  bootstrap:
