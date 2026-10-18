@@ -97,6 +97,11 @@ Carol eXpress, and Local Admin (`dev@localhost`).
 
 On Windows without Make: `.\scripts\dev.ps1 setup` and `.\scripts\dev.ps1 up`.
 
+To test alerts, incidents and anomalies from a real local Mimir, run
+`./scripts/anomaly-sandbox.ps1 up`. Open the [test controls](http://localhost:18081).
+The [sandbox guide](devtools/anomaly-sandbox/README.md) covers synthetic spikes/dips,
+local Slack/eXpress capture, previews, discovery and restarts. A private module checkout is required.
+
 | Command | Description |
 |---------|-------------|
 | `make install` | Alias for `make setup` |

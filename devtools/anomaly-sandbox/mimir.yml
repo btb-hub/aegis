@@ -1,0 +1,45 @@
+# Official single-binary demo pattern, classic ingesters for this local sandbox.
+# https://grafana.com/docs/mimir/latest/get-started/
+target: all
+multitenancy_enabled: true
+ingest_storage:
+  enabled: false
+ingester:
+  push_grpc_method_enabled: true
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+    replication_factor: 1
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/blocks
+  bucket_store:
+    sync_dir: /data/tsdb-sync
+  tsdb:
+    dir: /data/tsdb
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: inmemory
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+    kvstore:
+      store: inmemory
+ruler_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/rules
+server:
+  http_listen_port: 9009
+  log_level: warn
+usage_stats:
+  enabled: false
