@@ -12,7 +12,7 @@ paths:
         '200': { description: Redacted settings, content: { application/json: { schema: { $ref: '#/components/schemas/Settings' } } } }
   /api/v1/settings/{section}:
     parameters:
-      - { name: section, in: path, required: true, schema: { type: string, enum: [access, behavior, deployment] } }
+      - { name: section, in: path, required: true, schema: { type: string, enum: [access, behavior, deployment, anomaly] } }
     patch:
       security: [{ session: [] }]
       summary: Save validated settings with revision and same-origin checks

@@ -657,3 +657,11 @@ func TestBlockedTeamsJSON(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, l2ID.String(), items[0]["team_id"])
 }
+
+func TestWorkspaceAnomalyHistoryPreventsDeletion(t *testing.T) {
+	err := mapWorkspaceError(&pgconn.PgError{Code: "23503", ConstraintName: "anomaly_module_episodes_workspace_id_fkey"})
+	var app *apperrors.Error
+	require.ErrorAs(t, err, &app)
+	require.Equal(t, 409, app.StatusCode)
+	require.Contains(t, app.Message, "retained anomaly history")
+}

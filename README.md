@@ -23,6 +23,7 @@ Read them on GitHub (Markdown). HTML copies in the same folder are for a docs ho
 | [Routing rules](./docs/how-to/routing.md) | Filled-in forms: `team=platform` → Platform L2; NOC-first; shared DevOps |
 | [Escalation paths](./docs/how-to/paths.md) | L2 → L3, NOC chain, shared L3 |
 | [Work an incident](./docs/how-to/incidents.md) | Acknowledge, hand off, bounce, resolve |
+| [Anomaly detection](./docs/how-to/anomaly-detection.md) | Connect the optional private module, configure access, investigate detection and recovery |
 | [Connect Jira, Slack, eXpress](./docs/how-to/connect.md) | Global bots, Jira Server/DC or Cloud, workspace slots, Account paging connections, shared channels |
 | [When it does not route](./docs/how-to/troubleshooting.md) | Alerts without incidents, empty on-call banner, missing handoff button |
 
@@ -72,7 +73,7 @@ make dev-db         # Postgres + migrations (port 5432)
 # three terminals:
 make dev-api        # API on :8080
 make dev-worker     # background job worker
-make dev-web        # Vite on :3000 (proxies /api and /auth to :8080)
+make dev-web        # Vite on :3000 (proxies /api, /auth and /modules to :8080)
 ```
 
 Stop Postgres: `make dev-db-down`. Same Dev sign in as option 1. Configure the app in **Settings**.
@@ -300,3 +301,11 @@ aegis/
 ├── scripts/               # coverage gate, env helpers for local dev
 └── .github/               # CI, PR template
 ```
+
+## Optional anomaly detection
+
+Aegis supports an independently installed private anomaly detector through authenticated
+navigation, signed identity, a capability/entitlement contract and durable episode events.
+Core has no private repository build dependency. Configure it in **Settings → Anomaly detection**;
+see [deployment and operations](docs/features/anomaly-detection.md) and the opt-in Compose/Kubernetes
+examples under `deploy/`. Recovery resolves the alert while incidents remain under responder control.

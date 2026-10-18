@@ -1,0 +1,131 @@
+openapi: 3.0.3
+info:
+  title: Aegis optional anomaly module integration
+  version: '1'
+  description: Core routes plus the independent module capability handshake. Browser proxy requests require a live session and mutations require the saved Aegis origin. Module data APIs belong to the private repository.
+paths:
+  /api/v1/modules/anomaly-detector/capabilities:
+    get:
+      summary: Inspect saved connection and compatible module health
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Connection status without credentials; unavailable modules return false status fields
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, enabled, available, compatible]
+                properties:
+                  configured: { type: boolean }
+                  enabled: { type: boolean }
+                  available: { type: boolean }
+                  compatible: { type: boolean }
+                  version: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/modules/anomaly-detector/entitlement:
+    get:
+      summary: Issue a 60-second installation entitlement, including disabled grants
+      security: [{ service: [] }]
+      responses:
+        '200':
+          description: Current explicit configuration grant; callers must fail closed at expiry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contract_version, installation_id, enabled, expires_at]
+                properties:
+                  contract_version: { type: integer, enum: [1] }
+                  installation_id: { type: string, minLength: 1, maxLength: 128 }
+                  enabled: { type: boolean }
+                  expires_at: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Error' }
+  /api/v1/modules/anomaly-detector/events:
+    post:
+      summary: Atomically accept one anomaly episode event
+      description: Maximum body 1 MiB. Unknown fields and trailing JSON are rejected. Same event ID and canonical payload return the original outcome; conflicting payloads return 409. Older sequence events and post-recovery firing events produce ignored receipts. No incident closes automatically.
+      security: [{ service: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Event' }
+      responses:
+        '202':
+          description: Durably committed receipt and lifecycle effects
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [alert_id, duplicate, ignored]
+                properties:
+                  alert_id: { type: string, format: uuid }
+                  duplicate: { type: boolean }
+                  ignored: { type: boolean }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /api/v1/capabilities:
+    get:
+      summary: Private module upstream capability handshake
+      description: This route belongs to the private service, not the Aegis API. The host uses a three-second timeout. Compatibility does not depend on entitlement, so a service can refresh its host grant at startup.
+      security: [{ service: [] }]
+      responses:
+        '200':
+          description: Module capabilities
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [contract_version, module, version, healthy, entitled]
+                properties:
+                  contract_version: { type: integer, enum: [1] }
+                  module: { type: string, enum: [anomaly-detector] }
+                  version: { type: string, minLength: 1, maxLength: 128 }
+                  healthy: { type: boolean }
+                  entitled: { type: boolean }
+        '401': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: aegis_session }
+    service: { type: http, scheme: bearer }
+  schemas:
+    Event:
+      type: object
+      additionalProperties: false
+      required: [contract_version, event_id, installation_id, workspace_id, metric_id, series_id, episode_id, sequence, state, occurred_at, title, severity]
+      properties:
+        contract_version: { type: integer, enum: [1] }
+        event_id: { type: string, format: uuid }
+        installation_id: { type: string, minLength: 1, maxLength: 128 }
+        workspace_id: { type: string, format: uuid }
+        metric_id: { type: string, format: uuid }
+        series_id: { type: string, pattern: '^[0-9a-f]{64}$' }
+        episode_id: { type: string, format: uuid }
+        sequence: { type: integer, format: int64, minimum: 1 }
+        state: { type: string, enum: [firing, resolved] }
+        occurred_at: { type: string, format: date-time, description: At most five minutes in the future; delayed historical events are accepted }
+        title: { type: string, minLength: 1, maxLength: 512 }
+        severity: { type: string, enum: [info, warning, high, critical] }
+        labels:
+          type: object
+          maxProperties: 64
+          additionalProperties: { type: string, maxLength: 1024 }
+          description: Keys are nonempty and at most 128 bytes. Reserved aegis identity labels are overwritten by the host.
+        value: { type: number, format: double, description: Finite numeric sample }
+        reason: { type: string, maxLength: 2048 }
+  responses:
+    Error:
+      description: Structured error without secret values
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code: { type: string }
+              message: { type: string }
+              details: { type: object, nullable: true }

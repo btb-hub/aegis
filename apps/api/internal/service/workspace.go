@@ -110,6 +110,9 @@ func mapWorkspaceError(err error) error {
 		return apperrors.NotFound("workspace")
 	}
 	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "anomaly_module_episodes_workspace_id_fkey" {
+		return apperrors.Conflict("workspace has retained anomaly history")
+	}
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return apperrors.Conflict("workspace slug already exists")
 	}

@@ -78,3 +78,5 @@ Role reference (what admin vs member can change):
 Installing the software itself:
 [docs/07-setup-deployment.md](../07-setup-deployment.md).
 Styled HTML for a docs host lives next to these files.
+
+- [Anomaly detection](anomaly-detection.md)

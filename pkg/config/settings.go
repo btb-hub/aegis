@@ -23,6 +23,7 @@ type Settings struct {
 }
 
 var SettingSections = map[string][]string{
+	"anomaly":       {"AEGIS_ANOMALY_URL", "AEGIS_ANOMALY_ENABLED", "AEGIS_INSTALLATION_ID", "AEGIS_ANOMALY_IDENTITY_SECRET", "AEGIS_ANOMALY_SERVICE_TOKEN"},
 	"behavior":      {"SESSION_TTL", "ALERT_FINGERPRINT_LABELS", "INCIDENT_DEDUP_WINDOW", "ESCALATION_TIMEOUT"},
 	"access":        {"ADMIN_EMAILS"},
 	"deployment":    {"PUBLIC_URL", "HTTP_ADDR", "WEBHOOK_SECRET"},
@@ -81,6 +82,9 @@ func KnownKey(key string) bool {
 
 func DeploymentKey(key string) bool { return deploymentKeys[key] }
 func SecretKey(key string) bool {
+	if key == "AEGIS_ANOMALY_IDENTITY_SECRET" || key == "AEGIS_ANOMALY_SERVICE_TOKEN" {
+		return true
+	}
 	return key == "SESSION_SECRET" || key == "WEBHOOK_SECRET" || key == "AEGIS_BOOTSTRAP_TOKEN" || key == "DATABASE_URL" || strings.HasSuffix(key, "CLIENT_SECRET") || key == "JIRA_API_TOKEN" || key == "SLACK_BOT_TOKEN" || key == "SLACK_SIGNING_SECRET" || key == "EXPRESS_BOT_SECRET"
 }
 
@@ -164,6 +168,9 @@ func validEnvKey(s string) bool {
 }
 
 func ValidateValues(values map[string]string) error {
+	if _, err := anomalyConfig(values); err != nil {
+		return err
+	}
 	keys := make([]string, 0, len(values))
 	for key := range values {
 		keys = append(keys, key)
@@ -229,6 +236,7 @@ func (s Settings) Config(boot *Config) (*Config, error) {
 		return nil, err
 	}
 	c := *boot
+	c.Anomaly, _ = anomalyConfig(s.Values)
 	c.OIDC = map[string]OIDCProvider{}
 	c.PublicURL = strings.TrimRight(s.Values["PUBLIC_URL"], "/")
 	c.HTTPAddr = s.Values["HTTP_ADDR"]

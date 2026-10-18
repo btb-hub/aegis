@@ -99,3 +99,18 @@ func TestSessionTokenEmpty(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	require.Empty(t, sessionToken(c))
 }
+
+func TestRequireBrowserSessionDocumentRedirect(t *testing.T) {
+	for _, test := range []struct {
+		method, path, accept string
+		want                 int
+	}{{"GET", "/modules/anomaly-detector/", "text/html", 302}, {"HEAD", "/modules/anomaly-detector/", "text/html", 302}, {"GET", "/modules/anomaly-detector/api/v1/history", "text/html", 401}, {"POST", "/modules/anomaly-detector/", "text/html", 401}, {"GET", "/modules/anomaly-detector/", "application/json", 401}} {
+		r := gin.New()
+		r.Any("/*path", RequireBrowserSession(&sessionAuthMock{}), func(c *gin.Context) { c.Status(204) })
+		req := httptest.NewRequest(test.method, test.path, nil)
+		req.Header.Set("Accept", test.accept)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		require.Equal(t, test.want, w.Code)
+	}
+}

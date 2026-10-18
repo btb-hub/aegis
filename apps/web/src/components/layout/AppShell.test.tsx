@@ -65,6 +65,16 @@ describe('AppShell', () => {
     await i18n.changeLanguage('en');
   });
 
+  it('links to the independently served module in desktop and mobile navigation', () => {
+    renderShell(<AppShell currentPage="anomaly" onNavigate={vi.fn()}><div>content</div></AppShell>);
+    expect(screen.getByRole('link', { name: 'Anomaly detection' })).toHaveAttribute('href', '/modules/anomaly-detector/');
+    expect(screen.getByRole('link', { name: 'Anomaly detection' })).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('nav.open_menu') }));
+    const links = screen.getAllByRole('link', { name: 'Anomaly detection' }); expect(links).toHaveLength(2);
+    links[1].addEventListener('click', (event) => event.preventDefault());
+    fireEvent.click(links[1]); expect(screen.getAllByRole('link', { name: 'Anomaly detection' })).toHaveLength(1);
+  });
+
   it('calls onNavigate when a nav item is clicked', () => {
     const onNavigate = vi.fn();
     renderShell(

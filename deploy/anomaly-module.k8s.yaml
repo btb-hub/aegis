@@ -1,0 +1,33 @@
+# Replace the image with the published private release and provision the Secret first.
+# Secret anomaly-module must contain DATABASE_URL, AEGIS_INSTALLATION_ID,
+# AEGIS_ANOMALY_IDENTITY_SECRET, AEGIS_ANOMALY_SERVICE_TOKEN and ENCRYPTION_KEY.
+# Apply private module migrations as described by the selected release.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: anomaly-detector }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: anomaly-detector } }
+  template:
+    metadata: { labels: { app: anomaly-detector } }
+    spec:
+      containers:
+        - name: anomaly-detector
+          image: ghcr.io/btb-hub/aegis-anomaly-detector:REPLACE_WITH_RELEASE
+          ports: [{ containerPort: 8080 }]
+          envFrom: [{ secretRef: { name: anomaly-module } }]
+          env:
+            - { name: AEGIS_URL, value: "http://aegis" }
+            - { name: LISTEN_ADDR, value: ":8080" }
+            - { name: MODULE_ENABLED, value: "true" }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: anomaly-detector }
+spec:
+  selector: { app: anomaly-detector }
+  ports: [{ port: 8080, targetPort: 8080 }]
+# Save http://anomaly-detector:8080 as the host module URL. Do not expose this service publicly.
