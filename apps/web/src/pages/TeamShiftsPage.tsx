@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { OnCallBanner } from '../components/shifts/OnCallBanner';
 import { ShiftsCalendar } from '../components/shifts/ShiftsCalendar';
@@ -13,6 +14,8 @@ type TeamShiftsPageProps = {
   month?: Date;
   onDateChange?: (date: Date) => void;
   onAddOverride?: () => void;
+  actions?: ReactNode;
+  notice?: ReactNode;
 };
 
 export function TeamShiftsPage({
@@ -23,6 +26,8 @@ export function TeamShiftsPage({
   month = new Date(),
   onDateChange,
   onAddOverride,
+  actions,
+  notice,
 }: TeamShiftsPageProps) {
   const { t } = useTranslation();
 
@@ -31,6 +36,7 @@ export function TeamShiftsPage({
       <PageHeader
         title={teamName}
         subtitle={t('shifts.page_subtitle')}
+        actions={actions}
         breadcrumb={{
           ariaLabel: t('nav.breadcrumb_label'),
           items: [
@@ -40,6 +46,7 @@ export function TeamShiftsPage({
           ],
         }}
       />
+      {notice}
       <OnCallBanner users={onCallUsers} />
       <ShiftsCalendar month={month} teamName={teamName} slots={slots} overrides={overrides} onDateChange={onDateChange} onAddOverride={onAddOverride} />
     </PageContent>

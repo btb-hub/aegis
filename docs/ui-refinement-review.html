@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aegis UI refinement review</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #172235; background: #f5f6f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.6; }
+    main { max-width: 1080px; margin: auto; padding: 40px 24px 64px; }
+    header { border-top: 5px solid #2563eb; padding-top: 24px; }
+    h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; letter-spacing: -.035em; margin: 12px 0; }
+    h2 { font-size: 21px; line-height: 1.3; margin: 36px 0 12px; }
+    p { margin: 8px 0 16px; max-width: 80ch; }
+    a { color: #1d4ed8; text-underline-offset: 3px; }
+    a:focus-visible { outline: 2px solid #2563eb; outline-offset: 4px; }
+    .eyebrow { font-size: 14px; font-weight: 650; color: #52525b; }
+    .notice { border-left: 3px solid #92400e; background: #fffbeb; padding: 16px 20px; margin-top: 24px; }
+    .notice p { margin: 4px 0; }
+    .links { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 24px; }
+    .links a { min-height: 44px; display: inline-flex; align-items: center; }
+    .table-wrap { overflow-x: auto; border: 1px solid #d4d4d8; border-radius: 8px; background: white; }
+    table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 600px; }
+    th, td { padding: 14px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid #e4e4e7; }
+    th { background: #edf0f4; font-weight: 650; }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { width: 28%; font-weight: 600; }
+    code { font-family: ui-monospace, monospace; font-size: .9em; overflow-wrap: anywhere; }
+    .flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #d4d4d8; border: 1px solid #d4d4d8; border-radius: 8px; overflow: hidden; margin: 20px 0; }
+    .flow div { background: white; padding: 18px; }
+    .flow strong { display: block; margin-bottom: 6px; }
+    .flow span { color: #52525b; font-size: 14px; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 20px; margin: 20px 0; }
+    .swatch { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    .swatch i { width: 32px; height: 32px; border: 1px solid #a1a1aa; border-radius: 6px; }
+    li { margin: 8px 0; }
+    figure { margin: 20px 0; min-width: 0; }
+    figcaption { font-size: 14px; font-weight: 650; margin-bottom: 8px; }
+    img { display: block; width: 100%; height: auto; border: 1px solid #d4d4d8; border-radius: 8px; }
+    .capture-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; }
+    .capture { height: 460px; overflow: auto; border: 1px solid #d4d4d8; border-radius: 8px; background: white; }
+    .capture img { border: 0; border-radius: 0; }
+    .capture:focus-visible { outline: 2px solid #2563eb; outline-offset: 4px; }
+    @media(max-width: 700px) { .capture-grid { grid-template-columns: 1fr; } .capture { max-width: 390px; } }
+    footer { margin-top: 40px; border-top: 1px solid #d4d4d8; padding-top: 16px; color: #52525b; font-size: 14px; }
+    @media(max-width: 600px) { main { padding: 24px 16px 40px; } .flow { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+<!-- Implementation plan
+1. Audit shared shell, primitives, and incident triage against the design skill.
+2. Keep Aegis Blue and Plex; improve navigation, hierarchy, density, and field readability.
+3. Preserve queue context, mobile selection, error recovery, and keyboard focus.
+4. Add behavior regressions and representative Storybook states in English and Russian.
+5. Inspect desktop and phone layouts in Playwright and record fixes, evidence, and limits.
+-->
+<main>
+  <header>
+    <div class="eyebrow">Aegis / 20 October 2026 / Design review</div>
+    <h1>UI refinement review</h1>
+    <p>A shared visual-system refinement with incident triage as the representative workflow. This report records implementation decisions and evidence. The captures below show the running branch with local synthetic sandbox data.</p>
+    <nav class="links" aria-label="Preview and source">
+      <a href="http://127.0.0.1:3010/incidents">Open this branch with sandbox data</a>
+      <a href="12-design-system.md">Design-system specification</a>
+    </nav>
+  </header>
+  <aside class="notice" aria-label="Review status">
+    <strong>Desktop and mobile review completed for the Aegis frontend.</strong>
+    <p>Playwright used fresh Chrome profiles against the local mock app at 1440, 768, 390, and 320 CSS pixels. The main journey, keyboard focus, failed saves, Russian layouts, reduced motion, and root text enlarged to 200% were exercised. No page-wide overflow or JavaScript errors were found in the final checked Aegis views.</p>
+    <p><strong>Separate module finding remains open.</strong> The anomaly detector is served from another container and private repository. Its phone metrics screen clips actions and uses a different shell. The source checkout used to build that container is unavailable here. This report does not mark that screen as passing.</p>
+  </aside>
+
+  <h2>What the screen needs to do</h2>
+  <p>An on-call responder needs to find an incident, understand its severity, status, ownership, linked alerts, and history, then acknowledge, resolve, or hand it off without losing their place. This task model comes from the repository brief, not new user research.</p>
+  <div class="flow" aria-label="Incident workflow">
+    <div><strong>1. Find</strong><span>Keep the status filter and queue position.</span></div>
+    <div><strong>2. Inspect</strong><span>Read the selected incident beside its queue, or open a focused phone view.</span></div>
+    <div><strong>3. Act</strong><span>Use the action next to the incident; pending requests disable repeats.</span></div>
+    <div><strong>4. Recover</strong><span>Keep notes after failure. Retry or return to the same row.</span></div>
+  </div>
+
+  <h2>Observations and changes</h2>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="UI observations and changes">
+    <table>
+      <thead><tr><th scope="col">Observed issue</th><th scope="col">Implemented change</th></tr></thead>
+      <tbody>
+        <tr><td>Small, pale navigation and an almost empty utility header</td><td>A 240px dark rail groups Operations, Organization, and Administration. Account and language controls sit at its foot. The desktop header is removed.</td></tr>
+        <tr><td>10px table headers and 11px status text</td><td>14px table headers, record labels, severity, status, navigation, and actions. Form values use 16px. Secondary timestamps remain compact.</td></tr>
+        <tr><td>Detail actions squeeze long incident headings</td><td>The heading gets the full pane width; actions sit below it. Timeline events share one chronological rail instead of separate boxes.</td></tr>
+        <tr><td>Selecting a record reloads the queue</td><td>Selection and fetching are separate. Queue rows stay mounted during refresh, with localized loading and retry feedback.</td></tr>
+        <tr><td>Phone detail appears below the entire queue</td><td>Selection opens a detail view with Back to incidents. The URL carries selection and filter state; browser history and row focus are preserved.</td></tr>
+        <tr><td>Handoff and bounce notes clear before the request succeeds</td><td>Actions await the result. Failure keeps the form and note; pending requests disable repeat actions and edits.</td></tr>
+        <tr><td>Dialogs claim modality without managing focus</td><td>Native modal dialogs provide background inertness, a visible close action, initial focus, Tab containment, Escape, and focus restoration.</td></tr>
+        <tr><td>Native modal layering could hide page-level errors</td><td>Feedback moves into the active dialog, scrolls into view, and occupies normal layout space so it cannot cover Save. When the dialog closes, receipts return to the page.</td></tr>
+        <tr><td>Repeated field labels can create duplicate IDs</td><td>React-generated unique IDs associate labels, hints, and errors; invalid state is exposed to assistive technology.</td></tr>
+        <tr><td>Phone alerts start roughly 1500px down the page</td><td>Search, severity, and status stay visible. Advanced filters and saved views use a disclosure. Records precede analytics. The first record starts at 555px in the unfiltered 390px view.</td></tr>
+        <tr><td>Phone alert status and received time sit off-screen</td><td>The same semantic table becomes structured rows, retaining severity, title, status, received time, and expandable long text.</td></tr>
+        <tr><td>Schedule names disappear to the right on phones</td><td>A phone agenda shows names, dates, daily coverage times, and UTC context. Desktop keeps the timeline and month grid.</td></tr>
+        <tr><td>Schedule participants and reorder arrows have no meaningful names</td><td>Checkboxes use member labels. Reorder actions name the person and direction, disable at boundaries, and visibly update the order.</td></tr>
+        <tr><td>Workspace integration controls are cramped on phones</td><td>Labeled rows retain mode, status, and Configure actions at 320px.</td></tr>
+        <tr><td>Enlarged Russian text overflows or overlaps</td><td>Filters, pagination, badges, and calendar controls wrap. Subtitle spacing scales with text. These views were rechecked at 320px with 200% root text.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Rendered captures</h2>
+  <p>Real Chrome screenshots from 20 October 2026. Incident captures use the Open filter. The phone alert capture searches for “Checkout value”; browser checks also covered the unfiltered list and no matches. All three isolated review incidents were resolved after testing. Scroll a capture to inspect the full page, or open its image.</p>
+  <figure><figcaption>Desktop incident triage, 1440 × 1000, with visible focus</figcaption><a href="ui-review/desktop-incidents.png"><img src="ui-review/desktop-incidents.png" alt="Dark navigation, open incident queue, selected detail, and timeline"></a></figure>
+  <div class="capture-grid">
+    <figure><figcaption>Phone alerts, 390px</figcaption><div class="capture" tabindex="0" role="region" aria-label="Phone alerts screenshot"><a href="ui-review/phone-alerts.png"><img src="ui-review/phone-alerts.png" alt="Compact filters and first filtered alert visible in the phone viewport" loading="lazy"></a></div></figure>
+    <figure><figcaption>Phone agenda, 390px</figcaption><div class="capture" tabindex="0" role="region" aria-label="Phone agenda screenshot"><a href="ui-review/phone-shifts.png"><img src="ui-review/phone-shifts.png" alt="On-call user and daily agenda showing names and times" loading="lazy"></a></div></figure>
+    <figure><figcaption>Phone integrations, 390px</figcaption><div class="capture" tabindex="0" role="region" aria-label="Phone integrations screenshot"><a href="ui-review/phone-workspace.png"><img src="ui-review/phone-workspace.png" alt="Workspace integrations with readable status and Configure buttons" loading="lazy"></a></div></figure>
+  </div>
+  <p>More evidence: <a href="ui-review/phone-incidents.png">phone queue</a>, <a href="ui-review/phone-incident-detail.png">phone detail</a>, <a href="ui-review/phone-dialog-error.png">failed save inside a native dialog</a>, <a href="ui-review/phone-russian.png">Russian at 320px</a>, <a href="ui-review/phone-large-text-shifts.png">Russian agenda with 200% root text</a>, and <a href="ui-review/review-evidence.json">browser check results</a>.</p>
+
+  <h2>Visual direction</h2>
+  <p>The chosen composition uses a quiet dark shell around opaque white working surfaces. Aegis Blue marks actions and selection; severity colors retain their established meaning. Plex Sans carries UI text, with Plex Mono reserved for identifiers. Six-to-eight-pixel corners, light separators, and a selected-row edge keep the system consistent.</p>
+  <p>A larger overview-card composition was considered and set aside because it would displace the incident queue. The revision adds no synthetic metrics, decorative charts, or theme switch.</p>
+  <div class="swatches" aria-label="Core palette">
+    <div class="swatch"><i style="background:#172235"></i><span>Navigation<br><code>#172235</code></span></div>
+    <div class="swatch"><i style="background:#f5f6f8"></i><span>Canvas<br><code>#F5F6F8</code></span></div>
+    <div class="swatch"><i style="background:#ffffff"></i><span>Surface<br><code>#FFFFFF</code></span></div>
+    <div class="swatch"><i style="background:#2563eb"></i><span>Action / selection<br><code>#2563EB</code></span></div>
+  </div>
+  <p>Calculated token contrast includes 8.85:1 for muted navigation text on the rail, 5.17:1 for white on Aegis Blue, and at least 4.79:1 for the adjusted P2, P3, and resolved text/background pairs. These calculations cover those pairs only.</p>
+
+  <h2>Preview repair</h2>
+  <p>The root-launched preview initially served Tailwind base CSS without app utilities because configuration and content paths depended on the process working directory. PostCSS now loads the configuration by absolute file URL, and Tailwind scans content relative to its configuration. A regression check failed before the fix and passes from both repository root and web-app directory. After restart, the same preview URL serves navigation, canvas, responsive layout, touch-target, and dialog styles. All six shifts API requests returned HTTP 200 through the preview proxy. The sandbox has one active override and no rotation schedule; the shifts route now retains its on-call banner and override calendar in that state instead of replacing existing coverage with an empty schedule screen. A page regression covers this case.</p>
+
+  <h2>Verification and limits</h2>
+  <ul>
+    <li>Source review covered the shell, shared controls, tables, dialogs, incident queue, detail, and API state transitions.</li>
+    <li>The Makefile's anomaly sandbox was confirmed running. This branch's Vite frontend runs separately at <code>http://127.0.0.1:3010</code> and proxies its API, auth, and module paths to the existing synthetic-data backend on port 18080. Backend health and frontend HTML returned HTTP 200. The rendered review used this frontend and backend.</li>
+    <li id="web-checks">Web lint, TypeScript, locale parity (669 keys), style generation from both working directories, production build, and Storybook build passed. All 342 tests passed across 59 files. Coverage passed the configured thresholds: 95.35% lines/statements, 91.96% functions, 88.41% branches. HTML local links and duplicate IDs were checked; git diff --check passed.</li>
+    <li id="go-checks">Go vet, package/API/worker builds, and all Go tests passed. Local HTTP fixtures were rerun outside the Windows sandbox. Coverage gates passed for pkg and worker at 91.0%; the API gate failed at 85.8% against 90%. No Go source changed. The full repository gate is therefore not green. Commands were run as PowerShell equivalents of the Make targets because Make is unavailable.</li>
+    <li>Playwright created isolated local webhook alerts and completed acknowledge and resolve through the UI, including keyboard activation and long-title reflow. Native selects exposed the expected options; failed-save receipts stayed inside the dialog. Error and empty responses were intercepted in the test browser only. Storybook also includes responsive, Russian, and long-title fixtures.</li>
+    <li>Rendered review covered incident queue/detail, alerts, team shifts and schedule dialogs, teams, workspaces and details, dashboard, users, settings, and account. Russian incident, alert, and shift views were checked at 320, 768, and 1440px. Root text enlargement approximates text resizing; it is not an operating-system zoom or screen-reader audit.</li>
+    <li>No user study, field performance measurement, or full accessibility audit was performed. Vite still reports an application chunk larger than 500kB.</li>
+  </ul>
+
+  <h2>Reference evidence</h2>
+  <p>The supplied design guide identifies <a href="https://attio.com/changelog/2026/record-page-redesign">Attio record detail</a> for related identity, evidence, and actions; <a href="https://www.float.com/product/scheduling">Float scheduling</a> for content-led composition; and <a href="https://linear.app/now/behind-the-latest-design-refresh">Linear interface detail</a> for control precision and density. Their image URLs were attempted on 20 October 2026 but could not be inspected through the available web tool. Their visual observations remain guide-supplied, not independently verified in this run.</p>
+  <footer>Branch <code>codex/refine-app-ui</code>, based on freshly fetched main. Shared primitives affect the app; incident-specific behavior is scoped to triage.</footer>
+</main>
+</body>
+</html>

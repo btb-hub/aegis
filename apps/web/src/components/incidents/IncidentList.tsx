@@ -6,6 +6,7 @@ import { severityLabelKey, severityToTag } from '../../lib/severityTag';
 import { Button } from '../ui/Button';
 import { SeverityTag } from '../ui/SeverityTag';
 import { StatusTag, incidentStatusVariant } from '../ui/StatusTag';
+import { Select } from '../ui/Select';
 
 type IncidentListProps = {
   incidents: Incident[];
@@ -30,12 +31,22 @@ export function IncidentList({
     statusFilter === 'all' ? incidents : incidents.filter((item) => item.status === statusFilter);
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('incidents.filter_label')}>
+    <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+      <div className="flex items-center gap-3 border-b border-zinc-200 bg-surface-muted p-3 sm:hidden">
+        <label htmlFor="incident-status-filter" className="text-sm font-medium text-zinc-700">{t('incidents.filter_label')}</label>
+        <div className="min-w-0 flex-1">
+          <Select id="incident-status-filter" label={t('incidents.filter_label')} hideLabel value={statusFilter}
+            options={statusOptions.map((status) => ({ value: status, label: t(`incidents.status.${status}`) }))}
+            onChange={(status) => onStatusFilterChange(status as IncidentStatus | 'all')} />
+        </div>
+      </div>
+      <div className="hidden flex-wrap gap-1 border-b border-zinc-200 bg-surface-muted p-2 sm:flex" role="group" aria-label={t('incidents.filter_label')}>
         {statusOptions.map((status) => (
           <Button
             key={status}
             variant={statusFilter === status ? 'secondary' : 'ghost'}
+            aria-pressed={statusFilter === status}
+            className={statusFilter === status ? 'shadow-sm' : '!text-zinc-600'}
             onClick={() => onStatusFilterChange(status)}
           >
             {t(`incidents.status.${status}`)}
@@ -44,11 +55,12 @@ export function IncidentList({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="rounded-md border border-dashed border-zinc-200 p-6 text-sm text-zinc-600">
-          {t('incidents.empty_filtered')}
-        </p>
+        <div className="space-y-2 px-4 py-8 text-sm text-zinc-600" role="status">
+          <p>{t(statusFilter === 'all' ? 'incidents.empty' : 'incidents.empty_filtered')}</p>
+          {statusFilter !== 'all' ? <Button variant="ghost" onClick={() => onStatusFilterChange('all')}>{t('incidents.status.all')}</Button> : null}
+        </div>
       ) : (
-        <ul className="min-w-0 divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 bg-white">
+        <ul className="min-w-0 divide-y divide-zinc-200">
           {filtered.map((incident) => {
             const title = splitIncidentTitle(incident.title);
 
@@ -56,8 +68,8 @@ export function IncidentList({
             <li key={incident.id} className="min-w-0">
               <button
                 type="button"
-                className={`block w-full min-w-0 px-4 py-4 text-left transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-accent ${
-                  selectedId === incident.id ? 'bg-blue-50/70' : ''
+                className={`block w-full min-w-0 border-l-[3px] py-3 pl-3 pr-4 text-left transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-accent ${
+                  selectedId === incident.id ? 'border-accent bg-blue-50/70' : 'border-transparent'
                 }`}
                 aria-pressed={selectedId === incident.id}
                 onClick={() => onSelect(incident.id)}
@@ -72,14 +84,14 @@ export function IncidentList({
                       variant={incidentStatusVariant(incident.status)}
                       label={t(`incidents.status.${incident.status}`)}
                     />
-                    <time className="ml-auto text-xs text-zinc-500" dateTime={incident.createdAt}>
-                      {formatDateTime(new Date(incident.createdAt), i18n.language)}
-                    </time>
                   </div>
-                  <p className="line-clamp-3 break-words font-medium leading-5 text-zinc-900 [overflow-wrap:anywhere]">
+                  <p className="line-clamp-2 break-words text-sm font-medium leading-5 text-zinc-900 [overflow-wrap:anywhere]">
                     {title.summary}
                   </p>
-                  <p className="font-mono text-xs text-zinc-500">{incident.id.slice(0, 8)}</p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
+                    <span className="font-mono">{incident.id.slice(0, 8)}</span>
+                    <time className="tabular-nums" dateTime={incident.createdAt}>{formatDateTime(new Date(incident.createdAt), i18n.language)}</time>
+                  </div>
                 </div>
               </button>
             </li>

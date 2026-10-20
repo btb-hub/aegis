@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { Checkbox } from '../ui/Checkbox';
 import { Modal } from '../ui/Modal';
 import type { ApiSchedule } from '../../lib/shiftsApi';
 import type { TeamMember } from '../../lib/teamTypes';
@@ -46,8 +48,15 @@ export function ScheduleFormModal({ open, onClose, members, schedule, onSave }: 
   }, [open, schedule]);
 
   const orderedMembers = useMemo(
-    () => [...members].sort((a, b) => a.display_name.localeCompare(b.display_name)),
-    [members],
+    () => [...members].sort((a, b) => {
+      const aIndex = participants.indexOf(a.user_id);
+      const bIndex = participants.indexOf(b.user_id);
+      if (aIndex >= 0 || bIndex >= 0) {
+        return (aIndex < 0 ? participants.length : aIndex) - (bIndex < 0 ? participants.length : bIndex);
+      }
+      return a.display_name.localeCompare(b.display_name);
+    }),
+    [members, participants],
   );
 
   const toggleParticipant = (userId: string) => {
@@ -103,38 +112,25 @@ export function ScheduleFormModal({ open, onClose, members, schedule, onSave }: 
       <div className="space-y-4">
         <Input label={t('schedule.name_label')} value={name} onChange={setName} />
         <Input label={t('schedule.timezone_label')} value={timezone} onChange={setTimezone} />
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-zinc-700">{t('schedule.handoff_weekday_label')}</span>
-          <select
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            value={handoffWeekday}
-            onChange={(event) => setHandoffWeekday(Number(event.target.value))}
-          >
-            {WEEKDAYS.map((day) => (
-              <option key={day} value={day}>
-                {t(`schedule.weekday.${day}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select label={t('schedule.handoff_weekday_label')} value={String(handoffWeekday)}
+          options={WEEKDAYS.map((day) => ({ value: String(day), label: t(`schedule.weekday.${day}`) }))}
+          onChange={(value) => setHandoffWeekday(Number(value))} />
         <Input label={t('schedule.handoff_time_label')} value={handoffTime} onChange={setHandoffTime} />
         <div>
           <p className="mb-2 text-sm font-medium text-zinc-700">{t('schedule.participants_label')}</p>
           <ul className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-zinc-200 p-2 text-sm">
             {orderedMembers.map((member) => (
               <li key={member.user_id} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={participants.includes(member.user_id)}
-                  onChange={() => toggleParticipant(member.user_id)}
-                />
-                <span className="flex-1">{member.display_name}</span>
+                <div className="min-w-0 flex-1">
+                  <Checkbox id={`schedule-participant-${member.user_id}`} label={member.display_name}
+                    checked={participants.includes(member.user_id)} onChange={() => toggleParticipant(member.user_id)} />
+                </div>
                 {participants.includes(member.user_id) ? (
                   <div className="flex gap-1">
-                    <Button variant="ghost" onClick={() => moveParticipant(member.user_id, -1)}>
+                    <Button variant="ghost" aria-label={t('schedule.move_earlier', { name: member.display_name })} disabled={participants.indexOf(member.user_id) === 0} onClick={() => moveParticipant(member.user_id, -1)}>
                       ↑
                     </Button>
-                    <Button variant="ghost" onClick={() => moveParticipant(member.user_id, 1)}>
+                    <Button variant="ghost" aria-label={t('schedule.move_later', { name: member.display_name })} disabled={participants.indexOf(member.user_id) === participants.length - 1} onClick={() => moveParticipant(member.user_id, 1)}>
                       ↓
                     </Button>
                   </div>
@@ -143,7 +139,7 @@ export function ScheduleFormModal({ open, onClose, members, schedule, onSave }: 
             ))}
           </ul>
         </div>
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
       </div>
     </Modal>
   );

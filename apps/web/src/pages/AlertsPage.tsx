@@ -227,7 +227,6 @@ export function AlertsPage() {
         <p className="text-sm text-zinc-600">{t('alerts.loading')}</p>
       ) : (
         <>
-          <AlertAnalyticsPanel analytics={analytics} />
           {groupBy ? (
             <AlertGroupTable groups={groups} groupBy={groupBy} total={total} />
           ) : (
@@ -239,6 +238,7 @@ export function AlertsPage() {
               onPageChange={setPage}
             />
           )}
+          <AlertAnalyticsPanel analytics={analytics} />
         </>
       )}
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import i18n from '../../i18n';
@@ -37,6 +37,17 @@ describe('ShiftsCalendar', () => {
     expect(screen.getAllByText('Bob').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Month' }));
     expect(screen.getByRole('button', { name: 'Month' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('clips agenda coverage times to the selected UTC day', () => {
+    render(<I18nextProvider i18n={i18n}>
+      <ShiftsCalendar month={new Date('2026-06-24T00:00:00Z')}
+        overrides={[{ id: 'o1', userId: 'u1', displayName: 'Alice', startAt: '2026-06-24T09:30:00Z', endAt: '2026-06-25T12:00:00Z' }]} />
+    </I18nextProvider>);
+    const agenda = within(screen.getByRole('region', { name: 'On-call agenda' }));
+    expect(agenda.getByText('09:30–24:00')).toBeInTheDocument();
+    expect(agenda.getByText('00:00–12:00')).toBeInTheDocument();
+    expect(agenda.getAllByText('No coverage')).toHaveLength(5);
   });
 
   it('places teams and spanning assignments in the week timeline', () => {

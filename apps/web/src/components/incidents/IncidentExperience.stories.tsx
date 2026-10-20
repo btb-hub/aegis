@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Meta, StoryObj } from '@storybook/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Incident } from '../../lib/incidentTypes';
 import { AuthProvider } from '../../context/AuthContext';
 import { AppShell } from '../layout/AppShell';
 import { PageContent } from '../ui/PageContent';
+import { Button } from '../ui/Button';
 import { PageHeader } from '../ui/PageHeader';
 import { IncidentDetail } from './IncidentDetail';
 import { IncidentList } from './IncidentList';
@@ -61,9 +63,16 @@ const incidents: Incident[] = [
 ];
 
 function IncidentExperience() {
+  const { t } = useTranslation();
+  const [records, setRecords] = useState(incidents);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(incidents[0].id);
   const [status, setStatus] = useState<'all' | Incident['status']>('all');
-  const selected = incidents.find((incident) => incident.id === selectedId) ?? incidents[0];
+  const selected = records.find((incident) => incident.id === selectedId) ?? records[0];
+  const updateStatus = (next: Incident['status']) => {
+    setRecords((current) => current.map((incident) => incident.id === selectedId ? { ...incident, status: next } : incident));
+    return true;
+  };
 
   return (
     <MemoryRouter>
@@ -81,26 +90,32 @@ function IncidentExperience() {
           }}
         >
           <PageContent>
-            <PageHeader title="Incidents" subtitle="Track open incidents, linked alerts, and timeline events" />
+            <PageHeader title={t('incidents.page_title')} subtitle={t('incidents.page_subtitle')} />
             <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1.35fr)]">
+              <div className={detailOpen ? 'hidden xl:block' : ''}>
               <IncidentList
-                incidents={incidents}
+                incidents={records}
                 statusFilter={status}
-                onStatusFilterChange={setStatus}
-                onSelect={setSelectedId}
+                onStatusFilterChange={(next) => { setStatus(next); setDetailOpen(false); }}
+                onSelect={(id) => { setSelectedId(id); setDetailOpen(true); }}
                 selectedId={selectedId}
               />
+              </div>
+              <div className={`min-w-0 space-y-3 ${detailOpen ? '' : 'hidden xl:block'}`}>
+              {detailOpen ? <div className="xl:hidden"><Button variant="secondary" onClick={() => setDetailOpen(false)}>{t('incidents.back_to_list')}</Button></div> : null}
               <IncidentDetail
+                key={selected.id}
                 incident={selected}
                 teams={[]}
                 owningTeamName="DevOps"
                 owningTier="l2"
                 canBounce={false}
-                onAcknowledge={() => undefined}
-                onResolve={() => undefined}
+                onAcknowledge={() => updateStatus('acknowledged')}
+                onResolve={() => updateStatus('resolved')}
                 onHandoff={() => undefined}
                 onBounce={() => undefined}
               />
+              </div>
             </div>
           </PageContent>
         </AppShell>
@@ -122,4 +137,12 @@ export const English: Story = {};
 
 export const Russian: Story = {
   globals: { locale: 'ru' },
+};
+
+export const Phone: Story = {
+  parameters: { viewport: { defaultViewport: 'mobile2' } },
+};
+
+export const Tablet: Story = {
+  parameters: { viewport: { defaultViewport: 'tablet' } },
 };

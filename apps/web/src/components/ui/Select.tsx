@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 export type SelectOption = {
   value: string;
@@ -14,10 +14,6 @@ type SelectProps = {
   id?: string;
   hideLabel?: boolean;
 };
-
-function fieldId(label: string, id?: string) {
-  return id ?? label.toLowerCase().replace(/\s+/g, '-');
-}
 
 function SelectChevron() {
   return (
@@ -37,10 +33,11 @@ function SelectChevron() {
 }
 
 const selectClassName =
-  'h-9 w-full appearance-none rounded-md border border-zinc-300 bg-white py-0 pl-3 pr-9 text-sm text-zinc-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-50';
+  'min-h-11 w-full appearance-none rounded-md border border-zinc-500 bg-white py-2 pl-3 pr-9 text-base text-zinc-900 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-50 sm:min-h-10 sm:py-1.5';
 
 export function Select({ label, value, options, onChange, disabled = false, id, hideLabel = false }: SelectProps) {
-  const selectId = fieldId(label, id);
+  const generatedId = useId();
+  const selectId = id ?? generatedId;
 
   const select = (
     <div className="relative">

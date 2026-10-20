@@ -60,7 +60,7 @@ describe('AlertTable', () => {
     const title = screen.getByText(longTitle);
     const toggle = screen.getByRole('button', { name: 'Show full alert' });
 
-    expect(screen.getByRole('table')).toHaveClass('table-fixed', '[width:max(100%,840px)]');
+    expect(screen.getByRole('table')).toHaveClass('table-fixed', 'w-full', 'sm:[width:max(100%,840px)]');
     expect(title).toHaveClass('line-clamp-3', '[overflow-wrap:anywhere]');
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
 

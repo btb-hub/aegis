@@ -15,9 +15,9 @@ type SeverityTagProps = {
 
 export function SeverityTag({ severity, label }: SeverityTagProps) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-[5px] px-2 py-1 font-mono text-[11px] font-semibold leading-4 ${styles[severity]}`}>
-      {severity !== 'neutral' ? <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" /> : null}
-      {label ?? severity}
+    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-[5px] px-2 py-0.5 text-sm font-semibold leading-5 ${styles[severity]}`}>
+      {severity !== 'neutral' ? <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" /> : null}
+      <span className="min-w-0 break-words">{label ?? severity}</span>
     </span>
   );
 }

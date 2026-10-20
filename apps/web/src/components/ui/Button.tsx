@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 
-type ButtonProps = {
+type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   variant?: ButtonVariant;
   children: ReactNode;
   disabled?: boolean;
@@ -21,7 +21,7 @@ const variantClass: Record<ButtonVariant, string> = {
 };
 
 const baseClass =
-  'inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+  'inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium leading-5 transition-colors sm:min-h-9 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 export function Button({
   variant = 'primary',
@@ -33,19 +33,20 @@ export function Button({
   target,
   rel,
   className = '',
+  ...props
 }: ButtonProps) {
   const classes = `${baseClass} ${variantClass[variant]} ${className}`.trim();
 
   if (href) {
     return (
-      <a href={href} className={classes} target={target} rel={rel}>
+      <a href={disabled ? undefined : href} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : undefined} className={classes} target={target} rel={rel}>
         {children}
       </a>
     );
   }
 
   return (
-    <button type={type} disabled={disabled} onClick={onClick} className={classes}>
+    <button {...props} type={type} disabled={disabled} onClick={onClick} className={classes}>
       {children}
     </button>
   );

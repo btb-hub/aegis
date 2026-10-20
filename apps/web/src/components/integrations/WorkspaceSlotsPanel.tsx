@@ -197,31 +197,40 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
       ) : null}
       <div aria-busy={loading}>
         <DataTable
+          stackOnMobile
           columns={[
             {
               key: 'kind',
               header: t('integrations.column.kind'),
-              cellClassName: 'font-medium text-zinc-900',
+              cellClassName: 'col-span-full font-semibold text-zinc-900',
               render: (slot) => kindNames[slot.kind],
             },
             {
               key: 'mode',
               header: t('workspaces.integrations.mode'),
+              cellClassName: 'col-span-full',
               render: (slot) => (
-                <StatusTag
-                  variant="neutral"
-                  label={t(`workspaces.integrations.mode_${slot.mode}`)}
-                />
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="text-zinc-600 sm:hidden">{t('workspaces.integrations.mode')}</span>
+                  <StatusTag
+                    variant="neutral"
+                    label={t(`workspaces.integrations.mode_${slot.mode}`)}
+                  />
+                </div>
               ),
             },
             {
               key: 'status',
               header: t('integrations.column.status'),
+              cellClassName: 'col-span-full',
               render: (slot) => (
-                <StatusTag
-                  variant={slot.slot_status === 'ready' || slot.slot_status === 'using_global' ? 'resolved' : 'neutral'}
-                  label={statusLabel(slot.slot_status)}
-                />
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="text-zinc-600 sm:hidden">{t('integrations.column.status')}</span>
+                  <StatusTag
+                    variant={slot.slot_status === 'ready' || slot.slot_status === 'using_global' ? 'resolved' : 'neutral'}
+                    label={statusLabel(slot.slot_status)}
+                  />
+                </div>
               ),
             },
             ...(isAdmin
@@ -229,6 +238,7 @@ export function WorkspaceSlotsPanel({ workspaceId, isAdmin }: Props) {
                   {
                     key: 'actions',
                     header: t('integrations.column.actions'),
+                    cellClassName: 'col-span-full',
                     render: (slot: IntegrationSlot) => (
                       <Button
                         variant="secondary"

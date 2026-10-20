@@ -74,7 +74,7 @@ function AlertTitle({ title }: { title: string }) {
       {canExpand ? (
         <button
           type="button"
-          className="mt-1 rounded-sm text-xs font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="mt-1 min-h-11 rounded-sm text-sm font-medium text-accent hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:min-h-6"
           aria-controls={titleId}
           aria-expanded={expanded}
           onClick={() => setExpanded((current) => !current)}
@@ -93,13 +93,14 @@ export function AlertTable({ items, total, page, pageSize, onPageChange }: Alert
   return (
     <div className="space-y-3">
       <DataTable
-        tableClassName="table-fixed [width:max(100%,840px)]"
+        stackOnMobile
+        tableClassName="table-fixed w-full sm:[width:max(100%,840px)]"
         columns={[
           {
             key: 'severity',
             header: t('alerts.column.severity'),
             headerClassName: 'w-36',
-            cellClassName: 'align-top',
+            cellClassName: 'order-1 align-top',
             render: (alert) => (
               <SeverityTag
                 severity={severityToTag(alert.severity)}
@@ -110,14 +111,14 @@ export function AlertTable({ items, total, page, pageSize, onPageChange }: Alert
           {
             key: 'title',
             header: t('alerts.column.title'),
-            cellClassName: 'align-top font-medium text-zinc-900',
+            cellClassName: 'order-3 col-span-full align-top font-medium text-zinc-900',
             render: (alert) => <AlertTitle title={alert.title} />,
           },
           {
             key: 'status',
             header: t('alerts.column.status'),
             headerClassName: 'w-32',
-            cellClassName: 'align-top',
+            cellClassName: 'order-2 justify-self-end align-top',
             render: (alert) => (
               <StatusTag
                 variant={alertStatusVariant(alert.status)}
@@ -129,8 +130,8 @@ export function AlertTable({ items, total, page, pageSize, onPageChange }: Alert
             key: 'received_at',
             header: t('alerts.column.received_at'),
             headerClassName: 'w-48',
-            cellClassName: 'whitespace-nowrap align-top text-zinc-600',
-            render: (alert) => formatDate(alert.received_at, i18n.language),
+            cellClassName: 'order-4 col-span-full align-top text-zinc-600 sm:whitespace-nowrap',
+            render: (alert) => <><span className="sm:sr-only">{t('alerts.column.received_at')} </span>{formatDate(alert.received_at, i18n.language)}</>,
           },
         ]}
         rows={items}

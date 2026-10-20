@@ -70,7 +70,7 @@ export function TeamShiftsRoute() {
       setOverrides(teamOverrides);
       setOnCallUsers(mapApiToOnCallUsers(current));
 
-      if (teamSchedules.length === 0) {
+      if (teamSchedules.length === 0 && teamOverrides.length === 0) {
         setSlots([]);
         setCalendarOverrides([]);
         return;
@@ -207,7 +207,7 @@ export function TeamShiftsRoute() {
     );
   }
 
-  if (schedules.length === 0) {
+  if (schedules.length === 0 && onCallUsers.length === 0 && overrides.length === 0) {
     return (
       <div className="max-w-5xl space-y-4">
         <h1 className="text-2xl font-semibold leading-8">{teamName}</h1>
@@ -237,19 +237,24 @@ export function TeamShiftsRoute() {
 
   return (
     <div className="space-y-4">
-      {isAdmin ? (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => setScheduleModalOpen(true)}>
-            {primarySchedule ? t('schedule.edit') : t('schedule.create')}
-          </Button>
-          {canPublish ? (
-            <Button variant="secondary" disabled={publishing} onClick={() => void publishOnCall()}>
-              {t('shifts.publish_now')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
       <TeamShiftsPage
+        notice={schedules.length === 0 ? (
+          <p role="status" className="rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700">
+            {t('shifts.no_schedule')}
+          </p>
+        ) : null}
+        actions={isAdmin ? (
+          <>
+            <Button variant="secondary" onClick={() => setScheduleModalOpen(true)}>
+              {primarySchedule ? t('schedule.edit') : t('schedule.create')}
+            </Button>
+            {canPublish ? (
+              <Button variant="secondary" disabled={publishing} onClick={() => void publishOnCall()}>
+                {t('shifts.publish_now')}
+              </Button>
+            ) : null}
+          </>
+        ) : null}
         teamName={teamName}
         onCallUsers={onCallUsers}
         slots={slots}

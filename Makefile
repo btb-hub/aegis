@@ -29,6 +29,7 @@ lint:
 	cd apps/api && go vet ./...
 	cd apps/worker && go vet ./...
 	cd apps/web && npm run lint
+	cd apps/web && npm run check:styles
 	cd apps/web && npm run build-storybook
 
 type:

@@ -1,8 +1,10 @@
 # Design system
 
 Visual reference: [`design_system.html`](./design_system.html) (open in a browser). This file is the
-machine-readable summary for agents; the HTML canvas is the source of truth for tokens, spacing, and
-component appearance.
+machine-readable summary for agents. The HTML canvas records the original system. The
+[October 2026 refinement review](./ui-refinement-review.html) documents the updated shell,
+readability, and interaction decisions below, including the outstanding rendered-review gate.
+Use the shared components and semantic tokens for current implementation.
 
 ## Scope
 
@@ -28,13 +30,15 @@ No decorative bounce or playful motion during incidents.
 
 | Token | Role | Value (reference) |
 |-------|------|-------------------|
-| Neutrals | Text, surfaces, borders | Zinc ramp — text 900, muted 500, hairline 200, surface 50 |
+| Neutrals | Text, surfaces, borders | Zinc ramp — text 900, secondary text 600, separators 200, field boundaries 500 |
+| Canvas / surface | Working background / opaque content | `#F5F6F8` / `#FFFFFF` |
+| Navigation | Shell / primary text / secondary text | `#172235` / `#F4F7FC` / `#B5C2D6` |
 | Aegis Blue | Primary actions, links, focus, "now" indicator | `#2563EB` — use sparingly |
 | P1 Critical | Highest severity | Red family (see canvas) |
-| P2 High | | Orange family |
-| P3 Moderate | | Amber family |
+| P2 High | | `#C2410C` on orange 50 |
+| P3 Moderate | | `#92400E` on amber 50 |
 | P4 Low | | Blue family (`#2563EB` on `#EFF6FF`) |
-| Resolved | Success / cleared | `#16A34A` on `#F0FDF4` |
+| Resolved | Success / cleared | `#15803D` on `#F0FDF4` |
 
 ### Typography
 
@@ -47,6 +51,8 @@ No decorative bounce or playful motion during incidents.
 | H2 | 18/26 · 600 | Section headings |
 | H3 | 14/20 · 600 | Subheads |
 | Body | 14/21 · 400 | Default reading size |
+| Fields | Plex Sans 16/24 · 400 | Input and select values, including phones |
+| Record labels | Plex Sans 14/20 · 500 | Table headers, severity, status, navigation, actions |
 | Caption | 12/16 · 400 | Helper text |
 | Overline | 11/16 · 500 mono | Section labels, uppercase |
 
@@ -55,7 +61,11 @@ No decorative bounce or playful motion during incidents.
 - **Base unit:** 4px (`sm` 8, `md` 16, `lg` 32).
 - **Desktop grid:** 12 columns, 24px gutter, 1280px max width.
 - **Mobile grid:** 4 columns, 16px gutter and margin.
-- **Shell:** 240px fixed sidebar, 56px header.
+- **Shell:** 240px sticky, independently scrollable dark sidebar on desktop. Account and locale
+  controls live at its foot. No separate desktop utility header. Below 1024px, a 64px brand/menu
+  header expands navigation in document flow, with Escape returning focus to its toggle.
+- **Incident workspace:** queue and detail side by side at 1280px and above. Below that, explicit
+  selection opens detail with a Back to incidents action, preserving filter, row focus, and history.
 - **Density:** table row 44px; compact 36px.
 
 ### Radius and elevation
@@ -80,15 +90,15 @@ Implement once under `apps/web/src/components/ui/` (or equivalent) and reuse acr
 
 | Component | Notes |
 |-----------|-------|
-| **Buttons** | Primary, Secondary, Ghost; height 36 (sm 30); radius 6; label 13/500; **one primary per view** |
-| **Inputs & fields** | Clear focus ring (Aegis Blue); labels above; errors below field |
+| **Buttons** | Primary, Secondary, Ghost; minimum height 36 desktop / 44 phone; radius 6; label 14/500; **one primary per current task** |
+| **Inputs & fields** | Minimum height 40 desktop / 44 phone; Aegis Blue focus; visible labels and associated hint/error text; unique IDs |
 | **Severity & label tags** | P1–P4 + neutral; mono ID optional |
-| **Toasts** | Match action verb from button; auto-dismiss; stack from top-right |
+| **Toasts** | Page receipts at top-right; when a dialog is open, feedback and recovery controls stay inside that dialog; return to page on close |
 | **Incident card** | Severity stripe, title, team, relative time, primary action |
 | **Banner & empty state** | Tell user what to do next; no illustration clutter |
-| **Data table** | Sortable headers, row hover, compact mode; performant at 10k rows (NFR-2) |
-| **Sidebar navigation** | Active item + count badge; collapses on mobile |
-| **Modal / dialog** | Focus trap; explicit Primary / Secondary actions |
+| **Data table** | Sortable headers, row hover, compact mode; performant at 10k rows (NFR-2); structured phone rows preserve essential fields, with contained scrolling for two-dimensional comparisons |
+| **Sidebar navigation** | Real route links; named landmark; active item; Operations / Organization / Administration groups; mobile disclosure; skip link |
+| **Modal / dialog** | Native modal surface, inert background, initial focus, contained Tab sequence, Escape, visible close, and focus restoration |
 
 Full specs, states (hover, disabled), and examples: [`design_system.html`](./design_system.html).
 
@@ -137,6 +147,10 @@ New shared components **must** ship with a Storybook story in the same PR (REQ-D
 3. **PR checklist:** new UI matches tokens, typography, and component rules; one primary button per
    view; severity colors from the system; Storybook story for new shared components.
 4. **Strings:** still ship `en` + `ru` per [`11-localization.md`](./11-localization.md).
+
+## Responsive review
+
+Phone triage uses a native status filter and a focused detail view with a return path. Alert rows retain severity, title, status, and received time; advanced filters use a disclosure, and analytics follow the records. On-call schedules use a daily phone agenda with UTC times while larger screens retain the timeline. Workspace integrations keep Configure actions visible in labeled phone rows. Controls, pagination, status labels, and headings must reflow with enlarged text. See the [rendered review](./ui-refinement-review.html) for captures, tested states, and remaining boundaries.
 
 ## References
 

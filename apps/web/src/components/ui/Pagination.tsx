@@ -26,7 +26,7 @@ export function Pagination({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-zinc-600">
       <span>{totalLabel}</span>
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Button variant="ghost" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
           {prevLabel}
         </Button>

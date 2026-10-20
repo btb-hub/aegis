@@ -83,6 +83,15 @@ describe('IncidentList', () => {
     expect(onStatusFilterChange).toHaveBeenCalledWith('open');
   });
 
+  it('changes the native phone status filter', () => {
+    const onStatusFilterChange = vi.fn();
+    render(<I18nextProvider i18n={i18n}>
+      <IncidentList incidents={incidents} statusFilter="all" onStatusFilterChange={onStatusFilterChange} onSelect={() => undefined} />
+    </I18nextProvider>);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), { target: { value: 'acknowledged' } });
+    expect(onStatusFilterChange).toHaveBeenCalledWith('acknowledged');
+  });
+
   it('keeps alert metadata out of the scannable list title', () => {
     render(
       <I18nextProvider i18n={i18n}>

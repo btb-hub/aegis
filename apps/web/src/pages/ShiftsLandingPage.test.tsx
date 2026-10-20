@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -72,7 +72,8 @@ describe('ShiftsLandingPage', () => {
     const platformLinks = await screen.findAllByRole('link', { name: 'Platform' });
     expect(platformLinks.some((link) => link.getAttribute('href') === '/teams/team-1/shifts')).toBe(true);
     expect(screen.getByRole('link', { name: 'Data' })).toHaveAttribute('href', '/teams/team-2/shifts');
-    expect(await screen.findAllByText('Alice')).toHaveLength(2);
+    expect(await screen.findAllByTitle('Alice · Rotation')).toHaveLength(2);
+    expect(within(screen.getByRole('region', { name: 'On-call agenda' })).getAllByText('Alice')).toHaveLength(14);
   });
 
   it('shows empty state when no teams exist', async () => {

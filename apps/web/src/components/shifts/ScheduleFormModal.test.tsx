@@ -50,7 +50,7 @@ describe('ScheduleFormModal', () => {
       </I18nextProvider>,
     );
 
-    fireEvent.click(screen.getAllByRole('checkbox')[0]);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Alice' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save schedule' }));
 
     await waitFor(() => {
@@ -66,14 +66,15 @@ describe('ScheduleFormModal', () => {
       </I18nextProvider>,
     );
 
-    const checkboxes = screen.getAllByRole('checkbox');
-    fireEvent.click(checkboxes[0]);
-    fireEvent.click(checkboxes[1]);
-    fireEvent.click(screen.getAllByRole('button', { name: '↓' })[0]);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Alice' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bob' }));
+    expect(screen.getByRole('button', { name: 'Move Alice earlier' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Move Alice later' }));
+    expect(screen.getAllByRole('checkbox')[0]).toHaveAccessibleName('Bob');
     fireEvent.click(screen.getByRole('button', { name: 'Save schedule' }));
 
     await waitFor(() => {
-      expect(onSave).toHaveBeenCalled();
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ participants: ['u2', 'u1'] }));
     });
   });
 });
