@@ -2,9 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --canvas: #f5f6f8;
+  --surface: #ffffff;
+  --surface-muted: #f4f5f7;
+  --ink: #18181b;
+  --muted: #52525b;
+  --line: #d4d4d8;
+  --action: 37 99 235;
+  --navigation: #172235;
+  --navigation-text: #f4f7fc;
+  --navigation-muted: #b5c2d6;
+  color-scheme: light;
+}
+
 body {
   margin: 0;
   font-family: 'IBM Plex Sans', system-ui, sans-serif;
   font-size: 14px;
   line-height: 21px;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid rgb(var(--action));
+    outline-offset: 3px;
+  }
+
+  input, select, textarea {
+    color: var(--ink);
+  }
+
+  button, a, input, select, textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

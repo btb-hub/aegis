@@ -38,6 +38,46 @@ describe('TeamShiftsRoute', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shows current override coverage and its calendar when no rotation schedule exists', async () => {
+    const dates = currentMonthSlot();
+    const override = { id: 'override-1', team_id: 'team-1', user_id: 'u1', ...dates };
+    const response = (body: unknown) => ({ ok: true, json: async () => body }) as Response;
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/auth/me')) {
+        return response({ id: 'u1', role: 'admin', email: 'local@example.com', display_name: 'Local responder', locale: 'en', provider: 'dev' });
+      }
+      if (url.endsWith('/teams/team-1')) {
+        return response({ id: 'team-1', name: 'Sandbox team' });
+      }
+      if (url.endsWith('/members')) {
+        return response({ items: [{ user_id: 'u1', display_name: 'Local responder', email: 'local@example.com' }] });
+      }
+      if (url.endsWith('/schedules')) {
+        return response({ items: [] });
+      }
+      if (url.endsWith('/overrides')) {
+        return response({ items: [override] });
+      }
+      if (url.endsWith('/on-call/current')) {
+        return response({ items: [{ user_id: 'u1', display_name: 'Local responder', email: 'local@example.com', source: 'override' }] });
+      }
+      if (url.includes('/on-call/calendar?')) {
+        return response({ items: [{ ...override, source: 'override' }] });
+      }
+      return { ok: false, status: 404 } as Response;
+    });
+
+    renderRoute();
+    await screen.findByRole('heading', { name: 'Sandbox team' });
+    expect(screen.getByText('On call now')).toBeInTheDocument();
+    expect(screen.getAllByText('Local responder').length).toBeGreaterThan(1);
+    expect(screen.getByRole('region', { name: 'Shifts calendar' })).toBeInTheDocument();
+    expect(screen.getByText('This team has no on-call schedule yet.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create schedule' })).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/on-call/calendar?'), expect.anything());
+  });
+
   it('renders on-call data from API', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);

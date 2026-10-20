@@ -21,7 +21,7 @@ export function AlertAnalyticsPanel({ analytics }: AlertAnalyticsPanelProps) {
     >
       <h2 className="mb-3 text-sm font-semibold text-zinc-900">{t('alerts.analytics.title')}</h2>
       <div className="grid gap-4 md:grid-cols-3">
-        <div>
+        <div className="min-w-0">
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
             {t('alerts.analytics.by_severity')}
           </h3>
@@ -30,28 +30,28 @@ export function AlertAnalyticsPanel({ analytics }: AlertAnalyticsPanelProps) {
               <li>{t('alerts.analytics.empty')}</li>
             ) : (
               severityEntries.map(([key, count]) => (
-                <li key={key} className="flex justify-between gap-4">
-                  <span>{t(`incidents.severity.${key}`, { defaultValue: key })}</span>
-                  <span className="font-medium">{count}</span>
+                <li key={key} className="flex min-w-0 justify-between gap-4 [overflow-wrap:anywhere]">
+                  <span className="min-w-0">{t(`incidents.severity.${key}`, { defaultValue: key })}</span>
+                  <span className="shrink-0 font-medium">{count}</span>
                 </li>
               ))
             )}
           </ul>
         </div>
-        <div>
+        <div className="min-w-0">
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
             {t('alerts.analytics.by_status')}
           </h3>
           <ul className="space-y-1 text-sm text-zinc-700">
             {statusEntries.map(([key, count]) => (
-              <li key={key} className="flex justify-between gap-4">
-                <span>{t(`incidents.alert_status.${key}`, { defaultValue: key })}</span>
-                <span className="font-medium">{count}</span>
+              <li key={key} className="flex min-w-0 justify-between gap-4 [overflow-wrap:anywhere]">
+                <span className="min-w-0">{t(`incidents.alert_status.${key}`, { defaultValue: key })}</span>
+                <span className="shrink-0 font-medium">{count}</span>
               </li>
             ))}
           </ul>
         </div>
-        <div>
+        <div className="min-w-0">
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
             {t('alerts.analytics.top_labels')}
           </h3>
@@ -60,11 +60,11 @@ export function AlertAnalyticsPanel({ analytics }: AlertAnalyticsPanelProps) {
               <li>{t('alerts.analytics.empty')}</li>
             ) : (
               analytics.top_labels.map((item) => (
-                <li key={`${item.key}:${item.value}`} className="flex justify-between gap-4">
-                  <span>
+                <li key={`${item.key}:${item.value}`} className="flex min-w-0 justify-between gap-4 [overflow-wrap:anywhere]">
+                  <span className="min-w-0">
                     {item.key}={item.value || t('alerts.analytics.empty_value')}
                   </span>
-                  <span className="font-medium">{item.count}</span>
+                  <span className="shrink-0 font-medium">{item.count}</span>
                 </li>
               ))
             )}

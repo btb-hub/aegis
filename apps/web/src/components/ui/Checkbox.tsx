@@ -16,7 +16,7 @@ export function Checkbox({ label, checked, onChange, disabled = false, id }: Che
   return (
     <label
       htmlFor={checkboxId}
-      className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-zinc-700"
+      className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-zinc-700 sm:min-h-9"
     >
       <input
         id={checkboxId}

@@ -1,0 +1,324 @@
+{
+  "initial_queue": {
+    "results": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "pageWidth": 1440,
+        "workTop": 193,
+        "rows": 6,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      },
+      {
+        "name": "tablet",
+        "width": 768,
+        "pageWidth": 768,
+        "workTop": 254,
+        "rows": 6,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      },
+      {
+        "name": "phone",
+        "width": 390,
+        "pageWidth": 390,
+        "workTop": 304,
+        "rows": 6,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      },
+      {
+        "name": "narrow",
+        "width": 320,
+        "pageWidth": 320,
+        "workTop": 325,
+        "rows": 6,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      }
+    ],
+    "errors": []
+  },
+  "final_queue": {
+    "results": [
+      {
+        "name": "desktop",
+        "width": 1440,
+        "pageWidth": 1440,
+        "workTop": 193,
+        "rows": 9,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      },
+      {
+        "name": "tablet",
+        "width": 768,
+        "pageWidth": 768,
+        "workTop": 254,
+        "rows": 9,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      },
+      {
+        "name": "phone",
+        "width": 390,
+        "pageWidth": 390,
+        "workTop": 264,
+        "rows": 9,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      },
+      {
+        "name": "narrow",
+        "width": 320,
+        "pageWidth": 320,
+        "workTop": 285,
+        "rows": 9,
+        "bodyFont": "\"IBM Plex Sans\", system-ui, sans-serif",
+        "horizontalOverflow": false
+      }
+    ],
+    "errors": []
+  },
+  "interactions": {
+    "results": [
+      {
+        "check": "phone queue, native filter, keyboard selection, Back, browser history, focus",
+        "passed": true
+      },
+      {
+        "check": "reduced motion",
+        "duration": "1e-05s"
+      },
+      {
+        "check": "native dialog focus, Tab containment, validation, failed save, input retention, Escape restoration",
+        "passed": true
+      },
+      {
+        "check": "incident load failure, retry, empty state",
+        "passed": true
+      },
+      {
+        "check": "alert filter disclosure and no matching results",
+        "firstRecordTop": 555,
+        "passed": true
+      },
+      {
+        "check": "RU incidents 320",
+        "width": 320,
+        "scrollWidth": 320
+      },
+      {
+        "check": "200% text incidents 320",
+        "width": 320,
+        "scrollWidth": 320
+      },
+      {
+        "check": "RU alerts 320",
+        "width": 320,
+        "scrollWidth": 320
+      },
+      {
+        "check": "200% text alerts 320",
+        "width": 320,
+        "scrollWidth": 320
+      },
+      {
+        "check": "RU shifts 320",
+        "width": 320,
+        "scrollWidth": 320
+      },
+      {
+        "check": "200% text shifts 320",
+        "width": 320,
+        "scrollWidth": 320
+      },
+      {
+        "check": "RU incidents 768",
+        "width": 768,
+        "scrollWidth": 768
+      },
+      {
+        "check": "RU alerts 768",
+        "width": 768,
+        "scrollWidth": 768
+      },
+      {
+        "check": "RU shifts 768",
+        "width": 768,
+        "scrollWidth": 768
+      },
+      {
+        "check": "RU incidents 1440",
+        "width": 1440,
+        "scrollWidth": 1440
+      },
+      {
+        "check": "RU alerts 1440",
+        "width": 1440,
+        "scrollWidth": 1440
+      },
+      {
+        "check": "RU shifts 1440",
+        "width": 1440,
+        "scrollWidth": 1440
+      }
+    ],
+    "errors": []
+  },
+  "incident_actions": {
+    "results": [
+      {
+        "check": "live mock webhook -> incident -> acknowledge, selection preserved",
+        "passed": true
+      },
+      {
+        "check": "keyboard resolve, updated timeline/status, long title reflow",
+        "passed": true
+      },
+      {
+        "check": "long alert expansion retains full content",
+        "passed": true
+      }
+    ],
+    "errors": []
+  },
+  "other_pages": {
+    "results": [
+      {
+        "width": 1440,
+        "name": "dashboard",
+        "pageWidth": 1440,
+        "title": "Analytics dashboard"
+      },
+      {
+        "width": 1440,
+        "name": "workspaces",
+        "pageWidth": 1440,
+        "title": "Workspaces"
+      },
+      {
+        "width": 1440,
+        "name": "users",
+        "pageWidth": 1440,
+        "title": "Users"
+      },
+      {
+        "width": 1440,
+        "name": "settings",
+        "pageWidth": 1440,
+        "title": "Settings"
+      },
+      {
+        "width": 1440,
+        "name": "account",
+        "pageWidth": 1440,
+        "title": "Account"
+      },
+      {
+        "width": 1440,
+        "name": "team-detail",
+        "pageWidth": 1440,
+        "title": "Local sandbox"
+      },
+      {
+        "width": 1440,
+        "name": "workspace-detail",
+        "pageWidth": 1440,
+        "title": "Default"
+      },
+      {
+        "width": 390,
+        "name": "dashboard",
+        "pageWidth": 390,
+        "title": "Analytics dashboard"
+      },
+      {
+        "width": 390,
+        "name": "workspaces",
+        "pageWidth": 390,
+        "title": "Workspaces"
+      },
+      {
+        "width": 390,
+        "name": "users",
+        "pageWidth": 390,
+        "title": "Users"
+      },
+      {
+        "width": 390,
+        "name": "settings",
+        "pageWidth": 390,
+        "title": "Settings"
+      },
+      {
+        "width": 390,
+        "name": "account",
+        "pageWidth": 390,
+        "title": "Account"
+      },
+      {
+        "width": 390,
+        "name": "team-detail",
+        "pageWidth": 390,
+        "title": "Local sandbox"
+      },
+      {
+        "width": 390,
+        "name": "workspace-detail",
+        "pageWidth": 390,
+        "title": "Default"
+      },
+      {
+        "width": 320,
+        "name": "dashboard",
+        "pageWidth": 320,
+        "title": "Analytics dashboard"
+      },
+      {
+        "width": 320,
+        "name": "workspaces",
+        "pageWidth": 320,
+        "title": "Workspaces"
+      },
+      {
+        "width": 320,
+        "name": "users",
+        "pageWidth": 320,
+        "title": "Users"
+      },
+      {
+        "width": 320,
+        "name": "settings",
+        "pageWidth": 320,
+        "title": "Settings"
+      },
+      {
+        "width": 320,
+        "name": "account",
+        "pageWidth": 320,
+        "title": "Account"
+      },
+      {
+        "width": 320,
+        "name": "team-detail",
+        "pageWidth": 320,
+        "title": "Local sandbox"
+      },
+      {
+        "width": 320,
+        "name": "workspace-detail",
+        "pageWidth": 320,
+        "title": "Default"
+      }
+    ],
+    "errors": []
+  },
+  "native_dialog": {
+    "toastInDialog": true,
+    "nativeWeekday": "4",
+    "fixturesResolved": 3,
+    "saveAndErrorDoNotOverlap": true
+  }
+}

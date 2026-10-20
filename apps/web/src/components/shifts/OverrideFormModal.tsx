@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/Button';
 import { Modal } from '../ui/Modal';
+import { Select } from '../ui/Select';
 import type { ApiOverride } from '../../lib/shiftsApi';
 import type { TeamMember } from '../../lib/teamTypes';
 
@@ -105,25 +106,14 @@ export function OverrideFormModal({
       primaryLoading={saving}
     >
       <div className="space-y-4">
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium text-zinc-700">{t('override.user_label')}</span>
-          <select
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-            value={userId}
-            onChange={(event) => setUserId(event.target.value)}
-          >
-            {orderedMembers.map((member) => (
-              <option key={member.user_id} value={member.user_id}>
-                {member.display_name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Select label={t('override.user_label')} value={userId}
+          options={orderedMembers.map((member) => ({ value: member.user_id, label: member.display_name }))}
+          onChange={setUserId} disabled={saving} />
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-zinc-700">{t('override.start_label')}</span>
           <input
             type="datetime-local"
-            className="h-9 w-full rounded-md border border-zinc-300 px-3 text-sm"
+            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-500 px-3 py-2 text-base sm:min-h-10"
             value={startAt}
             onChange={(event) => setStartAt(event.target.value)}
           />
@@ -132,7 +122,7 @@ export function OverrideFormModal({
           <span className="mb-1 block font-medium text-zinc-700">{t('override.end_label')}</span>
           <input
             type="datetime-local"
-            className="h-9 w-full rounded-md border border-zinc-300 px-3 text-sm"
+            className="min-h-11 w-full min-w-0 rounded-md border border-zinc-500 px-3 py-2 text-base sm:min-h-10"
             value={endAt}
             onChange={(event) => setEndAt(event.target.value)}
           />
@@ -141,8 +131,8 @@ export function OverrideFormModal({
         {overrides.length > 0 ? (
           <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 text-sm">
             {overrides.map((override) => (
-              <li key={override.id} className="flex items-center justify-between px-3 py-2">
-                <span>
+              <li key={override.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0 break-words">
                   {nameByUserId.get(override.user_id) ?? override.user_id}
                   {' · '}
                   {toLocalInputValue(override.start_at)} – {toLocalInputValue(override.end_at)}
@@ -159,7 +149,7 @@ export function OverrideFormModal({
           </ul>
         ) : null}
 
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
+        {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
       </div>
     </Modal>
   );

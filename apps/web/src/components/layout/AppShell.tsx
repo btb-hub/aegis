@@ -1,10 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { AppVersion } from './AppVersion';
 import type { AuthUser } from '../../lib/authTypes';
-import { Button } from '../ui/Button';
 
 export type AppPage =
   | 'anomaly'
@@ -38,9 +37,9 @@ const navigationIcons: Record<AppPage, ReactNode> = {
 };
 
 function Brand() {
-  return <span className="inline-flex items-center gap-2.5 font-bold text-zinc-900">
-    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white">
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  return <span className="inline-flex items-center gap-3 text-lg font-semibold tracking-tight text-navigation-text">
+    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white">
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3 19 5.5V11c0 4.4-3 8-7 10-4-2-7-5.6-7-10V5.5L12 3Z" />
       </svg>
     </span>
@@ -51,168 +50,106 @@ function Brand() {
 export function AppShell({ children, currentPage = 'shifts', onNavigate, user, onSignOut }: AppShellProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const accountActive = useLocation().pathname.startsWith('/account');
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
 
-  const isAdmin = user?.role === 'admin';
-
-  const navItems: Array<{ id: AppPage; label: string; href?: string }> = [
-    { id: 'shifts', label: t('nav.shifts') },
-    { id: 'teams', label: t('nav.teams') },
-    { id: 'workspaces', label: t('nav.workspaces') },
-    { id: 'incidents', label: t('nav.incidents') },
-    { id: 'alerts', label: t('nav.alerts') },
-    { id: 'anomaly', label: t('nav.anomaly'), href: '/modules/anomaly-detector/' },
-    { id: 'dashboard', label: t('nav.dashboard') },
-    ...(isAdmin ? [{ id: 'settings' as AppPage, label: t('nav.settings') }] : []),
-    ...(isAdmin ? [{ id: 'users' as AppPage, label: t('nav.users') }] : []),
+  const groups: Array<{ label: string; pages: AppPage[] }> = [
+    { label: t('nav.operations'), pages: ['incidents', 'alerts', 'shifts', 'anomaly', 'dashboard'] },
+    { label: t('nav.organization'), pages: ['teams', 'workspaces', ...(user?.role === 'admin' ? ['users' as AppPage] : [])] },
+    ...(user?.role === 'admin' ? [{ label: t('nav.administration'), pages: ['settings' as AppPage] }] : []),
   ];
 
-  useEffect(() => {
-    setNavigationOpen(false);
-  }, [currentPage]);
+  useEffect(() => { setNavigationOpen(false); }, [currentPage]);
 
   useEffect(() => {
     if (!navigationOpen) {
-      return undefined;
+      return;
     }
-
-    const closeOnEscape = (event: KeyboardEvent) => {
+    const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setNavigationOpen(false);
+        menuButton.current?.focus();
       }
     };
-
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
   }, [navigationOpen]);
 
-  const renderNavigationItems = (closeAfterNavigation: boolean) =>
-    navItems.map((item) => {
-      const active = currentPage === item.id;
-      const classes = `flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] ${
-        active ? 'bg-blue-50 font-semibold text-blue-700' : 'font-medium text-zinc-500 hover:bg-white hover:text-zinc-900'
-      }`;
-      const content = <><svg aria-hidden="true" viewBox="0 0 24 24" className="h-[17px] w-[17px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">{navigationIcons[item.id]}</svg><span>{item.label}</span></>;
-      if (item.href) {
-        return <a key={item.id} href={item.href} className={classes} aria-current={active ? 'page' : undefined} onClick={() => setNavigationOpen(false)}>{content}</a>;
-      }
-      if (onNavigate) {
-        return (
-          <button
-            key={item.id}
-            type="button"
-            className={classes}
-            aria-current={active ? 'page' : undefined}
-            onClick={() => {
-              if (closeAfterNavigation) {
-                setNavigationOpen(false);
+  const navigation = (mobile: boolean) => (
+    <nav aria-label={t('nav.primary')} className="space-y-6 px-3 py-5">
+      {groups.map((group) => (
+        <div key={group.label}>
+          <p className="mb-2 px-3 text-xs font-medium tracking-wide text-navigation-muted">{group.label}</p>
+          <div className="space-y-1">
+            {group.pages.map((page) => {
+              const active = !accountActive && currentPage === page;
+              const classes = `flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors focus-visible:outline-white ${active ? 'bg-accent font-semibold text-white' : 'text-navigation-muted hover:bg-white/10 hover:text-white'}`;
+              const content = <><svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">{navigationIcons[page]}</svg><span>{t(`nav.${page}`)}</span></>;
+              if (page === 'anomaly') {
+                return <a key={page} href="/modules/anomaly-detector/" className={classes}
+                  aria-current={active ? 'page' : undefined} onClick={() => setNavigationOpen(false)}>
+                  {content}
+                </a>;
               }
-              onNavigate(item.id);
-            }}
-          >
-            {content}
-          </button>
-        );
-      }
-
-      return (
-        <div
-          key={item.id}
-          className={classes}
-        >
-          {content}
+              return <Link key={page} to={`/${page}`} className={classes} aria-current={active ? 'page' : undefined} onClick={(event) => {
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+                  return;
+                }
+                setNavigationOpen(false);
+                if (onNavigate) {
+                  event.preventDefault();
+                  onNavigate(page);
+                }
+                if (mobile) {
+                  document.getElementById('main-content')?.focus();
+                }
+              }}>{content}</Link>;
+            })}
+          </div>
         </div>
-      );
-    });
+      ))}
+    </nav>
+  );
+
+  const account = (
+    <div className="mt-auto space-y-4 border-t border-white/15 p-4">
+      {user ? <div className="flex min-w-0 items-center gap-3">
+        <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">{(user.display_name || user.email).slice(0, 2).toUpperCase()}</span>
+        <Link to="/account" aria-current={accountActive ? 'page' : undefined} onClick={(event) => {
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            return;
+          }
+          if (navigationOpen) {
+            document.getElementById('main-content')?.focus();
+          }
+          setNavigationOpen(false);
+        }} className="min-w-0 flex-1 break-words text-sm font-medium text-navigation-text hover:underline focus-visible:outline-white">{user.display_name || user.email}</Link>
+        <button type="button" className="min-h-11 shrink-0 rounded-md px-2 text-xs text-navigation-muted hover:bg-white/10 hover:text-white focus-visible:outline-white" onClick={() => { void (async () => { await onSignOut?.(); navigate('/login'); })(); }}>{t('auth.sign_out')}</button>
+      </div> : null}
+      <LanguageSwitcher appearance="dark" />
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-zinc-50 lg:flex">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50 lg:flex">
-        <div className="flex h-14 items-center border-b border-zinc-200 px-4">
-          <Brand />
-        </div>
-        <nav className="space-y-0.5 p-3">{renderNavigationItems(false)}</nav>
+    <div className="min-h-screen bg-canvas lg:flex">
+      <a href="#main-content" className="fixed left-4 top-3 z-50 -translate-y-24 rounded-md bg-accent px-4 py-3 font-medium text-white focus:translate-y-0">{t('nav.skip_to_content')}</a>
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col overflow-y-auto bg-navigation lg:flex">
+        <div className="px-6 pb-3 pt-7"><Brand /><p className="mt-2 text-xs text-navigation-muted">{t('app.tagline')}</p></div>
+        {navigation(false)}
+        {account}
       </aside>
-      {navigationOpen ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-30 bg-zinc-950/30 lg:hidden"
-            aria-label={t('nav.close_menu')}
-            onClick={() => setNavigationOpen(false)}
-          />
-          <aside
-            id="primary-navigation"
-            className="fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-zinc-200 bg-zinc-50 shadow-xl lg:hidden"
-          >
-            <div className="flex h-14 items-center justify-between border-b border-zinc-200 px-4 font-semibold">
-              <Brand />
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-600 hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                aria-label={t('nav.close_menu')}
-                onClick={() => setNavigationOpen(false)}
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 20 20"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                >
-                  <path d="m5 5 10 10M15 5 5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <nav className="space-y-0.5 p-3">{renderNavigationItems(true)}</nav>
-            <div className="mt-auto border-t border-zinc-200 p-3">
-              <LanguageSwitcher />
-            </div>
-          </aside>
-        </>
-      ) : null}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="flex min-h-14 items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2 sm:px-4 lg:justify-end">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-700 hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent lg:hidden"
-            aria-label={t('nav.open_menu')}
-            aria-controls="primary-navigation"
-            aria-expanded={navigationOpen}
-            onClick={() => setNavigationOpen(true)}
-          >
-            <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75">
-              <path d="M3 5h14M3 10h14M3 15h14" strokeLinecap="round" />
-            </svg>
-          </button>
-          <span className="lg:hidden"><Brand /></span>
-          {user ? (
-            <div className="ml-auto flex min-w-0 items-center gap-1 text-sm text-zinc-700 sm:gap-2 lg:ml-0 lg:gap-3">
-              <Link
-                to="/account"
-                className="max-w-28 truncate font-medium text-zinc-900 hover:text-accent sm:max-w-48"
-              >
-                {user.display_name || user.email}
-              </Link>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  void (async () => {
-                    await onSignOut?.();
-                    navigate('/login');
-                  })();
-                }}
-              >
-                {t('auth.sign_out')}
-              </Button>
-            </div>
-          ) : null}
-          <div className="hidden lg:block">
-            <LanguageSwitcher />
+        <header className="border-b border-white/15 bg-navigation text-navigation-text lg:hidden">
+          <div className="flex min-h-16 items-center justify-between gap-3 px-4">
+            <Brand />
+            <button ref={menuButton} type="button" className="inline-flex h-11 w-11 items-center justify-center rounded-md hover:bg-white/10 focus-visible:outline-white" aria-label={navigationOpen ? t('nav.close_menu') : t('nav.open_menu')} aria-controls="primary-navigation" aria-expanded={navigationOpen} onClick={() => setNavigationOpen(!navigationOpen)}>
+              <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75"><path d={navigationOpen ? 'm5 5 10 10M15 5 5 15' : 'M3 5h14M3 10h14M3 15h14'} strokeLinecap="round" /></svg>
+            </button>
           </div>
+          {navigationOpen ? <div id="primary-navigation" className="border-t border-white/15">{navigation(true)}{account}</div> : null}
         </header>
-        <main className="min-w-0 flex-1 px-4 py-5 sm:p-6">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-[16px] py-5 focus:outline-none sm:p-6 lg:px-8 lg:py-7">
           <div className="mx-auto w-full min-w-0 max-w-7xl">{children}</div>
         </main>
         <AppVersion />

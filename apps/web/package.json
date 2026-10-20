@@ -10,6 +10,7 @@
     "lint": "eslint src .storybook --max-warnings 0",
     "test": "vitest",
     "check:locales": "node scripts/check-locale-keys.mjs",
+    "check:styles": "node scripts/check-styles.mjs",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

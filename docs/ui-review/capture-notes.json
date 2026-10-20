@@ -1,0 +1,13 @@
+{
+  "browser": "Playwright with Chrome, fresh profiles, local synthetic sandbox",
+  "results": [
+    {
+      "screen": "desktop alerts",
+      "firstRecordTop": 397.5
+    },
+    {
+      "screen": "phone alerts",
+      "firstRecordTop": 561
+    }
+  ]
+}

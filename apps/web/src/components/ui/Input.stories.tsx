@@ -29,3 +29,7 @@ export const Focused: Story = {
 export const WithError: Story = {
   render: () => <InputDemo label="Team name" error="Team name is required" />,
 };
+
+export const Disabled: Story = {
+  render: () => <InputDemo label="Team name" disabled />,
+};

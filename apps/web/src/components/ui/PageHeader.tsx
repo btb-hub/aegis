@@ -20,11 +20,11 @@ export function PageHeader({ title, subtitle, breadcrumb, actions }: PageHeaderP
         <PageBreadcrumb ariaLabel={breadcrumb.ariaLabel} items={breadcrumb.items} />
       ) : null}
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
+        <div className="min-w-0 max-w-3xl">
           <h1 className="break-words text-2xl font-semibold leading-8 text-zinc-900 [overflow-wrap:anywhere]">
             {title}
           </h1>
-          {subtitle ? <p className="mt-1 text-sm leading-[21px] text-zinc-600">{subtitle}</p> : null}
+          {subtitle ? <p className="mt-1 text-sm leading-normal text-zinc-600">{subtitle}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>

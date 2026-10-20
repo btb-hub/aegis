@@ -83,7 +83,7 @@ describe('AppShell', () => {
       </AppShell>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Incidents' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Incidents' }));
     expect(onNavigate).toHaveBeenCalledWith('incidents');
   });
 
@@ -94,9 +94,9 @@ describe('AppShell', () => {
       </AppShell>,
     );
 
-    const activeItem = screen.getByRole('button', { name: 'Incidents' });
+    const activeItem = screen.getByRole('link', { name: 'Incidents' });
     expect(activeItem).toHaveAttribute('aria-current', 'page');
-    expect(activeItem).toHaveClass('bg-blue-50', 'text-blue-700');
+    expect(activeItem).toHaveClass('bg-accent', 'text-white');
   });
 
   it('opens and closes the mobile navigation', () => {
@@ -116,13 +116,29 @@ describe('AppShell', () => {
     expect(openNavigation).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('returns focus to the menu toggle on Escape', () => {
+    renderShell(<AppShell onNavigate={vi.fn()}>content</AppShell>);
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Open navigation' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('supports normal link destinations and a skip path to main content', () => {
+    renderShell(<AppShell>content</AppShell>);
+    expect(screen.getByRole('link', { name: 'Incidents' })).toHaveAttribute('href', '/incidents');
+    expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#main-content');
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+    expect(screen.getByRole('navigation', { name: 'Primary navigation' })).toBeInTheDocument();
+  });
+
   it('includes Workspaces in navigation', () => {
     renderShell(
       <AppShell currentPage="workspaces" onNavigate={vi.fn()}>
         <div>content</div>
       </AppShell>,
     );
-    expect(screen.getByRole('button', { name: 'Workspaces' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Workspaces' })).toBeInTheDocument();
   });
 
   it('hides Users navigation for non-admin users', () => {
@@ -142,7 +158,7 @@ describe('AppShell', () => {
         <div>content</div>
       </AppShell>,
     );
-    expect(screen.queryByRole('button', { name: 'Users' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Users' })).not.toBeInTheDocument();
   });
 
   it('shows Users navigation for admin users', () => {
@@ -162,7 +178,7 @@ describe('AppShell', () => {
         <div>content</div>
       </AppShell>,
     );
-    expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Users' })).toBeInTheDocument();
   });
 
   it('shows signed-in user and sign out button', () => {

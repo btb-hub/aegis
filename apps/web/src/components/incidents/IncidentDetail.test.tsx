@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it, vi } from 'vitest';
 import { IncidentDetail } from './IncidentDetail';
@@ -257,4 +257,66 @@ describe('IncidentDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bounce' }));
     expect(onBounce).toHaveBeenCalledWith(incident.id, 'wrong team');
   });
+  it('keeps handoff notes after failure and prevents duplicate submissions while pending', async () => {
+    let finish!: (result: boolean) => void;
+    const onHandoff = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve; }));
+    render(<I18nextProvider i18n={i18n}><IncidentDetail incident={incident} teams={teams} owningTier="l2" canBounce={false} onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={onHandoff} onBounce={vi.fn()} /></I18nextProvider>);
+    fireEvent.click(screen.getByText('Hand off to L3'));
+    const note = screen.getByLabelText(i18n.t('incidents.handoff_note_label'));
+    fireEvent.change(note, { target: { value: 'Investigate database replication' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off' }));
+    expect(screen.getByRole('button', { name: 'Hand off' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off' }));
+    expect(onHandoff).toHaveBeenCalledTimes(1);
+    finish(false);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hand off' })).not.toBeDisabled());
+    expect(note).toHaveValue('Investigate database replication');
+    onHandoff.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Hand off' }));
+    await waitFor(() => expect(screen.queryByLabelText(i18n.t('incidents.handoff_note_label'))).not.toBeInTheDocument());
+    expect(screen.getByRole('status')).toHaveTextContent(i18n.t('incidents.action_complete'));
+  });
+
+  it('shows a failed action and retains the bounce note', async () => {
+    render(<I18nextProvider i18n={i18n}><IncidentDetail incident={incident} teams={teams} owningTier="l3" canBounce onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={vi.fn()} onBounce={vi.fn().mockRejectedValue(new Error('offline'))} /></I18nextProvider>);
+    fireEvent.click(screen.getByText('Bounce to L2'));
+    fireEvent.change(screen.getByLabelText(i18n.t('incidents.bounce_note_label')), { target: { value: 'Need more logs' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Bounce' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(i18n.t('incidents.action_error')));
+    expect(screen.getByLabelText(i18n.t('incidents.bounce_note_label'))).toHaveValue('Need more logs');
+  });
+
+  it('preserves the selected handoff destination through parent error rerenders', () => {
+    const renderDetail = (options: typeof teams) => <I18nextProvider i18n={i18n}><IncidentDetail incident={incident} teams={options} owningTier="l2" canBounce={false} onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={vi.fn()} onBounce={vi.fn()} /></I18nextProvider>;
+    const { rerender } = render(renderDetail(teams));
+    fireEvent.click(screen.getByText('Hand off to L3'));
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'team-l3-b' } });
+    rerender(renderDetail([...teams]));
+    expect(select).toHaveValue('team-l3-b');
+    rerender(renderDetail([teams[0]]));
+    expect(select).toHaveValue('team-l3-a');
+  });
+
+  it('removes handoff and bounce forms when the incident is resolved', () => {
+    const renderDetail = (status: Incident['status']) => <I18nextProvider i18n={i18n}><IncidentDetail incident={{ ...incident, status }} teams={teams} owningTier="l2" canBounce onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={vi.fn()} onBounce={vi.fn()} /></I18nextProvider>;
+    const { rerender } = render(renderDetail('open'));
+    fireEvent.click(screen.getByText('Hand off to L3'));
+    fireEvent.click(screen.getByText('Bounce to L2'));
+    expect(screen.getAllByRole('textbox')).toHaveLength(2);
+    rerender(renderDetail('resolved'));
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hand off' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bounce' })).not.toBeInTheDocument();
+  });
+
+  it('returns focus to the incident heading after a successful form submission', async () => {
+    render(<I18nextProvider i18n={i18n}><IncidentDetail incident={incident} teams={teams} owningTier="l2" canBounce={false} onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={vi.fn().mockResolvedValue(true)} onBounce={vi.fn()} /></I18nextProvider>);
+    fireEvent.click(screen.getByText('Hand off to L3'));
+    const submit = screen.getByRole('button', { name: 'Hand off' });
+    submit.focus();
+    fireEvent.click(submit);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'CPU high' })).toHaveFocus());
+  });
+
 });

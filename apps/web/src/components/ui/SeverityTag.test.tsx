@@ -15,6 +15,6 @@ describe('SeverityTag', () => {
 
   it('uses the blue P4 treatment from the design canvas', () => {
     render(<SeverityTag severity="P4" />);
-    expect(screen.getByText('P4')).toHaveClass('bg-blue-50', 'text-severity-p4');
+    expect(screen.getByText('P4').parentElement).toHaveClass('bg-blue-50', 'text-severity-p4');
   });
 });

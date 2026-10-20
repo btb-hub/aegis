@@ -15,6 +15,7 @@ type DataTableProps<T> = {
   emptyMessage: string;
   compact?: boolean;
   tableClassName?: string;
+  stackOnMobile?: boolean;
 };
 
 export function DataTable<T>({
@@ -24,13 +25,14 @@ export function DataTable<T>({
   emptyMessage,
   compact = false,
   tableClassName = '',
+  stackOnMobile = false,
 }: DataTableProps<T>) {
   const rowClass = compact ? 'py-2' : 'py-3';
 
   return (
-    <div className="overflow-x-auto rounded-sm border border-zinc-200 bg-white">
-      <table className={`min-w-full divide-y divide-zinc-200 text-[13px] ${tableClassName}`.trim()}>
-        <thead className="bg-zinc-50 text-left font-mono text-[10px] uppercase tracking-[0.08em] text-zinc-400">
+    <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent" tabIndex={0}>
+      <table role="table" className={`min-w-full divide-y divide-zinc-200 text-sm tabular-nums ${stackOnMobile ? 'block sm:table' : ''} ${tableClassName}`.trim()}>
+        <thead className={`bg-surface-muted text-left text-sm text-zinc-600 ${stackOnMobile ? 'max-sm:sr-only' : ''}`}>
           <tr>
             {columns.map((column) => (
               <th
@@ -43,7 +45,7 @@ export function DataTable<T>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100">
+        <tbody className={`divide-y divide-zinc-100 ${stackOnMobile ? 'block sm:table-row-group' : ''}`}>
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-8 text-center text-zinc-600">
@@ -52,11 +54,11 @@ export function DataTable<T>({
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={rowKey(row)} className="hover:bg-zinc-50">
+              <tr key={rowKey(row)} className={`hover:bg-zinc-50 ${stackOnMobile ? 'grid grid-cols-[repeat(auto-fit,minmax(min(100%,max(6rem,calc(50%_-_0.375rem))),1fr))] gap-x-3 px-[16px] py-3 sm:table-row sm:p-0' : ''}`}>
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className={`px-4 ${rowClass} ${column.cellClassName ?? ''}`.trim()}
+                    className={`${stackOnMobile ? 'block min-w-0 py-1 sm:table-cell sm:px-4 sm:py-3' : `px-4 ${rowClass}`} ${column.cellClassName ?? ''}`.trim()}
                   >
                     {column.render(row)}
                   </td>

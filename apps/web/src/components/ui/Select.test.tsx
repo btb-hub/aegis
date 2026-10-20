@@ -31,4 +31,12 @@ describe('Select', () => {
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'firing' } });
     expect(onChange).toHaveBeenCalledWith('firing');
   });
+
+  it('generates unique label associations and respects explicit identifiers', () => {
+    const options = [{ value: 'all', label: 'All' }];
+    render(<><Select label="Status" value="all" options={options} onChange={() => undefined} /><Select label="Status" value="all" options={options} onChange={() => undefined} /><Select label="Scope" id="scope-filter" hideLabel value="all" options={options} onChange={() => undefined} /></>);
+    const fields = screen.getAllByRole('combobox', { name: 'Status' });
+    expect(fields[0].id).not.toBe(fields[1].id);
+    expect(screen.getByRole('combobox', { name: 'Scope' })).toHaveAttribute('id', 'scope-filter');
+  });
 });
