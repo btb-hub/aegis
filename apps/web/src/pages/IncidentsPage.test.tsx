@@ -297,8 +297,11 @@ describe('IncidentsPage', () => {
     renderQueue('/incidents?status=open');
     fireEvent.click(await screen.findByRole('button', { name: i18n.t('incidents.resolve') }));
     await screen.findByText(i18n.t('incidents.action_complete'));
-    expect(screen.getByLabelText('Current URL')).toHaveTextContent(`status=open&incident_id=${queueRecords[0].id}`);
-    expect(screen.getByRole('heading', { name: 'Queue incident one' })).toBeInTheDocument();
-    expect(screen.getByText(i18n.t('incidents.empty_filtered'))).toBeInTheDocument();
+    // Action feedback can render before the router transition commits.
+    await waitFor(() => {
+      expect(screen.getByLabelText('Current URL')).toHaveTextContent(`status=open&incident_id=${queueRecords[0].id}`);
+      expect(screen.getByRole('heading', { name: 'Queue incident one' })).toBeInTheDocument();
+      expect(screen.getByText(i18n.t('incidents.empty_filtered'))).toBeInTheDocument();
+    });
   });
 });
