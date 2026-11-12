@@ -9,6 +9,7 @@ import (
 
 type IncidentRef struct {
 	URL          string
+	DisplayID    string
 	ID           uuid.UUID
 	TeamID       uuid.UUID
 	AssigneeID   *uuid.UUID

@@ -20,9 +20,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// INC-NUM-CHAT: real serialization to local HTTP shows the durable label while
+// retaining the UUID action value. Slack delivery and authentication are mocked.
 func TestSendPageUsesFixture(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../../i18n/messages"))
+	id := uuid.New()
+	var sent map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/chat.postMessage", r.URL.Path)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "ts": "1234.5678"})
 	}))
@@ -38,12 +44,17 @@ func TestSendPageUsesFixture(t *testing.T) {
 
 	slackID := "U123"
 	ref, err := provider.SendPage(t.Context(), integrations.IncidentRef{
-		ID:       uuid.New(),
-		Title:    "CPU high",
-		Severity: "critical",
+		ID:        id,
+		DisplayID: "INC-01",
+		Title:     "CPU high",
+		Severity:  "critical",
 	}, integrations.PageRecipient{Locale: "en", SlackUserID: &slackID})
 	require.NoError(t, err)
 	require.Equal(t, "1234.5678", ref)
+	raw, err := json.Marshal(sent["blocks"])
+	require.NoError(t, err)
+	require.Contains(t, string(raw), "INC-01")
+	require.Contains(t, string(raw), id.String())
 }
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)

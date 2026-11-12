@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: Aegis incident response identifiers
+  version: '1'
+  description: Incident response supplement to docs/04-api-spec.md. Paths and mutations continue to use UUIDs.
+paths:
+  /api/v1/incidents:
+    get:
+      security: [{ session: [] }]
+      summary: List incidents with human identifiers
+      responses:
+        '200':
+          description: Incident list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Incident' } }
+  /api/v1/incidents/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      security: [{ session: [] }]
+      summary: Read incident detail
+      responses:
+        '200':
+          description: Incident detail with linked alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [incident, alerts]
+                properties:
+                  incident: { $ref: '#/components/schemas/Incident' }
+                  alerts: { type: array, items: { type: object } }
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: aegis_session }
+  schemas:
+    Incident:
+      type: object
+      required: [id, display_id, team_id, status, severity, title, fingerprint, created_at]
+      properties:
+        id: { type: string, format: uuid, description: Stable machine identity for paths and actions }
+        display_id: { type: string, pattern: '^INC-[0-9]{2,}$', example: INC-01, description: Permanent global label for people; gaps are allowed }
+        team_id: { type: string, format: uuid }
+        assignee_id: { type: string, format: uuid }
+        status: { type: string, enum: [open, acknowledged, resolved] }
+        severity: { type: string }
+        title: { type: string }
+        fingerprint: { type: string }
+        created_at: { type: string, format: date-time }
+        acknowledged_at: { type: string, format: date-time }
+        resolved_at: { type: string, format: date-time }
+        jira_issue_key: { type: string }
+        jira_issue_url: { type: string, format: uri }
+        assignee: { type: object, description: Optional contact details on incident detail only }

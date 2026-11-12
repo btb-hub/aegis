@@ -16,6 +16,7 @@ export class IncidentApiError extends Error {
 
 export type ApiIncident = {
   id: string;
+  display_id?: string;
   team_id: string;
   status: 'open' | 'acknowledged' | 'resolved';
   severity: string;
@@ -114,6 +115,7 @@ export function mapApiIncident(
 ): Incident {
   return {
     id: incident.id,
+    displayId: incident.display_id,
     teamId: incident.team_id,
     status: incident.status,
     severity: incident.severity,

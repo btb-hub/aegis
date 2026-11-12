@@ -316,6 +316,8 @@ func TestConcurrentOpenAcknowledgementRequestsCommitOneTransition(t *testing.T) 
 	require.Equal(t, 8, count)
 }
 
+// INC-NUM-CHAT: Real PostgreSQL and a local Slack fixture verify that deleted
+// incident feedback is sent, while a disabled workspace prevents delivery.
 func TestDeletedIncidentFeedbackAndDisabledWorkspace(t *testing.T) {
 	var sends int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

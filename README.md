@@ -218,10 +218,11 @@ describe the current implementation, beyond the original MVP phase table.
 - **Shifts:** teams, memberships, schedules, overrides, on-call slots API; `materialise_oncall`
   worker job (on schedule change + nightly).
 - **Incidents:** routing rules CRUD; dedup by fingerprint; incident lifecycle (open → acknowledged →
-  resolved); timeline events; ack/resolve endpoints.
+  resolved); timeline events; ack/resolve endpoints; permanent `INC-01` display numbers in web and chat.
 - **Integrations:** Jira Server/DC (REST v2) and Cloud (REST v3); Slack + eXpress bots;
   global and workspace Inherit/Custom settings; admin connection tests; Slack callback verification
-  with the incident workspace's saved signing secret.
+  with the incident workspace's saved signing secret. Jira tickets are assigned to the incident's
+  current on-call after creation; Server/DC supports exact username fallback when email lookup is empty.
 - **Paging connections:** Slack / eXpress browser authorization from Account; connect, replace,
   disconnect; independent from sign-in providers. Legacy eXpress `/link` remains API-compatible.
 - **Shared notifications:** opening, acknowledgement, resolution, and escalation posts to the

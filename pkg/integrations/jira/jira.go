@@ -159,14 +159,27 @@ func (p *Provider) TestConnection(ctx context.Context) error {
 	_, err := p.request(ctx, http.MethodGet, "/myself", nil)
 	return err
 }
-func (p *Provider) lookupAccountID(ctx context.Context, email string) (string, error) {
+
+// JIRA-ASSIGN-LOOKUP: Server/DC falls back from email to an issue-scoped assignable search using its local-part username,
+// accepting only a unique active exact match and rejecting conflicting email identities.
+// Cloud lookup remains unchanged. Evidence: TestServerAssigneeFallback in jira_assignee_test.go.
+func (p *Provider) lookupAccountID(ctx context.Context, key, email string) (string, error) {
 	query := url.Values{"maxResults": {"100"}}
 	if p.cloud() {
 		query.Set("query", email)
 	} else {
 		query.Set("username", email)
 	}
-	raw, err := p.request(ctx, http.MethodGet, "/user/search?"+query.Encode(), nil)
+	return p.searchAssignee(ctx, query, key, email, "", !p.cloud())
+}
+
+func (p *Provider) searchAssignee(ctx context.Context, query url.Values, key, email, candidate string, strict bool) (string, error) {
+	path := "/user/search"
+	if candidate != "" {
+		path = "/user/assignable/search"
+		query.Set("issueKey", key)
+	}
+	raw, err := p.request(ctx, http.MethodGet, path+"?"+query.Encode(), nil)
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +197,15 @@ func (p *Provider) lookupAccountID(ctx context.Context, email string) (string, e
 		if u.Active != nil && !*u.Active {
 			continue
 		}
-		if len(users) > 1 && !strings.EqualFold(u.Email, email) && !strings.EqualFold(u.Name, email) {
+		if strict {
+			if candidate == "" {
+				if !strings.EqualFold(u.Email, email) && !strings.EqualFold(u.Name, email) {
+					continue
+				}
+			} else if !strings.EqualFold(u.Name, candidate) || (u.Email != "" && !strings.EqualFold(u.Email, email)) {
+				continue
+			}
+		} else if len(users) > 1 && !strings.EqualFold(u.Email, email) && !strings.EqualFold(u.Name, email) {
 			continue
 		}
 		id := u.Name
@@ -199,6 +220,13 @@ func (p *Provider) lookupAccountID(ctx context.Context, email string) (string, e
 		return "", fmt.Errorf("jira user search ambiguous; use an exact username or email")
 	}
 	if len(ids) == 0 {
+		if strict && candidate == "" && len(users) == 0 {
+			local, domain, ok := strings.Cut(email, "@")
+			if ok && local != "" && domain != "" {
+				query.Set("username", local)
+				return p.searchAssignee(ctx, query, key, email, local, true)
+			}
+		}
 		if len(users) > 1 {
 			return "", fmt.Errorf("jira user search ambiguous; use an exact username or email")
 		}
@@ -211,7 +239,7 @@ func (p *Provider) UpdateAssignee(ctx context.Context, key, email string) error 
 	if key == "" || email == "" {
 		return nil
 	}
-	id, err := p.lookupAccountID(ctx, email)
+	id, err := p.lookupAccountID(ctx, key, email)
 	if err != nil {
 		return err
 	}

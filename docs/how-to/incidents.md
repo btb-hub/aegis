@@ -18,6 +18,10 @@ need **member or admin** · viewers **cannot ack**
 
 ## 01 · Get the page
 
+Incidents show a permanent label such as `INC-01` in the web app and chat.
+The same label stays with the incident through handoff and resolution.
+
+
 When you are primary on a team, a new incident for that team pages you in chat
 and appears under **Incidents**.
 

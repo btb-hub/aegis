@@ -25,6 +25,26 @@ const teams = [
 ];
 
 describe('IncidentDetail', () => {
+  // INC-NUM-UI (lib/incidentTypes.ts): the component and callback are real;
+  // the API is not called. The action must keep targeting the UUID.
+  it('shows and labels the display number while acknowledging by UUID', () => {
+    const onAcknowledge = vi.fn();
+    render(<I18nextProvider i18n={i18n}><IncidentDetail
+      incident={{ ...incident, displayId: 'INC-01' }} teams={teams} canBounce={false}
+      onAcknowledge={onAcknowledge} onResolve={vi.fn()} onHandoff={vi.fn()} onBounce={vi.fn()}
+    /></I18nextProvider>);
+    expect(screen.getByLabelText('Incident ID INC-01')).toHaveTextContent('INC-01');
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
+    expect(onAcknowledge).toHaveBeenCalledWith(incident.id);
+  });
+
+  it('uses the UUID prefix when the display number is absent', () => {
+    render(<I18nextProvider i18n={i18n}><IncidentDetail
+      incident={incident} teams={teams} canBounce={false}
+      onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={vi.fn()} onBounce={vi.fn()}
+    /></I18nextProvider>);
+    expect(screen.getByLabelText('Incident ID 11111111')).toHaveTextContent('11111111');
+  });
   // JIRA-LINK-AC1 (service/incident.go): renders the provided destination; no live API or Jira is exercised.
   it('renders alerts, timeline, jira link, and action buttons', () => {
     render(

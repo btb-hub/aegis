@@ -3,6 +3,7 @@ package incidentchat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,20 +21,21 @@ import (
 
 type deliveryStore struct {
 	Store
-	cfg       db.Integration
-	slot      db.Integration
-	incident  db.Incident
-	team      db.Team
-	users     []db.OnCallUser
-	user      db.User
-	lookupErr error
+	cfg         db.Integration
+	slot        db.Integration
+	incident    db.Incident
+	team        db.Team
+	users       []db.OnCallUser
+	user        db.User
+	lookupErr   error
+	incidentErr error
 }
 
 func (s *deliveryStore) GetIntegration(context.Context, uuid.UUID) (db.Integration, error) {
 	return s.cfg, s.lookupErr
 }
 func (s *deliveryStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
-	return s.incident, nil
+	return s.incident, s.incidentErr
 }
 func (s *deliveryStore) GetTeam(context.Context, uuid.UUID) (db.Team, error) { return s.team, nil }
 func (s *deliveryStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
@@ -53,6 +55,9 @@ func (s *deliveryStore) ClaimChatAckFeedback(context.Context) (db.ChatAckRequest
 	return db.ChatAckRequest{}, pgx.ErrNoRows
 }
 
+// INC-NUM-CHAT: real runner and provider HTTP serialization with fake store and
+// local BotX/Slack endpoints. Old outbox snapshots lack Number, current rows
+// supply it; text and feedback use INC-01, actions still carry UUID. No live chat.
 func TestChannelRunnerProvidersAndCurrentState(t *testing.T) {
 	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
 	for _, provider := range []string{"slack", "express"} {
@@ -78,11 +83,13 @@ func TestChannelRunnerProvidersAndCurrentState(t *testing.T) {
 			s := &deliveryStore{cfg: db.Integration{ID: uuid.New(), Enabled: true, Config: cfg}, slot: db.Integration{Enabled: true, Mode: &mode, Config: json.RawMessage(`{"bot_token":"workspace-token"}`)}, incident: db.Incident{ID: uuid.New(), Status: "open", Title: "CPU", Severity: "critical"}, team: db.Team{WorkspaceID: uuid.New()}, users: []db.OnCallUser{{UserID: uuid.New()}}, user: db.User{ExpressUserHuid: pgtype.UUID{Bytes: huid, Valid: true}}}
 			r := New(s, "https://aegis.local/")
 			d := db.ChannelDelivery{IntegrationID: s.cfg.ID, Provider: provider, Destination: "GROUP", Kind: "created", Snapshot: db.ChannelSnapshot{Incident: s.incident, TeamName: "Platform", Locale: "en", SlackUserGroupID: "S123"}}
+			s.incident.Number = 1 // The queued snapshot above predates the migration.
 			ref, err := r.sendChannel(t.Context(), d)
 			require.NoError(t, err)
 			require.Equal(t, "message", ref)
 			raw, _ := json.Marshal(payloads[0])
 			require.Contains(t, string(raw), "ack_incident")
+			require.Contains(t, string(raw), "INC-01")
 			require.Contains(t, string(raw), s.incident.ID.String())
 			s.incident.Status = "resolved"
 			_, err = r.sendChannel(t.Context(), d)
@@ -95,6 +102,7 @@ func TestChannelRunnerProvidersAndCurrentState(t *testing.T) {
 			require.NoError(t, r.sendFeedback(t.Context(), req, incidentack.Result{Code: "already_resolved", Locale: "ru"}))
 			raw, _ = json.Marshal(payloads[2])
 			require.Contains(t, string(raw), "решён")
+			require.Contains(t, string(raw), "INC-01")
 			if provider == "slack" {
 				s.slot.Enabled = false
 				require.Error(t, r.sendFeedback(t.Context(), req, incidentack.Result{Code: "acknowledged"}))
@@ -144,5 +152,51 @@ func TestRunnerStopsItsIndependentLoops(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("runner did not stop")
+	}
+}
+
+// INC-NUM-CHAT: Fake store and local Slack HTTP server verify displayed identity
+// and workspace enforcement; they do not exercise database queries or live Slack.
+func TestFeedbackIncidentLabel(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
+	incidentID, workspaceID := uuid.New(), uuid.New()
+	dbErr := errors.New("database unavailable")
+	for _, tc := range []struct {
+		name        string
+		incidentErr error
+		disabled    bool
+		wantLabel   string
+		wantErr     error
+	}{
+		{name: "existing", wantLabel: "INC-42"},
+		{name: "deleted", incidentErr: pgx.ErrNoRows, wantLabel: incidentID.String()},
+		{name: "database failure", incidentErr: dbErr, wantErr: dbErr},
+		{name: "deleted disabled workspace", incidentErr: pgx.ErrNoRows, disabled: true, wantErr: errors.New("disabled")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var bodies []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				bodies = append(bodies, body["text"].(string))
+				_, _ = w.Write([]byte(`{"ok":true}`))
+			}))
+			defer server.Close()
+			cfg, _ := json.Marshal(map[string]string{"bot_token": "token", "signing_secret": "secret", "api_base_url": server.URL})
+			mode := "inherit"
+			s := &deliveryStore{cfg: db.Integration{Enabled: true, Config: cfg}, slot: db.Integration{Enabled: !tc.disabled, Mode: &mode}, incident: db.Incident{ID: incidentID, Number: 42}, incidentErr: tc.incidentErr}
+			err := New(s, "").sendFeedback(t.Context(), db.ChatAckRequest{Provider: "slack", IncidentID: incidentID, WorkspaceID: &workspaceID, ChatID: "C", UserIdentity: "U"}, incidentack.Result{Code: "not_found", Locale: "en"})
+			if tc.wantErr != nil {
+				require.Error(t, err)
+				if tc.wantErr == dbErr {
+					require.ErrorIs(t, err, dbErr)
+				}
+				require.Empty(t, bodies)
+			} else {
+				require.NoError(t, err)
+				require.Len(t, bodies, 1)
+				require.Contains(t, bodies[0], tc.wantLabel)
+			}
+		})
 	}
 }

@@ -10,12 +10,12 @@ Other fields: `base_url` (including any Jira context path), `project_key`, `api_
 | --- | --- | --- |
 | Authentication check | `GET /rest/api/2/myself` | `GET /rest/api/3/myself` |
 | Create issue | `POST /rest/api/2/issue`, string description | `POST /rest/api/3/issue`, ADF description |
-| Find assignee | `/rest/api/2/user/search?username=…`, returned `name` | `/rest/api/3/user/search?query=…`, returned `accountId` |
+| Find assignee | `/rest/api/2/user/search?username=<email>`; on an empty result, `/user/assignable/search?issueKey=<key>&username=<email-local-part>`; returned `name` | `/rest/api/3/user/search?query=…`, returned `accountId` |
 | Assign | Issue update with `fields.assignee.name` | Issue update with `fields.assignee.accountId` |
 | Comment | v2 issue comment, string body | v3 issue comment, ADF body |
 | Reconcile creation | v2 JQL `/search` | v3 enhanced JQL `/search/jql` |
 
-Search parameters are URL-encoded. Multiple matches require a unique exact username/email match; missing or ambiguous active users are reported. Login redirects are rejected with an actionable status error, and credentials are excluded from errors.
+After creating a ticket, Aegis attempts to assign the incident assignee; an assignment failure does not undo the ticket or its sent notification. For Server/DC, the local-part fallback accepts only an active exact username and rejects a conflicting visible email. Search parameters are URL-encoded. Multiple matches require a unique exact username/email match; missing or ambiguous active users are reported. Login redirects are rejected with an actionable status error, and credentials are excluded from errors.
 
 ## Acceptance
 

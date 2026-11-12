@@ -188,6 +188,7 @@ export function IncidentDetail({
   const canResolve = incident.status === 'open' || incident.status === 'acknowledged';
   const canHandoff = incident.status !== 'resolved' && teams.length > 0;
   const showHandoffUnavailable = incident.status !== 'resolved' && teams.length === 0;
+  const displayId = incident.displayId ?? incident.id.slice(0, 8);
 
   return (
     <div ref={surfaceRef} className="min-w-0 space-y-6 rounded-lg border border-zinc-200 bg-white p-4 sm:p-5">
@@ -216,8 +217,8 @@ export function IncidentDetail({
           </div>
           <IncidentHeading title={incident.title} />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-            <span className="font-mono" aria-label={t('incidents.id_label', { id: incident.id })}>
-              {incident.id.slice(0, 8)}
+            <span className="font-mono" aria-label={t('incidents.id_label', { id: displayId })}>
+              {displayId}
             </span>
             <time dateTime={incident.createdAt}>
               {t('incidents.created_at', {

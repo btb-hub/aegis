@@ -20,7 +20,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// INC-NUM-CHAT: serialize a real personal page to local HTTP, using INC-01 in
+// text and UUID in its ack action. BotX authentication/delivery is simulated.
 func TestSendPageUsesFixture(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../../i18n/messages"))
+	var sent map[string]any
 	responseRaw := readFixture(t, "notification_response.json")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/botx/chats/personal" {
@@ -32,6 +36,7 @@ func TestSendPageUsesFixture(t *testing.T) {
 			require.NotEmpty(t, r.URL.Query().Get("signature"))
 			_ = json.NewEncoder(w).Encode(map[string]any{"status": "ok", "result": "bot-token"})
 		case strings.Contains(r.URL.Path, "/notifications/direct"):
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
 			require.Equal(t, "Bearer bot-token", r.Header.Get("Authorization"))
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(responseRaw)
@@ -46,10 +51,15 @@ func TestSendPageUsesFixture(t *testing.T) {
 
 	huid := "6fafda2c-6505-57a5-a088-25ea5d1d0364"
 	ref, err := provider.SendPage(t.Context(), integrations.IncidentRef{
-		ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), Title: "CPU high", Severity: "critical",
+		ID: uuid.MustParse("11111111-1111-1111-1111-111111111111"), DisplayID: "INC-01", Title: "CPU high", Severity: "critical",
 	}, integrations.PageRecipient{Locale: "en", ExpressUserHuid: &huid})
 	require.NoError(t, err)
 	require.Equal(t, "84a12e71-3efc-5c34-87d5-84e3d9ad64fd", ref)
+	notification := sent["notification"].(map[string]any)
+	require.Contains(t, notification["body"], "INC-01")
+	raw, err := json.Marshal(notification["bubble"])
+	require.NoError(t, err)
+	require.Contains(t, string(raw), "11111111-1111-1111-1111-111111111111")
 }
 
 func TestTestConnectionUsesFixture(t *testing.T) {

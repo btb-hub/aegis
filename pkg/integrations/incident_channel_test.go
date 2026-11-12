@@ -12,6 +12,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// INC-NUM-CHAT: real localized rendering must prefer the stable label for all
+// lifecycle kinds. Providers and delivery are outside this pure formatting test.
+func TestIncidentBodyUsesDisplayID(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
+	id := uuid.New()
+	for _, locale := range []string{"en", "ru"} {
+		for _, kind := range []string{"created", "acknowledged", "resolved", "escalated"} {
+			body := IncidentEventBody(IncidentChannelPost{Incident: IncidentRef{ID: id, DisplayID: "INC-01"}, Kind: kind, Locale: locale})
+			require.Contains(t, body, "INC-01")
+			require.NotContains(t, body, id.String())
+		}
+	}
+}
+
 func TestIncidentBodyLimitsUnicodeAndIncludesLifecycleDetails(t *testing.T) {
 	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
 	id := uuid.New()

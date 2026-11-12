@@ -256,6 +256,13 @@ The worker publishes current on-call via `publish_oncall` (daily at 03:00 UTC, o
 
 ## Incidents (Phase 2)
 
+**Human identifiers (INC-NUM-API):** every incident response includes `display_id`,
+for example `INC-01`, `INC-02`, `INC-100`. It is a permanent global number, allocated
+once in PostgreSQL. Existing incidents are numbered by `(created_at, id)` during
+migration 24. Gaps are allowed after rollbacks or deletion. `id` remains the UUID
+used in API paths, mutations, chat actions and links. Clients display `display_id`
+instead of a UUID prefix. See [OpenAPI incident schema](openapi-incidents.yaml).
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/routing-rules` | List routing rules (includes `workspace_id`, `cross_workspace`) |

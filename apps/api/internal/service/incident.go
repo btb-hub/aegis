@@ -220,9 +220,12 @@ func (s *IncidentService) resolveAssignee(ctx context.Context, teamID uuid.UUID,
 	return assigneeID, nil
 }
 
+// INC-NUM-API: expose display_id for people, retaining the UUID id for clients'
+// URLs and mutations. Evidence: incident_test.go::TestIncidentJSONDisplayID.
 func IncidentJSON(incident db.Incident) map[string]any {
 	out := map[string]any{
 		"id":          incident.ID.String(),
+		"display_id":  incident.DisplayID(),
 		"team_id":     incident.TeamID.String(),
 		"status":      incident.Status,
 		"severity":    incident.Severity,

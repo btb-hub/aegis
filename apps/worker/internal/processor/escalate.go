@@ -35,6 +35,8 @@ func NewEscalateProcessor(log *slog.Logger, store EscalateStore, publicURL strin
 	return &EscalateProcessor{log: log, store: store, publicURL: publicURL}
 }
 
+// INC-NUM-CHAT: escalation pages use the same durable display label as initial
+// pages and handoffs. Evidence: alert_flow_test.go::TestEscalateProcessorPagesOpenIncident.
 func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 	var payload map[string]any
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
@@ -85,16 +87,7 @@ func (p *EscalateProcessor) Handle(ctx context.Context, job Job) error {
 		_ = p.store.AppendTimelineEvent(ctx, incident.ID, "integration_skipped", nil, eventPayload)
 	}
 
-	ref := integrations.IncidentRef{
-		ID:          incident.ID,
-		TeamID:      incident.TeamID,
-		AssigneeID:  incident.AssigneeID,
-		Status:      incident.Status,
-		Severity:    incident.Severity,
-		Title:       incident.Title,
-		Fingerprint: incident.Fingerprint,
-		CreatedAt:   incident.CreatedAt,
-	}
+	ref := toIncidentRef(incident)
 	recipient := integrations.PageRecipient{
 		UserID:          user.ID,
 		Email:           user.Email,

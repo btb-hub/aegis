@@ -42,12 +42,18 @@ States: `open`, `acknowledged`, `resolved`. Transitions logged to `timeline_even
 
 ## UI
 
+Incidents have a permanent global label such as `INC-01` or `INC-100`. The API
+returns it as `display_id`; the list, detail, chat pages, lifecycle notifications
+and acknowledgement feedback show it. UUIDs remain the identity for database
+relations, API operations and chat callbacks. Migration 24 numbers existing
+incidents by creation time with UUID as a deterministic tie breaker. Numbers may
+have gaps and are never derived from the current list position.
+
 - Incident list with status filters.
 - Detail: timeline, linked alerts, Jira link, ack/resolve actions.
 
-**Current gap (Phase 10):** The web incidents page still uses in-memory demo data in `App.tsx`.
-Acknowledge, resolve, and handoff update React state only — they do not call the API. Wiring is
-tracked in [EPIC-11](../../backlog/epics/EPIC-11-support-levels-workspaces.md) (AEG-078).
+The incidents page reads the API. Acknowledge, resolve, handoff and bounce call
+their incident endpoints with the underlying UUID.
 
 ## References
 

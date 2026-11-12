@@ -140,6 +140,9 @@ func (r *Runner) DeliverChannel(ctx context.Context) error {
 	return r.store.FinishChannelDelivery(finishCtx, d.ID, status, ref, message, next)
 }
 
+// INC-NUM-CHAT: fill the stable display number from current storage, including
+// outbox snapshots queued before migration 24; retain snapshot lifecycle state.
+// Feedback also uses this label. Evidence: delivery_test.go::TestChannelRunnerProvidersAndCurrentState.
 func (r *Runner) sendChannel(ctx context.Context, d db.ChannelDelivery) (string, error) {
 	cfg, err := r.integration(ctx, d.IntegrationID)
 	if err != nil {
@@ -151,7 +154,7 @@ func (r *Runner) sendChannel(ctx context.Context, d db.ChannelDelivery) (string,
 	}
 	i := d.Snapshot.Incident
 	post := integrations.IncidentChannelPost{
-		Incident: integrations.IncidentRef{ID: i.ID, TeamID: i.TeamID, AssigneeID: i.AssigneeID, Status: i.Status, Severity: i.Severity, Title: i.Title, URL: integrations.IncidentURL(runtimeconfig.PublicURL(ctx, r.publicURL), i.ID.String())},
+		Incident: integrations.IncidentRef{ID: i.ID, DisplayID: current.DisplayID(), TeamID: i.TeamID, AssigneeID: i.AssigneeID, Status: i.Status, Severity: i.Severity, Title: i.Title, URL: integrations.IncidentURL(runtimeconfig.PublicURL(ctx, r.publicURL), i.ID.String())},
 		Kind:     d.Kind, TeamName: d.Snapshot.TeamName, ActorName: d.Snapshot.ActorName, Locale: d.Snapshot.Locale, SlackUserGroupID: d.Snapshot.SlackUserGroupID, OccurredAt: d.OccurredAt,
 		Actionable: (d.Kind == "created" || d.Kind == "escalated") && current.Status == "open",
 	}
@@ -288,19 +291,31 @@ func (r *Runner) DeliverFeedback(ctx context.Context) error {
 	return r.store.FinishChatAck(finishCtx, req.ID, status, message, next)
 }
 
+// INC-NUM-CHAT: Feedback uses the current incident display label, or its UUID
+// when the incident has been deleted. Other lookup errors must propagate. The
+// fallback does not bypass integration or workspace validation. Evidence:
+// TestFeedbackIncidentLabel and TestDeletedIncidentFeedbackAndDisabledWorkspace.
 func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result incidentack.Result) error {
 	cfg, err := r.integration(ctx, req.IntegrationID)
 	if err != nil {
 		return err
 	}
-	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": req.IncidentID.String()})
+	incident, err := r.store.GetIncidentByID(ctx, req.IncidentID)
+	missingIncident := errors.Is(err, pgx.ErrNoRows)
+	if err != nil && !missingIncident {
+		return err
+	}
+	displayID := req.IncidentID.String()
+	if !missingIncident {
+		displayID = incident.DisplayID()
+	}
+	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": displayID})
 	switch req.Provider {
 	case "slack":
 		workspaceID := req.WorkspaceID
 		if workspaceID == nil {
-			incident, err := r.store.GetIncidentByID(ctx, req.IncidentID)
-			if err != nil {
-				return err
+			if missingIncident {
+				return pgx.ErrNoRows
 			}
 			team, err := r.store.GetTeam(ctx, incident.TeamID)
 			if err != nil {
