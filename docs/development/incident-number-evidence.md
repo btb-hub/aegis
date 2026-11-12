@@ -41,7 +41,7 @@ go test ./apps/worker/internal/processor -run TestEscalateProcessorPagesOpenInci
 npm test -- --run src/lib/incidentsApi.test.ts src/components/incidents/IncidentList.test.tsx src/components/incidents/IncidentDetail.test.tsx
 ```
 
-## Integration checks
+## Initial local checks (without DATABASE_URL)
 
 - `make lint type test`: lint and type targets passed; all selected Go suites passed.
   Package business coverage was 91.2%, worker 91.8% at that run. The API coverage
@@ -66,6 +66,49 @@ npm test -- --run src/lib/incidentsApi.test.ts src/components/incidents/Incident
 - Independent Terra review requested changes for escalation labels and concurrent
   handoff assignment; both received regression tests and fixes. Re-review approved
   with no unresolved actionable findings. Reviewer inspected source, not live services.
+
+## CI follow-up for PR 69
+
+Plan: reproduce the deleted-incident feedback failure with PostgreSQL, restore
+not-found feedback without bypassing workspace validation, run the complete gate
+with DATABASE_URL, then push and verify the new GitHub Actions run.
+
+CI run `43223527305` failed `TestDeletedIncidentFeedbackAndDisabledWorkspace`:
+looking up a display number for a deleted incident returned `pgx.ErrNoRows`, so
+no not-found feedback was sent. The earlier 85.9% API coverage result omitted
+DB-backed settings integration tests. With PostgreSQL enabled, the API suite and
+checker pass at 90.6% (3327/3671); the earlier result was not a CI baseline failure.
+
+Observed red/green with DATABASE_URL pointing to disposable PostgreSQL 16:
+
+```powershell
+go test ./pkg/incidentchat -run '^TestDeletedIncidentFeedbackAndDisabledWorkspace$' -count=1
+# Red: expected one send, got zero; pgx.ErrNoRows from label lookup.
+go test ./pkg/incidentchat -run '^TestFeedbackIncidentLabel$' -count=1
+# Red: deleted incident returned pgx.ErrNoRows instead of sending feedback.
+go test ./pkg/incidentchat -run '^(TestFeedbackIncidentLabel|TestDeletedIncidentFeedbackAndDisabledWorkspace)$' -count=1
+# Green after narrowly handling ErrNoRows.
+go test ./pkg/incidentchat -count=1
+# Green, real PostgreSQL plus local HTTP fixtures.
+```
+
+Contract INC-NUM-CHAT in `pkg/incidentchat/runner.go::sendFeedback` uses the
+incident's display label when available and the request UUID only for a missing
+incident. Other DB errors propagate. Disabled/mismatched integration and workspace
+rules still apply. Legacy Slack requests without a stored workspace fail closed
+when the incident is deleted. Source review approved the follow-up patch.
+
+Final CI-equivalent local run passed:
+
+```powershell
+$env:DATABASE_URL='<disposable PostgreSQL 16 DSN>'
+$env:TEST_DATABASE_URL=$env:DATABASE_URL
+$env:SESSION_SECRET='test-session-secret'
+$env:WEBHOOK_SECRET='test-webhook-secret'
+$env:PUBLIC_URL='http://localhost:8080'
+make lint type test
+# Exit 0; 59 web files / 352 tests passed, 95.44% web statement coverage.
+```
 
 ## Rollout boundary
 

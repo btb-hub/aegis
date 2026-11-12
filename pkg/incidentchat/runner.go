@@ -291,23 +291,31 @@ func (r *Runner) DeliverFeedback(ctx context.Context) error {
 	return r.store.FinishChatAck(finishCtx, req.ID, status, message, next)
 }
 
+// INC-NUM-CHAT: Feedback uses the current incident display label, or its UUID
+// when the incident has been deleted. Other lookup errors must propagate. The
+// fallback does not bypass integration or workspace validation. Evidence:
+// TestFeedbackIncidentLabel and TestDeletedIncidentFeedbackAndDisabledWorkspace.
 func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result incidentack.Result) error {
 	cfg, err := r.integration(ctx, req.IntegrationID)
 	if err != nil {
 		return err
 	}
 	incident, err := r.store.GetIncidentByID(ctx, req.IncidentID)
-	if err != nil {
+	missingIncident := errors.Is(err, pgx.ErrNoRows)
+	if err != nil && !missingIncident {
 		return err
 	}
-	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": incident.DisplayID()})
+	displayID := req.IncidentID.String()
+	if !missingIncident {
+		displayID = incident.DisplayID()
+	}
+	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": displayID})
 	switch req.Provider {
 	case "slack":
 		workspaceID := req.WorkspaceID
 		if workspaceID == nil {
-			incident, err := r.store.GetIncidentByID(ctx, req.IncidentID)
-			if err != nil {
-				return err
+			if missingIncident {
+				return pgx.ErrNoRows
 			}
 			team, err := r.store.GetTeam(ctx, incident.TeamID)
 			if err != nil {

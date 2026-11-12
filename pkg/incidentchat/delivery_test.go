@@ -3,6 +3,7 @@ package incidentchat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,20 +21,21 @@ import (
 
 type deliveryStore struct {
 	Store
-	cfg       db.Integration
-	slot      db.Integration
-	incident  db.Incident
-	team      db.Team
-	users     []db.OnCallUser
-	user      db.User
-	lookupErr error
+	cfg         db.Integration
+	slot        db.Integration
+	incident    db.Incident
+	team        db.Team
+	users       []db.OnCallUser
+	user        db.User
+	lookupErr   error
+	incidentErr error
 }
 
 func (s *deliveryStore) GetIntegration(context.Context, uuid.UUID) (db.Integration, error) {
 	return s.cfg, s.lookupErr
 }
 func (s *deliveryStore) GetIncidentByID(context.Context, uuid.UUID) (db.Incident, error) {
-	return s.incident, nil
+	return s.incident, s.incidentErr
 }
 func (s *deliveryStore) GetTeam(context.Context, uuid.UUID) (db.Team, error) { return s.team, nil }
 func (s *deliveryStore) GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error) {
@@ -150,5 +152,51 @@ func TestRunnerStopsItsIndependentLoops(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("runner did not stop")
+	}
+}
+
+// INC-NUM-CHAT: Fake store and local Slack HTTP server verify displayed identity
+// and workspace enforcement; they do not exercise database queries or live Slack.
+func TestFeedbackIncidentLabel(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
+	incidentID, workspaceID := uuid.New(), uuid.New()
+	dbErr := errors.New("database unavailable")
+	for _, tc := range []struct {
+		name        string
+		incidentErr error
+		disabled    bool
+		wantLabel   string
+		wantErr     error
+	}{
+		{name: "existing", wantLabel: "INC-42"},
+		{name: "deleted", incidentErr: pgx.ErrNoRows, wantLabel: incidentID.String()},
+		{name: "database failure", incidentErr: dbErr, wantErr: dbErr},
+		{name: "deleted disabled workspace", incidentErr: pgx.ErrNoRows, disabled: true, wantErr: errors.New("disabled")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var bodies []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]any
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				bodies = append(bodies, body["text"].(string))
+				_, _ = w.Write([]byte(`{"ok":true}`))
+			}))
+			defer server.Close()
+			cfg, _ := json.Marshal(map[string]string{"bot_token": "token", "signing_secret": "secret", "api_base_url": server.URL})
+			mode := "inherit"
+			s := &deliveryStore{cfg: db.Integration{Enabled: true, Config: cfg}, slot: db.Integration{Enabled: !tc.disabled, Mode: &mode}, incident: db.Incident{ID: incidentID, Number: 42}, incidentErr: tc.incidentErr}
+			err := New(s, "").sendFeedback(t.Context(), db.ChatAckRequest{Provider: "slack", IncidentID: incidentID, WorkspaceID: &workspaceID, ChatID: "C", UserIdentity: "U"}, incidentack.Result{Code: "not_found", Locale: "en"})
+			if tc.wantErr != nil {
+				require.Error(t, err)
+				if tc.wantErr == dbErr {
+					require.ErrorIs(t, err, dbErr)
+				}
+				require.Empty(t, bodies)
+			} else {
+				require.NoError(t, err)
+				require.Len(t, bodies, 1)
+				require.Contains(t, bodies[0], tc.wantLabel)
+			}
+		})
 	}
 }
