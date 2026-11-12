@@ -37,6 +37,8 @@ doesn't mean the incident has been acknowledged. The worker sends a separate
 result after the database commits. Slack uses an ephemeral response; eXpress
 restricts the response in the originating chat to the clicking user's HUID.
 Feedback uses the linked user's language. Unlinked users receive linking guidance.
+If the rendered feedback is empty or contains only whitespace, the worker marks
+it complete without sending a message or retrying. Nonempty feedback is sent as rendered.
 Repeated clicks report the existing acknowledged or resolved state without
 another state transition. Existing linked-user eligibility is preserved.
 

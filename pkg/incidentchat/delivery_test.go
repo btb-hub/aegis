@@ -6,6 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -198,5 +201,90 @@ func TestFeedbackIncidentLabel(t *testing.T) {
 				require.Contains(t, bodies[0], tc.wantLabel)
 			}
 		})
+	}
+}
+
+type feedbackDeliveryStore struct {
+	*deliveryStore
+	req             db.ChatAckRequest
+	status, message string
+}
+
+func (s *feedbackDeliveryStore) ClaimChatAckFeedback(context.Context) (db.ChatAckRequest, error) {
+	return s.req, nil
+}
+
+func (s *feedbackDeliveryStore) FinishChatAck(_ context.Context, _ uuid.UUID, status, message string, _ time.Time) error {
+	s.status, s.message = status, message
+	return nil
+}
+
+// CHAT-FEEDBACK-EMPTY (runner.go::sendFeedback): empty or Unicode whitespace
+// translations complete delivery without HTTP traffic; nonempty text retains
+// interpolation and surrounding spaces. Real runner/providers use a fake store
+// and local HTTP endpoints, so this does not prove database persistence or live
+// chat delivery. Both locales and providers must obey the same suppression rule.
+func TestFeedbackSkipsBlankTranslations(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, i18n.LoadMessages("../i18n/messages")) })
+	dir := t.TempDir()
+	for _, locale := range []string{"en", "ru"} {
+		raw, err := json.Marshal(map[string]string{
+			"incident_chat.feedback_acknowledged":         "",
+			"incident_chat.feedback_already_acknowledged": " \t\r\n\u00a0",
+			"incident_chat.feedback_not_confirmed":        "  Check {{id}}.  ",
+		})
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, locale+".json"), raw, 0o600))
+	}
+	require.NoError(t, i18n.LoadMessages(dir))
+	for _, provider := range []string{"slack", "express"} {
+		for _, locale := range []string{"en", "ru"} {
+			for _, code := range []string{"acknowledged", "already_acknowledged", "not_confirmed"} {
+				t.Run(provider+"/"+locale+"/"+code, func(t *testing.T) {
+					var requests atomic.Int32
+					bodies := make(chan string, 1)
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						requests.Add(1)
+						if r.Method == http.MethodGet {
+							_, _ = w.Write([]byte(`{"status":"ok","result":"token"}`))
+							return
+						}
+						var payload struct {
+							Text         string `json:"text"`
+							Notification struct {
+								Body string `json:"body"`
+							} `json:"notification"`
+						}
+						require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+						if provider == "slack" {
+							bodies <- payload.Text
+						} else {
+							bodies <- payload.Notification.Body
+						}
+						_, _ = w.Write([]byte(`{"ok":true,"status":"ok","result":{"sync_id":"message"}}`))
+					}))
+					t.Cleanup(server.Close)
+					cfg, err := json.Marshal(map[string]string{"bot_token": "token", "signing_secret": "secret", "api_base_url": server.URL, "bot_id": "bot", "host": server.URL, "secret_key": "secret"})
+					require.NoError(t, err)
+					mode := "inherit"
+					workspaceID := uuid.New()
+					outcome, err := json.Marshal(incidentack.Result{Code: code, Locale: locale})
+					require.NoError(t, err)
+					s := &feedbackDeliveryStore{
+						deliveryStore: &deliveryStore{cfg: db.Integration{Enabled: true, Config: cfg}, slot: db.Integration{Enabled: true, Mode: &mode}, incident: db.Incident{Number: 42}},
+						req:           db.ChatAckRequest{Provider: provider, WorkspaceID: &workspaceID, ChatID: "GROUP", UserIdentity: uuid.NewString(), Attempts: 1, Outcome: outcome},
+					}
+					require.NoError(t, New(s, "").DeliverFeedback(t.Context()))
+					require.Equal(t, "sent", s.status)
+					require.Empty(t, s.message)
+					if code != "not_confirmed" {
+						require.Zero(t, requests.Load(), "blank feedback must not contact the provider")
+					} else {
+						require.Len(t, bodies, 1)
+						require.Equal(t, "  Check INC-42.  ", <-bodies)
+					}
+				})
+			}
+		}
 	}
 }
