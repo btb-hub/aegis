@@ -1,6 +1,6 @@
 # Paging messenger connections
 
-Open **Account → Paging messengers** to connect Slack or eXpress. Connect and Replace open browser authorization and return to Account. No bot command or manually entered messenger ID is required. Replace keeps the current connection until the new authorization succeeds. Disconnect requires confirmation and stops paging through that messenger.
+Open **Account → Paging messengers** to connect Slack or eXpress. Connect and Replace open browser authorization and return to Account. For eXpress without company SSO, use **Connect eXpress through the bot → Generate link code**, copy the `/link <code>` command, and send it in a private chat with the Aegis bot. Then choose **Check connection** to refresh the displayed identity. The bot must be configured with its callback, but this flow doesn't require browser authorization. Codes are private, single-use, and valid for 15 minutes; generating one does not change the current connection. The bot option remains available if browser setup is missing or connection status fails to load. Replace keeps the current connection until authorization or bot linking succeeds. Disconnect requires confirmation and stops paging through that messenger.
 
 Paging connections and sign-in providers are separate. Authorizing a paging connection changes only the current user's paging identity. It doesn't create an Aegis user, merge accounts by email, change the session, or add a sign-in provider. Disconnect does not remove sign-in identities. An explicitly managed Slack connection is never backfilled by a later login, even after Disconnect.
 
@@ -34,7 +34,7 @@ Authorizations expire after five minutes and are bound to the initiating user, s
 
 The existing `users.slack_user_id` and `users.express_user_huid` fields remain the worker and acknowledgment sources. Migration preserves all existing values. All paging writers serialize ownership checks per provider and reject assigning an identity already connected to another account. Existing duplicate values aren't silently removed during migration and may require administrator cleanup.
 
-The eXpress link-code and direct-bind endpoints remain compatible. Successfully connecting, replacing, or disconnecting eXpress invalidates older bot link codes as well as pending browser attempts. Generating a new code remains possible through the API.
+The eXpress link-code and direct-bind endpoints remain compatible. Successfully connecting, replacing, or disconnecting eXpress invalidates older bot link codes as well as pending browser attempts. Generate a code from Account or `POST /api/v1/users/me/express-link-code`. The returned `command` is used as-is; a permanent Aegis user ID is not a linking credential.
 
 ## Verification
 

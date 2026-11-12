@@ -22,6 +22,7 @@ export type ApiIncident = {
   title: string;
   fingerprint: string;
   jira_issue_key?: string;
+  jira_issue_url?: string;
   created_at: string;
   acknowledged_at?: string;
   resolved_at?: string;
@@ -119,6 +120,7 @@ export function mapApiIncident(
     title: incident.title,
     fingerprint: incident.fingerprint,
     jiraIssueKey: incident.jira_issue_key,
+    jiraIssueUrl: incident.jira_issue_url,
     createdAt: incident.created_at,
     acknowledgedAt: incident.acknowledged_at,
     resolvedAt: incident.resolved_at,

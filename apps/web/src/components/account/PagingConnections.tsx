@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { createExpressLinkCode } from '../../lib/authTypes';
 import {
   authorizePaging, disconnectPaging, fetchPagingConnections, PagingRequestError,
   type PagingConnection, type PagingProvider,
@@ -14,6 +15,11 @@ const providers: PagingProvider[] = ['slack', 'express'];
 const errorCodes = ['setup_required', 'authentication_required', 'bot_required', 'bot_disabled', 'provider_unavailable', 'invalid_authorization', 'cancelled',
   'workspace_mismatch', 'email_unverified', 'email_match_failed', 'identity_in_use'];
 
+// EXPRESS-BOT-AC1: Offer short-lived /link commands independently of browser
+// authorization availability, including when connection status cannot load.
+// EXPRESS-BOT-AC2: Generation must not claim or change a connected identity;
+// errors allow retry. EXPRESS-BOT-AC3: Let users copy the command and explicitly
+// refresh the account after sending it. Evidence: PagingConnections.test.tsx.
 export function PagingConnections() {
   const { t } = useTranslation();
   const { user, refresh } = useAuth();
@@ -26,6 +32,12 @@ export function PagingConnections() {
   const [disconnecting, setDisconnecting] = useState<PagingProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [linkCommand, setLinkCommand] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState<'generate' | 'refresh' | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => { setLinkCommand(null); setCopied(false); }, [user?.express_user_huid]);
 
   const showError = useCallback((code: string) => {
     const known = errorCodes.includes(code) ? code : 'provider_unavailable';
@@ -89,6 +101,43 @@ export function PagingConnections() {
     }
   }
 
+  async function generateLinkCommand() {
+    setLinkBusy('generate');
+    setLinkError(null);
+    setLinkCommand(null);
+    setCopied(false);
+    try {
+      setLinkCommand((await createExpressLinkCode()).command);
+    } catch {
+      setLinkError(t('account.express_code_error'));
+    } finally {
+      setLinkBusy(null);
+    }
+  }
+
+  async function copyLinkCommand() {
+    if (!linkCommand) { return; }
+    setLinkError(null);
+    try {
+      await navigator.clipboard.writeText(linkCommand);
+      setCopied(true);
+    } catch {
+      setLinkError(t('account.express_copy_error'));
+    }
+  }
+
+  async function checkBotConnection() {
+    setLinkBusy('refresh');
+    setLinkError(null);
+    try {
+      await Promise.all([load(), refresh({ preserveOnError: true })]);
+    } catch {
+      setLinkError(t('account.express_check_error'));
+    } finally {
+      setLinkBusy(null);
+    }
+  }
+
   return (
     <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
       <h2 className="text-lg font-semibold">{t('account.paging_title')}</h2>
@@ -133,6 +182,29 @@ export function PagingConnections() {
           })}
         </ul>
       ) : null}
+      <div className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+        <h3 className="text-sm font-semibold">{t('account.express_bot_title')}</h3>
+        <p className="text-sm text-zinc-600">{t('account.express_bot_body')}</p>
+        <Button variant="secondary" disabled={busy !== null || linkBusy !== null} onClick={() => void generateLinkCommand()}>
+          {linkBusy === 'generate' ? t('account.paging_working') : t('account.generate_link_code')}
+        </Button>
+        {linkCommand ? <div className="space-y-3">
+          <label className="block text-sm font-medium">
+            {t('account.express_bot_command')}
+            <input readOnly value={linkCommand} onFocus={(event) => event.target.select()}
+              className="mt-1 block min-h-11 w-full rounded-md border border-zinc-500 bg-white px-3 py-2 font-mono text-base text-zinc-900 focus:outline focus:outline-2 focus:outline-accent" />
+          </label>
+          <p className="text-sm text-zinc-600">{t('account.express_bot_instructions')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => void copyLinkCommand()}>{t('account.express_copy_command')}</Button>
+            <Button variant="secondary" disabled={busy !== null || linkBusy !== null} onClick={() => void checkBotConnection()}>
+              {linkBusy === 'refresh' ? t('account.paging_working') : t('account.express_check_connection')}
+            </Button>
+          </div>
+          {copied ? <p role="status" className="text-sm text-zinc-600">{t('account.express_command_copied')}</p> : null}
+        </div> : null}
+        {linkError ? <p role="alert" className="text-sm text-red-700">{linkError}</p> : null}
+      </div>
       {error ? <p role="alert" className="text-sm text-red-700">{error}</p> : null}
       <Modal open={disconnecting !== null} title={t('account.paging_disconnect', { provider: disconnecting ? t(`account.provider.${disconnecting}`) : '' })}
         onClose={() => { if (!busy) { setDisconnecting(null); } }}

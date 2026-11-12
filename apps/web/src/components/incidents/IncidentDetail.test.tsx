@@ -13,6 +13,7 @@ const incident: Incident = {
   title: 'CPU high',
   fingerprint: 'fp-1',
   jiraIssueKey: 'OPS-42',
+  jiraIssueUrl: 'https://jira.customer.test/browse/OPS-42',
   createdAt: '2026-06-26T10:00:00Z',
   alerts: [{ id: 'a1', severity: 'critical', title: 'CPU high', status: 'firing' }],
   timeline: [{ id: 'e1', kind: 'created', payload: {}, createdAt: '2026-06-26T10:00:00Z' }],
@@ -24,6 +25,7 @@ const teams = [
 ];
 
 describe('IncidentDetail', () => {
+  // JIRA-LINK-AC1 (service/incident.go): renders the provided destination; no live API or Jira is exercised.
   it('renders alerts, timeline, jira link, and action buttons', () => {
     render(
       <I18nextProvider i18n={i18n}>
@@ -42,7 +44,7 @@ describe('IncidentDetail', () => {
     );
 
     expect(screen.getAllByText('CPU high').length).toBeGreaterThan(0);
-    expect(screen.getByRole('link', { name: 'Open OPS-42 in Jira' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open OPS-42 in Jira' })).toHaveAttribute('href', 'https://jira.customer.test/browse/OPS-42');
     expect(screen.getByText('Acknowledge')).toBeInTheDocument();
     expect(screen.getByText('Resolve')).toBeInTheDocument();
     expect(screen.getByText('Hand off to L3')).toBeInTheDocument();
@@ -319,4 +321,11 @@ describe('IncidentDetail', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'CPU high' })).toHaveFocus());
   });
 
+
+  // JIRA-LINK-AC1: a stored key alone must not create a fabricated destination.
+  // This renders the component only; it does not verify the API or Jira.
+  it('hides the Jira link when no issue URL is available', () => {
+    render(<I18nextProvider i18n={i18n}><IncidentDetail incident={{ ...incident, jiraIssueUrl: undefined }} teams={teams} canBounce={false} onAcknowledge={vi.fn()} onResolve={vi.fn()} onHandoff={vi.fn()} onBounce={vi.fn()} /></I18nextProvider>);
+    expect(screen.queryByRole('link', { name: 'Open OPS-42 in Jira' })).not.toBeInTheDocument();
+  });
 });

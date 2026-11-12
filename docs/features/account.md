@@ -110,9 +110,9 @@ but page via Slack once `slack_user_id` is set.
 | Channel | Field | UI |
 |---------|-------|-----|
 | Slack | `slack_user_id` | Connect through browser authorization; Replace preserves the current ID until success; Disconnect requires confirmation. |
-| eXpress | `express_user_huid` | Same account flow, resolving the verified SSO email through the BotX directory. No bot command required. |
+| eXpress | `express_user_huid` | Browser authorization resolves the verified SSO email through BotX. The optional Generate link code flow shows a private, single-use `/link <code>` command valid for 15 minutes and works without company SSO; Check connection refreshes the identity after sending it to the bot. |
 
-Availability comes from the paging-connections API and requires configured OIDC and an enabled global bot. Paging links remain separate from sign-in identities. Disconnect stays effective after subsequent logins. See [paging connections](./paging-connections.md) for the current API, verification rules, compatibility, and administrator setup.
+Browser authorization availability comes from the paging-connections API and requires configured OIDC and an enabled global bot. Bot-command linking is available independently of that browser setup and still needs a working bot callback. Paging links remain separate from sign-in identities. Disconnect stays effective after subsequent logins. See [paging connections](./paging-connections.md) for the current API, verification rules, compatibility, and administrator setup.
 
 ---
 

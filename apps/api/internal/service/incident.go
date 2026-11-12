@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/aegis/aegis/pkg/apperrors"
 	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
 	"github.com/aegis/aegis/pkg/incidentack"
+	"github.com/aegis/aegis/pkg/integrations/resolve"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -308,4 +312,66 @@ func mapCreateFromAlertError(err error) error {
 		})
 	}
 	return err
+}
+
+// JIRA-LINK-AC1: JiraIssueURL exposes a safe Jira issue URL only when the
+// incident has a stored key and its workspace has an effective Jira integration.
+// Credentials never leave the server. The current effective host is used because
+// the historical Jira host is not stored. See handler TestIncidentDetailJiraLink.
+func (s *IncidentService) JiraIssueURL(ctx context.Context, incident db.Incident) (string, error) {
+	if incident.JiraIssueKey == nil || !regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*-[0-9]+$`).MatchString(*incident.JiraIssueKey) {
+		return "", nil
+	}
+	repo, ok := s.repo.(interface {
+		GetWorkspaceIntegration(context.Context, uuid.UUID, string) (db.Integration, error)
+		GetIntegrationByKind(context.Context, string) (db.Integration, error)
+	})
+	if !ok {
+		return "", nil
+	}
+	team, err := s.repo.GetTeam(ctx, incident.TeamID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	slot, err := repo.GetWorkspaceIntegration(ctx, team.WorkspaceID, "jira")
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	mode, err := workspaceIntegrationMode(slot.Mode, nil)
+	if err != nil {
+		return "", nil
+	}
+	var globalSlot *resolve.Slot
+	if mode == "inherit" && slot.Enabled {
+		global, err := repo.GetIntegrationByKind(ctx, "jira")
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return "", err
+		}
+		if err == nil {
+			globalSlot = &resolve.Slot{Enabled: global.Enabled, Config: global.Config}
+		}
+	}
+	result := resolve.Resolve(resolve.Input{Kind: "jira", Slot: &resolve.Slot{Mode: mode, Enabled: slot.Enabled, Config: slot.Config}, Global: globalSlot})
+	if !result.OK {
+		return "", nil
+	}
+	var cfg struct {
+		BaseURL string `json:"base_url"`
+	}
+	if json.Unmarshal(result.Config, &cfg) != nil {
+		return "", nil
+	}
+	base, err := url.Parse(strings.TrimSpace(cfg.BaseURL))
+	if err != nil || (base.Scheme != "http" && base.Scheme != "https") || base.Hostname() == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" {
+		return "", nil
+	}
+	base.Path = strings.TrimRight(base.Path, "/") + "/browse/" + *incident.JiraIssueKey
+	base.RawPath = ""
+	return base.String(), nil
 }
