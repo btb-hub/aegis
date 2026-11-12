@@ -832,3 +832,62 @@ func seedAdmin(t *testing.T, r *gin.Engine, repo *phase2HandlerRepo) *http.Cooki
 	require.NoError(t, err)
 	return &http.Cookie{Name: sessionCookie, Value: token}
 }
+
+// JIRA-LINK-AC1 exercises the real HTTP handler and resolver with an in-memory
+// repository; it does not connect to Jira or a database.
+func TestIncidentDetailJiraLink(t *testing.T) {
+	r, repo := setupPhase2Router(t)
+	admin := seedAdmin(t, r, repo)
+	workspaceID, teamID, incidentID := uuid.New(), uuid.New(), uuid.New()
+	key := "OPS-42"
+	repo.teams[teamID] = db.Team{ID: teamID, WorkspaceID: workspaceID}
+	repo.incidents[incidentID] = db.Incident{ID: incidentID, TeamID: teamID, JiraIssueKey: &key}
+	mode := "inherit"
+	globalID, slotID := uuid.New(), uuid.New()
+	repo.integrations[globalID] = db.Integration{ID: globalID, Kind: "jira", Enabled: true, Config: []byte(`{"base_url":"https://jira.customer.test/jira/","api_token":"secret","project_key":"OPS"}`)}
+	repo.integrations[slotID] = db.Integration{ID: slotID, Kind: "jira", Enabled: true, WorkspaceID: &workspaceID, Mode: &mode, Config: []byte(`{}`)}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/"+incidentID.String(), nil)
+	req.AddCookie(admin)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	var body struct {
+		Incident map[string]any `json:"incident"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "https://jira.customer.test/jira/browse/OPS-42", body.Incident["jira_issue_url"])
+	require.NotContains(t, w.Body.String(), "secret")
+
+	// Each case changes the persisted fixture and exercises the same authenticated endpoint.
+	custom := "custom"
+	for _, tc := range []struct {
+		name, mode, config string
+		enabled            bool
+		issueKey           *string
+		want               string
+	}{
+		{"custom", custom, `{"base_url":"http://jira.internal","api_token":"secret","project_key":"OPS"}`, true, &key, "http://jira.internal/browse/OPS-42"},
+		{"invalid scheme", custom, `{"base_url":"javascript:alert(1)","api_token":"secret","project_key":"OPS"}`, true, &key, ""},
+		{"missing key", custom, `{"base_url":"https://jira.internal","api_token":"secret","project_key":"OPS"}`, true, nil, ""},
+		{"disabled", custom, `{"base_url":"https://jira.internal","api_token":"secret","project_key":"OPS"}`, false, &key, ""},
+		{"incomplete", custom, `{}`, true, &key, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo.integrations[slotID] = db.Integration{ID: slotID, Kind: "jira", Enabled: tc.enabled, WorkspaceID: &workspaceID, Mode: &tc.mode, Config: []byte(tc.config)}
+			repo.incidents[incidentID] = db.Incident{ID: incidentID, TeamID: teamID, JiraIssueKey: tc.issueKey}
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, req)
+			require.Equal(t, http.StatusOK, w.Code)
+			var body struct {
+				Incident map[string]any `json:"incident"`
+			}
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+			if tc.want == "" {
+				require.NotContains(t, body.Incident, "jira_issue_url")
+			} else {
+				require.Equal(t, tc.want, body.Incident["jira_issue_url"])
+			}
+			require.NotContains(t, w.Body.String(), "secret")
+		})
+	}
+}

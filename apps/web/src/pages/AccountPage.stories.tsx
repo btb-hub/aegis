@@ -42,6 +42,9 @@ const meta: Meta<typeof AccountPage> = {
       const path = String(input);
       let payload: unknown;
       if (path === '/auth/me') { payload = user; }
+      else if (path === '/api/v1/users/me/express-link-code') {
+        payload = { code: 'DEMO1234', command: '/link DEMO1234' };
+      }
       else if (path === '/auth/providers') { payload = { providers: ['google', 'slack', 'express'] }; }
       else if (path === '/api/v1/users/me/paging-connections') {
         payload = { connections: [

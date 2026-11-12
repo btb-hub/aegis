@@ -225,10 +225,10 @@ export function IncidentDetail({
               })}
             </time>
           </div>
-          {incident.jiraIssueKey ? (
+          {incident.jiraIssueKey && incident.jiraIssueUrl ? (
             <a
               className="text-sm font-medium text-blue-700 hover:underline"
-              href={`https://jira.example.com/browse/${incident.jiraIssueKey}`}
+              href={incident.jiraIssueUrl}
             >
               {t('incidents.jira_link', { key: incident.jiraIssueKey })}
             </a>

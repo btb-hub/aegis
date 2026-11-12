@@ -26,6 +26,7 @@ export type Incident = {
   title: string;
   fingerprint: string;
   jiraIssueKey?: string;
+  jiraIssueUrl?: string;
   createdAt: string;
   acknowledgedAt?: string;
   resolvedAt?: string;

@@ -12,7 +12,7 @@ import type { AuthUser } from '../lib/authTypes';
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
-  refresh: () => Promise<void>;
+  refresh: (options?: { preserveOnError?: boolean }) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -33,10 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  // EXPRESS-BOT-AC4: An opt-in background refresh preserves the current user
+  // and reports transient fetch errors to its caller. A real 401 still clears
+  // the session. Evidence: src/components/account/PagingConnections.test.tsx.
+  const refresh = useCallback(async (options?: { preserveOnError?: boolean }) => {
     try {
       setUser(await fetchCurrentUser());
-    } catch {
+    } catch (error) {
+      if (options?.preserveOnError) { throw error; }
       setUser(null);
     } finally {
       setLoading(false);

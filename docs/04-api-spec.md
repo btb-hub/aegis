@@ -271,6 +271,8 @@ supplies integrations.
 | GET | `/incidents/{id}` | Detail + timeline |
 
 **Implemented (AEG-107):** `incident` keeps `assignee_id`. When the assignee user exists, `incident.assignee` is `{ user_id, email, display_name, contacts }` using the same `contacts` shape as current on-call. Unassigned incidents and unknown assignee IDs omit `assignee`. `GET /incidents` list does not embed `assignee`.
+
+**Jira destination (JIRA-LINK-AC1):** `GET /incidents/{id}` includes optional `incident.jira_issue_url` when a valid stored `jira_issue_key` and the owning workspace's effective Jira configuration are available. The URL uses the configured HTTP(S) base URL, preserving its context path, followed by `/browse/{jira_issue_key}`. Missing, disabled, incomplete, or unsafe configuration omits the URL; clients must not invent a destination from the issue key alone. Credentials are never included. The destination uses current configuration because incidents do not store a historical Jira host. `GET /incidents` list does not embed this field.
 | POST | `/incidents` | Create incident from a firing alert (admin or member). Body: `{ "alert_id": "uuid", "team_id": "uuid", "assignee_id": "uuid" | omitted }`. Returns `200` with `IncidentJSON`. Enqueues notify and escalation jobs; does not call Jira/Slack/eXpress directly. |
 | POST | `/incidents/{id}/acknowledge` | Ack from UI |
 | POST | `/incidents/{id}/resolve` | Resolve |

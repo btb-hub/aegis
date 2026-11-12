@@ -27,6 +27,7 @@ describe('incidentsApi', () => {
     });
   });
 
+  // JIRA-LINK-AC1 (service/incident.go): preserves the supplied URL through the adapter; no live API is exercised.
   it('maps incident detail with alerts and timeline', () => {
     const incident = mapApiIncident(
       {
@@ -37,6 +38,7 @@ describe('incidentsApi', () => {
         title: 'CPU high',
         fingerprint: 'fp-1',
         jira_issue_key: 'OPS-1',
+        jira_issue_url: 'https://jira.customer.test/browse/OPS-1',
         created_at: '2026-06-26T10:00:00Z',
         assignee: {
           user_id: 'u1',
@@ -53,6 +55,7 @@ describe('incidentsApi', () => {
       id: '11111111-1111-1111-1111-111111111111',
       teamId: 'team-1',
       jiraIssueKey: 'OPS-1',
+      jiraIssueUrl: 'https://jira.customer.test/browse/OPS-1',
       assignee: {
         userId: 'u1',
         email: 'alice@example.com',

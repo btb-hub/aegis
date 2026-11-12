@@ -33,14 +33,15 @@ Must not sit behind interactive Google/IAP login.
 
 ## Connect from Account
 
-Users connect, replace, and disconnect eXpress in **Account → Paging messengers** through browser authorization. Aegis resolves the verified SSO email through BotX to one active `user_huid`; the OIDC subject isn't used as a HUID. See [paging connections](../features/paging-connections.md) for administrator setup and API details.
+Users connect, replace, and disconnect eXpress in **Account → Paging messengers**. Browser authorization resolves the verified SSO email through BotX to one active `user_huid`; the OIDC subject isn't used as a HUID. The **Connect eXpress through the bot** option generates a `/link <code>` command and works without company SSO. Both options use the existing paging identity. See [paging connections](../features/paging-connections.md) for administrator setup and API details.
 
-## Legacy identity bootstrap (`/link`)
+## Bot identity linking (`/link`)
 
-1. User signs in to Aegis and calls `POST /api/v1/users/me/express-link-code`.
+1. User signs in to Aegis and chooses **Account → Paging messengers → Generate link code**, which calls `POST /api/v1/users/me/express-link-code`.
 2. Response includes a short-lived code and the command to send in eXpress: `/link <code>`.
 3. User sends that command to the Aegis bot in eXpress.
 4. BotX delivers the command to `{base}/command`; Aegis binds `express_user_huid` to the user.
+5. User chooses **Check connection** in Account to refresh the linked identity. Generating or copying a command alone does not mark the account as connected.
 
 **Direct bind stub (admin/testing):** `POST /api/v1/users/me/express-link` with body
 `{"express_user_huid":"<uuid>"}` binds the huid without the bot flow.

@@ -124,6 +124,14 @@ func (h *IncidentHandler) getIncident(c *gin.Context) {
 		})
 	}
 	out := service.IncidentJSON(incident)
+	jiraURL, err := h.incidents.JiraIssueURL(c.Request.Context(), incident)
+	if err != nil {
+		WriteError(c, err)
+		return
+	}
+	if jiraURL != "" {
+		out["jira_issue_url"] = jiraURL
+	}
 	assignee, err := h.incidents.Assignee(c.Request.Context(), incident)
 	if err != nil {
 		WriteError(c, err)

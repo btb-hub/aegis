@@ -99,7 +99,9 @@ describe('AccountPage', () => {
     });
   });
 
-  it('shows paging messengers without link-code instructions', async () => {
+  // EXPRESS-BOT-AC1, PagingConnections.tsx: Account exposes the optional bot
+  // flow alongside browser connection controls. HTTP is mocked, not BotX.
+  it('shows paging messengers with the optional eXpress bot flow', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/auth/me')) {
@@ -122,7 +124,7 @@ describe('AccountPage', () => {
       expect(screen.getByRole('button', { name: 'Connect eXpress' })).toBeInTheDocument();
     });
 
-    expect(screen.queryByRole('button', { name: 'Generate link code' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate link code' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Connect Slack' })).toBeInTheDocument();
   });
 
