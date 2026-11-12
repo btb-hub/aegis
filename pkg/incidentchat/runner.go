@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	runtimeconfig "github.com/aegis/aegis/pkg/config"
@@ -295,6 +296,10 @@ func (r *Runner) DeliverFeedback(ctx context.Context) error {
 // when the incident has been deleted. Other lookup errors must propagate. The
 // fallback does not bypass integration or workspace validation. Evidence:
 // TestFeedbackIncidentLabel and TestDeletedIncidentFeedbackAndDisabledWorkspace.
+// CHAT-FEEDBACK-EMPTY: After rendering, whitespace-only feedback is a successful
+// no-op for both providers, so deliberately empty translations never send a
+// message or trigger delivery retries. Nonempty text is sent unchanged.
+// Evidence: TestFeedbackSkipsBlankTranslations in delivery_test.go.
 func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result incidentack.Result) error {
 	cfg, err := r.integration(ctx, req.IntegrationID)
 	if err != nil {
@@ -310,6 +315,9 @@ func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result
 		displayID = incident.DisplayID()
 	}
 	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": displayID})
+	if strings.TrimSpace(body) == "" {
+		return nil
+	}
 	switch req.Provider {
 	case "slack":
 		workspaceID := req.WorkspaceID

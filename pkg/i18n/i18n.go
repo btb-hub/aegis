@@ -33,6 +33,9 @@ func LoadMessages(dir string) error {
 	return nil
 }
 
+// I18N-EMPTY: T preserves explicitly empty translations, including English
+// fallbacks. Only absent keys fall back to English, then to the key itself.
+// Evidence: TestTranslationPresenceAndEmptyValues in i18n_test.go.
 func T(locale, key string, vars map[string]string) string {
 	catalogsMu.RLock()
 	defer catalogsMu.RUnlock()
@@ -42,9 +45,9 @@ func T(locale, key string, vars map[string]string) string {
 	}
 	msg, ok := catalogs[locale][key]
 	if !ok {
-		msg = catalogs["en"][key]
+		msg, ok = catalogs["en"][key]
 	}
-	if msg == "" {
+	if !ok {
 		return key
 	}
 	for k, v := range vars {

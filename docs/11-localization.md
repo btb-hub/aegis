@@ -93,6 +93,8 @@ pkg/i18n/
 
 - Worker loads recipient `users.locale` when building Slack Block Kit / eXpress bubbles.
 - Unknown locale → `en`.
+- Missing keys fall back to English, then to the key itself. Explicitly empty
+  translations stay empty, including when supplied by the English fallback.
 - Same key naming discipline as web where messages mirror UI (`page.acknowledge_button`).
 
 API handlers do **not** localise `message` in error JSON; the web client translates by `code`.
