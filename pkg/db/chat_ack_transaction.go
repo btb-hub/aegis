@@ -52,8 +52,8 @@ func (s chatAckTransaction) GetUserByExpressHuid(ctx context.Context, id uuid.UU
 }
 func (s chatAckTransaction) GetIncidentByID(ctx context.Context, id uuid.UUID) (Incident, error) {
 	var i Incident
-	err := s.tx.QueryRow(ctx, `SELECT id,team_id,assignee_id,status,severity,title,fingerprint,jira_issue_key,acknowledged_at,resolved_at,created_at FROM incidents WHERE id=$1 FOR UPDATE`, id).Scan(
-		&i.ID, &i.TeamID, &i.AssigneeID, &i.Status, &i.Severity, &i.Title, &i.Fingerprint, &i.JiraIssueKey, &i.AcknowledgedAt, &i.ResolvedAt, &i.CreatedAt)
+	err := s.tx.QueryRow(ctx, `SELECT id,team_id,assignee_id,status,severity,title,fingerprint,jira_issue_key,acknowledged_at,resolved_at,created_at,number FROM incidents WHERE id=$1 FOR UPDATE`, id).Scan(
+		&i.ID, &i.TeamID, &i.AssigneeID, &i.Status, &i.Severity, &i.Title, &i.Fingerprint, &i.JiraIssueKey, &i.AcknowledgedAt, &i.ResolvedAt, &i.CreatedAt, &i.Number)
 	return i, err
 }
 func (s chatAckTransaction) AcknowledgeIncident(ctx context.Context, id, actor uuid.UUID) (Incident, error) {

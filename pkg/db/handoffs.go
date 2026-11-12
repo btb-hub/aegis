@@ -33,13 +33,13 @@ func (s *Store) HandoffIncident(ctx context.Context, input HandoffIncidentInput)
 	var incident Incident
 	err = tx.QueryRow(ctx, `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 WHERE id = $1
 FOR UPDATE`, input.IncidentID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, Handoff{}, err
@@ -78,12 +78,12 @@ UPDATE incidents
 SET assignee_id = $2
 WHERE id = $1
 RETURNING id, team_id, assignee_id, status, severity, title, fingerprint,
-          jira_issue_key, acknowledged_at, resolved_at, created_at`,
+          jira_issue_key, acknowledged_at, resolved_at, created_at, number`,
 		input.IncidentID, toUserID,
 	).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, Handoff{}, err
@@ -116,13 +116,13 @@ func (s *Store) BounceIncident(ctx context.Context, input BounceIncidentInput) (
 	var incident Incident
 	err = tx.QueryRow(ctx, `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 WHERE id = $1
 FOR UPDATE`, input.IncidentID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, err
@@ -158,12 +158,12 @@ UPDATE incidents
 SET assignee_id = $2
 WHERE id = $1
 RETURNING id, team_id, assignee_id, status, severity, title, fingerprint,
-          jira_issue_key, acknowledged_at, resolved_at, created_at`,
+          jira_issue_key, acknowledged_at, resolved_at, created_at, number`,
 		input.IncidentID, *handoff.FromUserID,
 	).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, err

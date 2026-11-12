@@ -89,7 +89,7 @@ export function IncidentList({
                     {title.summary}
                   </p>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
-                    <span className="font-mono">{incident.id.slice(0, 8)}</span>
+                    <span className="font-mono">{incident.displayId ?? incident.id.slice(0, 8)}</span>
                     <time className="tabular-nums" dateTime={incident.createdAt}>{formatDateTime(new Date(incident.createdAt), i18n.language)}</time>
                   </div>
                 </div>

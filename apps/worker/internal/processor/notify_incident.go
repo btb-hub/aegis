@@ -59,6 +59,12 @@ func (p *NotifyIncidentProcessor) Handle(ctx context.Context, job Job) error {
 	return notifyIncidentIntegrations(ctx, p.log, p.store, incident, runtimeconfig.PublicURL(ctx, p.publicURL))
 }
 
+// JIRA-CREATE-ASSIGN: After ticket creation, attempt assignment to the incident assignee.
+// Re-read after linking and after each assignment until the assignee is stable, so a
+// handoff during creation or assignment is not overwritten by a stale assignee.
+// Missing users and assignment errors do not undo the link or sent notification; retries
+// must not create another ticket. Evidence: TestNotifyIncidentAssignsCreatedTicket
+// and TestNotifyIncidentReconcilesHandoffDuringCreationOrAssignment in notify_incident_test.go.
 func notifyIncidentIntegrations(
 	ctx context.Context,
 	log *slog.Logger,
@@ -97,6 +103,7 @@ func notifyIncidentIntegrations(
 		key, err := provider.CreateTicket(ctx, ref)
 		status := "sent"
 		externalRef := key
+		linked := false
 		if err != nil {
 			if log != nil {
 				log.Error("ticket provider failed", "kind", provider.Kind(), "error", err)
@@ -108,8 +115,16 @@ func notifyIncidentIntegrations(
 				log.Error("update jira key failed", "error", err)
 			}
 		} else {
+			linked = true
 			payload, _ := json.Marshal(map[string]any{"jira_issue_key": key})
 			_ = store.AppendTimelineEvent(ctx, incident.ID, "jira_linked", nil, payload)
+		}
+		if linked {
+			if updater, ok := provider.(integrations.AssigneeUpdater); ok {
+				if assignErr := reconcileInitialAssignee(ctx, store, updater, incident.ID, key); assignErr != nil && log != nil {
+					log.Error("ticket assignee update failed", "kind", provider.Kind(), "error", assignErr)
+				}
+			}
 		}
 		if integrationID, ok := reg.integrationID(provider.Kind()); ok {
 			_, _ = store.CreateNotification(ctx, incident.ID, integrationID, status, externalRef)
@@ -162,5 +177,34 @@ func notifyIncidentIntegrations(
 		}
 		return nil
 	})
+	return nil
+}
+
+// reconcileInitialAssignee implements JIRA-CREATE-ASSIGN; see notifyIncidentIntegrations.
+func reconcileInitialAssignee(ctx context.Context, store NotifyIncidentStore, updater integrations.AssigneeUpdater, incidentID uuid.UUID, key string) error {
+	current, err := store.GetIncidentByID(ctx, incidentID)
+	if err != nil {
+		return err
+	}
+	for current.AssigneeID != nil {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		assignedID := *current.AssigneeID
+		user, err := store.GetUserByID(ctx, assignedID)
+		if err != nil {
+			return err
+		}
+		if err := updater.UpdateAssignee(ctx, key, user.Email); err != nil {
+			return err
+		}
+		current, err = store.GetIncidentByID(ctx, incidentID)
+		if err != nil {
+			return err
+		}
+		if current.AssigneeID != nil && *current.AssigneeID == assignedID {
+			return nil
+		}
+	}
 	return nil
 }

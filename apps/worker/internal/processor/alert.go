@@ -150,9 +150,12 @@ func decodeAlertLabels(raw []byte) (map[string]string, error) {
 	return labels, nil
 }
 
+// INC-NUM-CHAT: carry the persisted display label to notification providers.
+// UUID remains the callback identity. Evidence: incident_number_test.go.
 func toIncidentRef(incident db.Incident) integrations.IncidentRef {
 	return integrations.IncidentRef{
 		ID:           incident.ID,
+		DisplayID:    incident.DisplayID(),
 		TeamID:       incident.TeamID,
 		AssigneeID:   incident.AssigneeID,
 		Status:       incident.Status,

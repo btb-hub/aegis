@@ -27,11 +27,13 @@ describe('incidentsApi', () => {
     });
   });
 
-  // JIRA-LINK-AC1 (service/incident.go): preserves the supplied URL through the adapter; no live API is exercised.
+  // JIRA-LINK-AC1 (service/incident.go) and INC-NUM-UI (incidentTypes.ts):
+  // preserve the supplied Jira URL and display number alongside the UUID; no live API is exercised.
   it('maps incident detail with alerts and timeline', () => {
     const incident = mapApiIncident(
       {
         id: '11111111-1111-1111-1111-111111111111',
+        display_id: 'INC-01',
         team_id: 'team-1',
         status: 'open',
         severity: 'critical',
@@ -53,6 +55,7 @@ describe('incidentsApi', () => {
 
     expect(incident).toMatchObject({
       id: '11111111-1111-1111-1111-111111111111',
+      displayId: 'INC-01',
       teamId: 'team-1',
       jiraIssueKey: 'OPS-1',
       jiraIssueUrl: 'https://jira.customer.test/browse/OPS-1',

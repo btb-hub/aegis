@@ -187,17 +187,18 @@ type RoutingRule struct {
 }
 
 type Incident struct {
-	ID              uuid.UUID  `json:"id"`
-	TeamID          uuid.UUID  `json:"team_id"`
-	AssigneeID      *uuid.UUID `json:"assignee_id"`
-	Status          string     `json:"status"`
-	Severity        string     `json:"severity"`
-	Title           string     `json:"title"`
-	Fingerprint     string     `json:"fingerprint"`
-	JiraIssueKey    *string    `json:"jira_issue_key"`
-	AcknowledgedAt  *time.Time `json:"acknowledged_at"`
-	ResolvedAt      *time.Time `json:"resolved_at"`
-	CreatedAt       time.Time  `json:"created_at"`
+	ID             uuid.UUID  `json:"id"`
+	Number         int64      `json:"number"`
+	TeamID         uuid.UUID  `json:"team_id"`
+	AssigneeID     *uuid.UUID `json:"assignee_id"`
+	Status         string     `json:"status"`
+	Severity       string     `json:"severity"`
+	Title          string     `json:"title"`
+	Fingerprint    string     `json:"fingerprint"`
+	JiraIssueKey   *string    `json:"jira_issue_key"`
+	AcknowledgedAt *time.Time `json:"acknowledged_at"`
+	ResolvedAt     *time.Time `json:"resolved_at"`
+	CreatedAt      time.Time  `json:"created_at"`
 }
 
 type TimelineEvent struct {

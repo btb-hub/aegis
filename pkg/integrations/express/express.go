@@ -56,6 +56,8 @@ func NewFromJSON(raw []byte) (*Provider, error) {
 
 func (p *Provider) Kind() string { return "express" }
 
+// INC-NUM-CHAT: personal pages show DisplayID when available; callbacks keep the
+// UUID. Evidence: express_test.go::TestSendPageUsesFixture.
 func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentRef, recipient integrations.PageRecipient) (string, error) {
 	if recipient.ExpressUserHuid == nil || strings.TrimSpace(*recipient.ExpressUserHuid) == "" {
 		return "", fmt.Errorf("recipient has no express_user_huid")
@@ -66,7 +68,11 @@ func (p *Provider) SendPage(ctx context.Context, incident integrations.IncidentR
 		locale = "en"
 	}
 	ackLabel := i18n.T(locale, "page.acknowledge_button", nil)
-	title := i18n.T(locale, "page.incident_title", map[string]string{"id": incident.ID.String()[:8]})
+	id := incident.DisplayID
+	if id == "" {
+		id = incident.ID.String()[:8]
+	}
+	title := i18n.T(locale, "page.incident_title", map[string]string{"id": id})
 	body := fmt.Sprintf("%s: %s\n%s", incident.Severity, incident.Title, title)
 
 	payload := map[string]any{

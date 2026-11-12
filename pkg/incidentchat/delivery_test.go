@@ -53,6 +53,9 @@ func (s *deliveryStore) ClaimChatAckFeedback(context.Context) (db.ChatAckRequest
 	return db.ChatAckRequest{}, pgx.ErrNoRows
 }
 
+// INC-NUM-CHAT: real runner and provider HTTP serialization with fake store and
+// local BotX/Slack endpoints. Old outbox snapshots lack Number, current rows
+// supply it; text and feedback use INC-01, actions still carry UUID. No live chat.
 func TestChannelRunnerProvidersAndCurrentState(t *testing.T) {
 	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
 	for _, provider := range []string{"slack", "express"} {
@@ -78,11 +81,13 @@ func TestChannelRunnerProvidersAndCurrentState(t *testing.T) {
 			s := &deliveryStore{cfg: db.Integration{ID: uuid.New(), Enabled: true, Config: cfg}, slot: db.Integration{Enabled: true, Mode: &mode, Config: json.RawMessage(`{"bot_token":"workspace-token"}`)}, incident: db.Incident{ID: uuid.New(), Status: "open", Title: "CPU", Severity: "critical"}, team: db.Team{WorkspaceID: uuid.New()}, users: []db.OnCallUser{{UserID: uuid.New()}}, user: db.User{ExpressUserHuid: pgtype.UUID{Bytes: huid, Valid: true}}}
 			r := New(s, "https://aegis.local/")
 			d := db.ChannelDelivery{IntegrationID: s.cfg.ID, Provider: provider, Destination: "GROUP", Kind: "created", Snapshot: db.ChannelSnapshot{Incident: s.incident, TeamName: "Platform", Locale: "en", SlackUserGroupID: "S123"}}
+			s.incident.Number = 1 // The queued snapshot above predates the migration.
 			ref, err := r.sendChannel(t.Context(), d)
 			require.NoError(t, err)
 			require.Equal(t, "message", ref)
 			raw, _ := json.Marshal(payloads[0])
 			require.Contains(t, string(raw), "ack_incident")
+			require.Contains(t, string(raw), "INC-01")
 			require.Contains(t, string(raw), s.incident.ID.String())
 			s.incident.Status = "resolved"
 			_, err = r.sendChannel(t.Context(), d)
@@ -95,6 +100,7 @@ func TestChannelRunnerProvidersAndCurrentState(t *testing.T) {
 			require.NoError(t, r.sendFeedback(t.Context(), req, incidentack.Result{Code: "already_resolved", Locale: "ru"}))
 			raw, _ = json.Marshal(payloads[2])
 			require.Contains(t, string(raw), "решён")
+			require.Contains(t, string(raw), "INC-01")
 			if provider == "slack" {
 				s.slot.Enabled = false
 				require.Error(t, r.sendFeedback(t.Context(), req, incidentack.Result{Code: "acknowledged"}))

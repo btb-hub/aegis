@@ -154,6 +154,15 @@ func TestIncidentServiceAcknowledgeByExpressHuidUserNotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
+// INC-NUM-API: real serializer exposes the durable label without replacing UUID.
+// Persistence is verified separately in pkg/db/incident_number_test.go.
+func TestIncidentJSONDisplayID(t *testing.T) {
+	id := uuid.New()
+	out := IncidentJSON(db.Incident{ID: id, Number: 1})
+	require.Equal(t, "INC-01", out["display_id"])
+	require.Equal(t, id.String(), out["id"])
+}
+
 func TestIncidentJSON(t *testing.T) {
 	assignee := uuid.New()
 	key := "OPS-1"

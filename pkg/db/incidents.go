@@ -29,7 +29,7 @@ WHERE id = $1`
 func (s *Store) GetIncidentForAlert(ctx context.Context, alertID uuid.UUID) (Incident, error) {
 	const q = `
 SELECT i.id, i.team_id, i.assignee_id, i.status, i.severity, i.title, i.fingerprint,
-       i.jira_issue_key, i.acknowledged_at, i.resolved_at, i.created_at
+       i.jira_issue_key, i.acknowledged_at, i.resolved_at, i.created_at, i.number
 FROM incidents i
 JOIN incident_alerts ia ON ia.incident_id = i.id
 WHERE ia.alert_id = $1`
@@ -37,7 +37,7 @@ WHERE ia.alert_id = $1`
 	err := s.pool.QueryRow(ctx, q, alertID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	return incident, err
 }
@@ -45,7 +45,7 @@ WHERE ia.alert_id = $1`
 func (s *Store) FindOpenIncidentByFingerprint(ctx context.Context, fingerprint string, since time.Time) (Incident, error) {
 	const q = `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 WHERE fingerprint = $1 AND status != 'resolved' AND created_at >= $2
 ORDER BY created_at DESC
@@ -54,7 +54,7 @@ LIMIT 1`
 	err := s.pool.QueryRow(ctx, q, fingerprint, since).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	return incident, err
 }
@@ -91,12 +91,12 @@ func createIncidentWithAlertTx(ctx context.Context, tx pgx.Tx, input CreateIncid
 	const incidentQ = `
 INSERT INTO incidents (team_id, assignee_id, severity, title, fingerprint)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at`
+RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at, number`
 	var incident Incident
 	err := tx.QueryRow(ctx, incidentQ, input.TeamID, input.AssigneeID, input.Severity, input.Title, input.Fingerprint).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, err
@@ -123,14 +123,14 @@ ON CONFLICT (incident_id, alert_id) DO NOTHING`, incidentID, alertID)
 func (s *Store) GetIncidentByID(ctx context.Context, id uuid.UUID) (Incident, error) {
 	const q = `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 WHERE id = $1`
 	var incident Incident
 	err := s.pool.QueryRow(ctx, q, id).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	return incident, err
 }
@@ -141,13 +141,13 @@ func (s *Store) ListIncidents(ctx context.Context, status string) ([]Incident, e
 	if status == "" {
 		rows, err = s.pool.Query(ctx, `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 ORDER BY created_at DESC`)
 	} else {
 		rows, err = s.pool.Query(ctx, `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 WHERE status = $1
 ORDER BY created_at DESC`, status)
@@ -163,7 +163,7 @@ ORDER BY created_at DESC`, status)
 		if err := rows.Scan(
 			&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 			&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-			&incident.ResolvedAt, &incident.CreatedAt,
+			&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -199,12 +199,12 @@ func acknowledgeIncidentTx(ctx context.Context, tx pgx.Tx, incidentID, actorID u
 UPDATE incidents
 SET status = 'acknowledged', acknowledged_at = now()
 WHERE id = $1 AND status = 'open'
-RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at`
+RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at, number`
 	var incident Incident
 	err := tx.QueryRow(ctx, q, incidentID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, err
@@ -229,12 +229,12 @@ func (s *Store) ResolveIncident(ctx context.Context, incidentID, actorID uuid.UU
 UPDATE incidents
 SET status = 'resolved', resolved_at = now()
 WHERE id = $1 AND status IN ('open', 'acknowledged')
-RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at`
+RETURNING id, team_id, assignee_id, status, severity, title, fingerprint, jira_issue_key, acknowledged_at, resolved_at, created_at, number`
 	var incident Incident
 	err = tx.QueryRow(ctx, q, incidentID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	if err != nil {
 		return Incident{}, err

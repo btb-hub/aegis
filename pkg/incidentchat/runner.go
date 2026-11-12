@@ -140,6 +140,9 @@ func (r *Runner) DeliverChannel(ctx context.Context) error {
 	return r.store.FinishChannelDelivery(finishCtx, d.ID, status, ref, message, next)
 }
 
+// INC-NUM-CHAT: fill the stable display number from current storage, including
+// outbox snapshots queued before migration 24; retain snapshot lifecycle state.
+// Feedback also uses this label. Evidence: delivery_test.go::TestChannelRunnerProvidersAndCurrentState.
 func (r *Runner) sendChannel(ctx context.Context, d db.ChannelDelivery) (string, error) {
 	cfg, err := r.integration(ctx, d.IntegrationID)
 	if err != nil {
@@ -151,7 +154,7 @@ func (r *Runner) sendChannel(ctx context.Context, d db.ChannelDelivery) (string,
 	}
 	i := d.Snapshot.Incident
 	post := integrations.IncidentChannelPost{
-		Incident: integrations.IncidentRef{ID: i.ID, TeamID: i.TeamID, AssigneeID: i.AssigneeID, Status: i.Status, Severity: i.Severity, Title: i.Title, URL: integrations.IncidentURL(runtimeconfig.PublicURL(ctx, r.publicURL), i.ID.String())},
+		Incident: integrations.IncidentRef{ID: i.ID, DisplayID: current.DisplayID(), TeamID: i.TeamID, AssigneeID: i.AssigneeID, Status: i.Status, Severity: i.Severity, Title: i.Title, URL: integrations.IncidentURL(runtimeconfig.PublicURL(ctx, r.publicURL), i.ID.String())},
 		Kind:     d.Kind, TeamName: d.Snapshot.TeamName, ActorName: d.Snapshot.ActorName, Locale: d.Snapshot.Locale, SlackUserGroupID: d.Snapshot.SlackUserGroupID, OccurredAt: d.OccurredAt,
 		Actionable: (d.Kind == "created" || d.Kind == "escalated") && current.Status == "open",
 	}
@@ -293,7 +296,11 @@ func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result
 	if err != nil {
 		return err
 	}
-	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": req.IncidentID.String()})
+	incident, err := r.store.GetIncidentByID(ctx, req.IncidentID)
+	if err != nil {
+		return err
+	}
+	body := i18n.T(result.Locale, "incident_chat.feedback_"+result.Code, map[string]string{"id": incident.DisplayID()})
 	switch req.Provider {
 	case "slack":
 		workspaceID := req.WorkspaceID

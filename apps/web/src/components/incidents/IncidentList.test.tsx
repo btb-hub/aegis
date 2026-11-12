@@ -33,6 +33,18 @@ const incidents: Incident[] = [
 ];
 
 describe('IncidentList', () => {
+  // INC-NUM-UI (lib/incidentTypes.ts): rendered components and callback are real;
+  // no API is called. The UUID fallback supports responses from older servers.
+  it('shows the display number while selecting by UUID, and falls back for older responses', () => {
+    const onSelect = vi.fn();
+    render(<I18nextProvider i18n={i18n}><IncidentList
+      incidents={[{ ...incidents[0], displayId: 'INC-01' }, incidents[1]]}
+      statusFilter="all" onStatusFilterChange={vi.fn()} onSelect={onSelect}
+    /></I18nextProvider>);
+    fireEvent.click(screen.getByText('INC-01'));
+    expect(onSelect).toHaveBeenCalledWith(incidents[0].id);
+    expect(screen.getByText('22222222')).toBeInTheDocument();
+  });
   it('filters incidents by status', () => {
     render(
       <I18nextProvider i18n={i18n}>

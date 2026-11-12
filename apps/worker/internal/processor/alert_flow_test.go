@@ -11,6 +11,7 @@ import (
 
 	"github.com/aegis/aegis/pkg/config"
 	"github.com/aegis/aegis/pkg/db"
+	"github.com/aegis/aegis/pkg/i18n"
 	"github.com/aegis/aegis/pkg/integrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -439,14 +440,19 @@ func TestAlertProcessorNoRoutingMatch(t *testing.T) {
 	require.Error(t, err)
 }
 
+// INC-NUM-CHAT: real worker/provider serialization to local Slack HTTP shows the
+// incident label on escalation and retains UUID for the action. Store is fake.
 func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../../../../pkg/i18n/messages"))
 	incidentID := uuid.New()
 	assignee := uuid.New()
 	workspaceID := uuid.New()
 	workspaceIntegrationID := uuid.New()
 	pageCalls := 0
+	var page map[string]any
 	slackServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pageCalls++
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&page))
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "ts": "9.9"})
 	}))
 	defer slackServer.Close()
@@ -457,7 +463,7 @@ func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 
 	store := &escalateFlowStore{
 		incident: db.Incident{
-			ID: incidentID, Status: "open", AssigneeID: &assignee,
+			ID: incidentID, Number: 1, Status: "open", AssigneeID: &assignee,
 			TeamID: uuid.New(), Title: "CPU", Severity: "critical", CreatedAt: time.Now(),
 		},
 		user:        db.User{ID: assignee, Locale: "en", SlackUserID: &slackID},
@@ -475,6 +481,10 @@ func TestEscalateProcessorPagesOpenIncident(t *testing.T) {
 		Payload: json.RawMessage(`{"incident_id":"` + incidentID.String() + `"}`),
 	}))
 	require.Equal(t, 1, pageCalls)
+	raw, err := json.Marshal(page)
+	require.NoError(t, err)
+	require.Contains(t, string(raw), "INC-01")
+	require.Contains(t, string(raw), incidentID.String())
 	require.Equal(t, []uuid.UUID{workspaceIntegrationID}, store.notificationIntegrationIDs)
 }
 

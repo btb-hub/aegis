@@ -45,7 +45,7 @@ type ManualCreateFromAlertResult struct {
 func (s *Store) GetOpenIncidentForAlert(ctx context.Context, alertID uuid.UUID) (Incident, error) {
 	const q = `
 SELECT i.id, i.team_id, i.assignee_id, i.status, i.severity, i.title, i.fingerprint,
-       i.jira_issue_key, i.acknowledged_at, i.resolved_at, i.created_at
+       i.jira_issue_key, i.acknowledged_at, i.resolved_at, i.created_at, i.number
 FROM incidents i
 JOIN incident_alerts ia ON ia.incident_id = i.id
 WHERE ia.alert_id = $1 AND i.status IN ('open', 'acknowledged')
@@ -55,7 +55,7 @@ LIMIT 1`
 	err := s.pool.QueryRow(ctx, q, alertID).Scan(
 		&incident.ID, &incident.TeamID, &incident.AssigneeID, &incident.Status, &incident.Severity,
 		&incident.Title, &incident.Fingerprint, &incident.JiraIssueKey, &incident.AcknowledgedAt,
-		&incident.ResolvedAt, &incident.CreatedAt,
+		&incident.ResolvedAt, &incident.CreatedAt, &incident.Number,
 	)
 	return incident, err
 }
@@ -87,7 +87,7 @@ SELECT EXISTS (
   SELECT 1 FROM jobs
   WHERE kind = $1 AND status = 'pending' AND payload::text LIKE $2
 )`
- needle := "%" + incidentID.String() + "%"
+	needle := "%" + incidentID.String() + "%"
 	var exists bool
 	err := s.pool.QueryRow(ctx, q, kind, needle).Scan(&exists)
 	return exists, err
@@ -150,7 +150,7 @@ FOR UPDATE`, input.AlertID).Scan(
 	var openLinked Incident
 	err = tx.QueryRow(ctx, `
 SELECT i.id, i.team_id, i.assignee_id, i.status, i.severity, i.title, i.fingerprint,
-       i.jira_issue_key, i.acknowledged_at, i.resolved_at, i.created_at
+       i.jira_issue_key, i.acknowledged_at, i.resolved_at, i.created_at, i.number
 FROM incidents i
 JOIN incident_alerts ia ON ia.incident_id = i.id
 WHERE ia.alert_id = $1 AND i.status IN ('open', 'acknowledged')
@@ -158,7 +158,7 @@ ORDER BY ia.created_at DESC
 LIMIT 1`, input.AlertID).Scan(
 		&openLinked.ID, &openLinked.TeamID, &openLinked.AssigneeID, &openLinked.Status, &openLinked.Severity,
 		&openLinked.Title, &openLinked.Fingerprint, &openLinked.JiraIssueKey, &openLinked.AcknowledgedAt,
-		&openLinked.ResolvedAt, &openLinked.CreatedAt,
+		&openLinked.ResolvedAt, &openLinked.CreatedAt, &openLinked.Number,
 	)
 	if err == nil {
 		return ManualCreateFromAlertResult{}, ErrAlertAlreadyLinked
@@ -170,7 +170,7 @@ LIMIT 1`, input.AlertID).Scan(
 	var existing Incident
 	err = tx.QueryRow(ctx, `
 SELECT id, team_id, assignee_id, status, severity, title, fingerprint,
-       jira_issue_key, acknowledged_at, resolved_at, created_at
+       jira_issue_key, acknowledged_at, resolved_at, created_at, number
 FROM incidents
 WHERE fingerprint = $1 AND status != 'resolved' AND created_at >= $2
 ORDER BY created_at DESC
@@ -178,7 +178,7 @@ LIMIT 1
 FOR UPDATE`, alert.Fingerprint, input.DedupSince).Scan(
 		&existing.ID, &existing.TeamID, &existing.AssigneeID, &existing.Status, &existing.Severity,
 		&existing.Title, &existing.Fingerprint, &existing.JiraIssueKey, &existing.AcknowledgedAt,
-		&existing.ResolvedAt, &existing.CreatedAt,
+		&existing.ResolvedAt, &existing.CreatedAt, &existing.Number,
 	)
 	if err == nil {
 		if existing.TeamID != input.TeamID && !input.AllowCrossTeamFingerprintLink {

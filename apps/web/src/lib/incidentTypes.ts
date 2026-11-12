@@ -18,8 +18,13 @@ export type TimelineEvent = {
 
 export type IncidentAssignee = ContactPerson;
 
+// INC-NUM-UI: Show the API's display number in list and detail (including its
+// accessible label), falling back to the first eight UUID characters when absent.
+// Keep id as the UUID for selection and actions. Evidence: incidentsApi.test.ts,
+// IncidentList.test.tsx and IncidentDetail.test.tsx.
 export type Incident = {
   id: string;
+  displayId?: string;
   teamId: string;
   status: IncidentStatus;
   severity: string;

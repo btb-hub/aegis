@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aegis · Jira assignee и номера инцидентов</title>
+<style>
+body{margin:0;background:#f5f6f8;color:#172235;font:16px/1.55 system-ui,sans-serif}main{max-width:960px;margin:48px auto;padding:0 24px}h1{font-size:32px;line-height:1.2}h2{font-size:20px}code{font:14px ui-monospace,monospace;background:#eef1f5;padding:2px 5px;border-radius:4px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.card,section{background:white;border:1px solid #d5dbe4;border-radius:12px;padding:22px;margin:16px 0}.card{margin:0}.label{font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:#526277}.pass{color:#166534}.warn{border-left:5px solid #b45309}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top}a{color:#1d4ed8}.muted{color:#526277}footer{margin:24px 0;font-size:14px}
+</style>
+<main>
+<p class="label">Aegis · 12 ноября 2026</p>
+<h1>Jira получает дежурного.<br>Инциденты получают номер.</h1>
+<p>Изменения подготовлены в <code>codex/fix-jira-assignee-incident-number</code> от свежего main. Повторное независимое ревью одобрило правки.</p>
+<div class="grid">
+<article class="card"><p class="label">Создание Jira-тикета</p><h2>Assignee после CreateTicket</h2><p>После сохранения Jira key назначается текущий дежурный. Если во время запроса произошла передача, назначение сверяется повторно.</p></article>
+<article class="card"><p class="label">Jira Server / DC</p><h2>Email → точный логин</h2><p>Пустой поиск по email включает assignable search по части email до <code>@</code>. Неоднозначные, неактивные и конфликтующие совпадения отклоняются.</p></article>
+<article class="card"><p class="label">Веб и чат</p><h2><code>INC-01</code>, <code>INC-02</code>…</h2><p>Постоянный глобальный номер виден в списке, карточке, уведомлениях и ответах бота. UUID остаётся в связях, ссылках и действиях.</p></article>
+</div>
+<section><h2>Что проверено</h2><table><thead><tr><th>Проверка</th><th>Результат</th></tr></thead><tbody>
+<tr><td>Регрессионные тесты</td><td class="pass">Наблюдались red и green для новых сценариев</td></tr>
+<tr><td>PostgreSQL 16</td><td class="pass">Backfill, параллельные вставки, переходы, откат, пустая база и dedup</td></tr>
+<tr><td>Веб</td><td class="pass">352 теста, 59 файлов; coverage 95,44%</td></tr>
+<tr><td>Затронутые Go-пакеты</td><td class="pass">Тесты прошли</td></tr>
+<tr><td>Независимое ревью</td><td class="pass">Замечания исправлены, повторное ревью одобрено</td></tr>
+</tbody></table></section>
+<section class="warn"><h2>Общий gate остаётся красным</h2><p><code>make lint type test</code> прошёл lint, сборки и Go-тесты, затем остановился на API coverage <b>85,9%</b> при пороге 90%. На чистом <code>origin/main</code> получено то же значение. Порог не менялся. Пропущенные веб-проверки запущены отдельно и прошли.</p></section>
+<section><h2>Перед запуском</h2><p>Нужна миграция <code>000024_incident_numbers</code>. Она заполнит номера существующих инцидентов по времени создания и кратковременно возьмёт эксклюзивную блокировку таблицы. Конкретный номер инцидента <code>ee1d32ca…</code> зависит от его места в базе.</p><p>Production не менялся. Live Jira и BotX не проверялись; интеграционные тесты использовали локальные HTTP-фикстуры.</p></section>
+<footer><a href="incident-number-evidence.md">Контракты, тесты, команды и ограничения</a> · <a href="../integrations/jira.md">Поведение Jira</a> · <a href="../04-api-spec.md">API</a></footer>
+</main>
+</html>
