@@ -92,3 +92,58 @@ func TestSyncDeliveryFailuresAndLegacyFeedbackChatLookup(t *testing.T) {
 	p := New(Config{Host: server.URL, BotID: "bot", SecretKey: "secret"})
 	require.NoError(t, p.SendAckFeedback(t.Context(), "", "HUID", "Acknowledged"))
 }
+
+// CHAT-FEEDBACK-EMPTY-PROVIDER (incident_channel.go): Blank feedback must have
+// no network side effects with or without a chat ID; nonblank text must arrive
+// unchanged. A local HTTP server exercises the provider's real request path,
+// not a real BotX service or downstream message delivery.
+func TestSendAckFeedbackBlankAndOriginalBody(t *testing.T) {
+	for _, tc := range []struct {
+		name, chat, body string
+		wantSend         bool
+	}{
+		{"empty existing chat", "GROUP", "", false},
+		{"empty missing chat", "", "", false},
+		{"whitespace existing chat", "GROUP", " \t\n\r", false},
+		{"whitespace missing chat", "", " \t\n\r", false},
+		{"unicode existing chat", "GROUP", "\u2003\u00a0", false},
+		{"unicode missing chat", "", "\u2003\u00a0", false},
+		{"original text existing chat", "GROUP", " \tAcknowledged\u2003", true},
+		{"original text missing chat", "", " \tAcknowledged\u2003", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var paths []string
+			var sent map[string]any
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				paths = append(paths, r.URL.Path)
+				switch r.URL.Path {
+				case "/api/v2/botx/bots/bot/token":
+					_, _ = w.Write([]byte(`{"status":"ok","result":"token"}`))
+				case "/api/v1/botx/chats/personal":
+					_, _ = w.Write([]byte(`{"status":"ok","result":{"group_chat_id":"PERSONAL"}}`))
+				case "/api/v4/botx/notifications/direct/sync":
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
+					_, _ = w.Write([]byte(`{"status":"ok","result":{"sync_id":"message"}}`))
+				default:
+					t.Errorf("unexpected request: %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			p := New(Config{Host: server.URL, BotID: "bot", SecretKey: "secret"})
+			require.NoError(t, p.SendAckFeedback(t.Context(), tc.chat, "HUID", tc.body))
+			if !tc.wantSend {
+				require.Empty(t, paths)
+				return
+			}
+			wantChat := tc.chat
+			if wantChat == "" {
+				wantChat = "PERSONAL"
+				require.Contains(t, paths, "/api/v1/botx/chats/personal")
+			}
+			require.Equal(t, wantChat, sent["group_chat_id"])
+			require.Equal(t, []any{"HUID"}, sent["recipients"])
+			require.Equal(t, tc.body, sent["notification"].(map[string]any)["body"])
+		})
+	}
+}

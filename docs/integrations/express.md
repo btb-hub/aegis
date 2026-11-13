@@ -96,8 +96,12 @@ That is the documented eXpress user-contact link. The client can start a DM from
 Incident lifecycle posts use the global `oncall_group_chat_id` and global bot.
 Opening and escalation messages mention the incident team's current on-call users.
 Personal paging remains separate. Acknowledgement commands are authenticated and
-durably queued before returning HTTP 202; the worker then sends a private result
-to the clicking user in the originating chat. New channel and feedback sends use
+durably queued before returning HTTP 202. For a successful click in the configured
+on-call group, the shared acknowledged post supplies confirmation and the worker
+completes feedback without another notification. Personal chats, legacy requests
+without a chat ID, and unsuccessful or repeated clicks still receive a private
+result. Empty or whitespace-only feedback never reaches BotX, including token
+acquisition and personal-chat lookup. New channel and feedback sends use
 `/api/v4/botx/notifications/direct/sync`. Repeated clicks report the existing
 state, and unknown users receive identity-linking guidance. Apply migration
 000021 before upgrading the API and worker.

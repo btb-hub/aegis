@@ -298,8 +298,12 @@ func (r *Runner) DeliverFeedback(ctx context.Context) error {
 // TestFeedbackIncidentLabel and TestDeletedIncidentFeedbackAndDisabledWorkspace.
 // CHAT-FEEDBACK-EMPTY: After rendering, whitespace-only feedback is a successful
 // no-op for both providers, so deliberately empty translations never send a
-// message or trigger delivery retries. Nonempty text is sent unchanged.
+// message or trigger delivery retries. Feedback that is sent retains its text.
 // Evidence: TestFeedbackSkipsBlankTranslations in delivery_test.go.
+// CHAT-FEEDBACK-GROUP: A successful eXpress acknowledgment from the configured
+// on-call group completes without a separate private reply; the durable shared
+// acknowledged event supplies confirmation. Personal/legacy chats, other outcomes
+// and Slack retain feedback. Evidence: TestFeedbackWithShippedTranslations.
 func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result incidentack.Result) error {
 	cfg, err := r.integration(ctx, req.IntegrationID)
 	if err != nil {
@@ -357,6 +361,17 @@ func (r *Runner) sendFeedback(ctx context.Context, req db.ChatAckRequest, result
 		p, err := express.NewFromJSON(cfg.Config)
 		if err != nil {
 			return permanent(err.Error())
+		}
+		if result.Code == "acknowledged" {
+			var channel struct {
+				ChatID string `json:"oncall_group_chat_id"`
+			}
+			if json.Unmarshal(cfg.Config, &channel) == nil {
+				group := strings.TrimSpace(channel.ChatID)
+				if group != "" && req.ChatID == group {
+					return nil
+				}
+			}
 		}
 		return p.SendAckFeedback(ctx, req.ChatID, req.UserIdentity, body)
 	}

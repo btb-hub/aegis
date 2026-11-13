@@ -219,6 +219,94 @@ func (s *feedbackDeliveryStore) FinishChatAck(_ context.Context, _ uuid.UUID, st
 	return nil
 }
 
+// CHAT-FEEDBACK-GROUP (runner.go::sendFeedback): with shipped EN/RU catalogs,
+// successful group clicks need only the shared lifecycle post, while private
+// clicks and unsuccessful/repeated clicks still need their result. Real runner,
+// localization and provider HTTP use a fake store and local BotX/Slack endpoints;
+// this verifies feedback completion and traffic, not live clients or persistence.
+func TestFeedbackWithShippedTranslations(t *testing.T) {
+	require.NoError(t, i18n.LoadMessages("../i18n/messages"))
+	for _, locale := range []string{"en", "ru"} {
+		for _, tc := range []struct {
+			name, provider, chat, group, code string
+			wantMessage                       bool
+		}{
+			{"shared success", "express", "GROUP", "GROUP", "acknowledged", false},
+			{"trimmed group setting", "express", "GROUP", " GROUP ", "acknowledged", false},
+			{"personal success", "express", "PERSONAL", "GROUP", "acknowledged", true},
+			{"legacy personal success", "express", "", "GROUP", "acknowledged", true},
+			{"unconfigured group", "express", "GROUP", "", "acknowledged", true},
+			{"blank group and legacy chat", "express", "", " \t", "acknowledged", true},
+			{"other group", "express", "OLD-GROUP", "GROUP", "acknowledged", true},
+			{"Slack success", "slack", "GROUP", "GROUP", "acknowledged", true},
+			{"already acknowledged", "express", "GROUP", "GROUP", "already_acknowledged", true},
+			{"already resolved", "express", "GROUP", "GROUP", "already_resolved", true},
+			{"link required", "express", "GROUP", "GROUP", "link_required", true},
+			{"not found", "express", "GROUP", "GROUP", "not_found", true},
+			{"not confirmed", "express", "GROUP", "GROUP", "not_confirmed", true},
+		} {
+			t.Run(locale+"/"+tc.name, func(t *testing.T) {
+				var requests atomic.Int32
+				bodies := make(chan string, 1)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					requests.Add(1)
+					if r.URL.Path == "/api/v1/botx/chats/personal" {
+						_, _ = w.Write([]byte(`{"status":"ok","result":{"group_chat_id":"PERSONAL"}}`))
+						return
+					}
+					if r.Method == http.MethodGet {
+						_, _ = w.Write([]byte(`{"status":"ok","result":"token"}`))
+						return
+					}
+					var payload struct {
+						Text         string `json:"text"`
+						Notification struct {
+							Body string `json:"body"`
+						} `json:"notification"`
+					}
+					if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+						t.Error(err)
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					if tc.provider == "slack" {
+						bodies <- payload.Text
+					} else {
+						bodies <- payload.Notification.Body
+					}
+					_, _ = w.Write([]byte(`{"ok":true,"status":"ok","result":{"sync_id":"message"}}`))
+				}))
+				t.Cleanup(server.Close)
+				cfg, err := json.Marshal(map[string]string{"bot_token": "token", "signing_secret": "secret", "api_base_url": server.URL, "bot_id": "bot", "host": server.URL, "secret_key": "secret", "oncall_group_chat_id": tc.group})
+				require.NoError(t, err)
+				mode := "inherit"
+				workspaceID := uuid.New()
+				outcome, err := json.Marshal(incidentack.Result{Code: tc.code, Locale: locale})
+				require.NoError(t, err)
+				s := &feedbackDeliveryStore{
+					deliveryStore: &deliveryStore{cfg: db.Integration{Enabled: true, Config: cfg}, slot: db.Integration{Enabled: true, Mode: &mode}, incident: db.Incident{Number: 42}},
+					req:           db.ChatAckRequest{Provider: tc.provider, WorkspaceID: &workspaceID, ChatID: tc.chat, UserIdentity: uuid.NewString(), Attempts: 1, Outcome: outcome},
+				}
+				require.NoError(t, New(s, "").DeliverFeedback(t.Context()))
+				require.Equal(t, "sent", s.status)
+				require.Empty(t, s.message)
+				if !tc.wantMessage {
+					require.Zero(t, requests.Load(), "shared success must not create a second message")
+					require.Empty(t, bodies)
+					return
+				}
+				require.Len(t, bodies, 1, "private confirmations and guidance must still be sent")
+				body := <-bodies
+				require.NotEmpty(t, body)
+				require.NotContains(t, body, "incident_chat.feedback_")
+				if tc.code != "link_required" {
+					require.Contains(t, body, "INC-42")
+				}
+			})
+		}
+	}
+}
+
 // CHAT-FEEDBACK-EMPTY (runner.go::sendFeedback): empty or Unicode whitespace
 // translations complete delivery without HTTP traffic; nonempty text retains
 // interpolation and surrounding spaces. Real runner/providers use a fake store
