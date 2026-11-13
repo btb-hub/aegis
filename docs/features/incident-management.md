@@ -52,6 +52,15 @@ have gaps and are never derived from the current list position.
 - Incident list with status filters.
 - Detail: timeline, linked alerts, Jira link, ack/resolve actions.
 
+On wide screens the queue and detail appear together; narrow screens open one at a time with
+**Back to incidents**. The URL records `status` and the selected UUID in `incident_id`. Actions retain
+the selected detail even when its new status excludes it from the current list.
+
+The Jira destination comes from the owning workspace's effective configuration, including its
+context path. Without a valid `jira_issue_url`, the UI shows the issue key as text. Creating a
+ticket also attempts to assign the incident's current assignee; failure leaves the ticket and
+personal page intact. See [Jira](../integrations/jira.md).
+
 The incidents page reads the API. Acknowledge, resolve, handoff and bounce call
 their incident endpoints with the underlying UUID.
 

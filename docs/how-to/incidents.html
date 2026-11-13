@@ -61,11 +61,17 @@
         <tr><td>Web</td><td><b>Incidents</b> list</td><td><b>Acknowledge</b> on the incident</td></tr>
       </tbody>
     </table>
-    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">If you never get a DM, your
-      Slack user ID or eXpress huid is missing — open <b>Account</b>. That is identity, not SSO.
-      See <a href="connect.html#paging">paging identity</a>.</p>
+    <p style="margin-top:12px;color:var(--ink-soft);font-size:14.5px">If a DM is missing, check <b>Account → Paging messengers</b> and confirm the
+bot can reach you. For eXpress, open a personal chat with the bot first.
+Paging connections are separate from sign-in. See <a href="connect.html#paging">paging identity</a>.</p>
   </div>
 </section>
+
+<section><div class="wrap">
+<h3>Find and keep the right incident open</h3>
+<p>Use the status filter for <b>All</b>, <b>Open</b>, <b>Acknowledged</b>, or <b>Resolved</b>. On a phone it is a <b>Status</b> dropdown; wider screens show status buttons. A wide desktop shows the queue and detail side by side. On smaller screens, select an incident to open its detail, then use <b>Back to incidents</b> to return to the queue with the same status filter.</p>
+<p>Selecting an incident adds its UUID to the page URL as <code>incident_id</code>; the readable <code>INC-01</code> label is for people. A direct link opens that incident even when its status is outside the queue filter. After acknowledgement or resolution, the selected detail stays open even if the incident leaves the filtered queue. Changing the status filter clears the explicit selection and returns to the queue on smaller screens. If loading fails, use <b>Retry</b> in the affected panel.</p>
+</div></section>
 
 <section id="ack">
   <div class="wrap">
@@ -83,6 +89,7 @@
           <h3>Read the same facts everyone else sees</h3>
           <p>Incident detail: linked <b>alerts</b>, Jira ticket (if connected), and the
             <b>timeline</b>. There are no hidden L3-only rows. L2 and L3 see the same history.</p>
+          <p>The Jira link uses the current Jira base URL for the owning team's workspace,    including any context path. It follows that workspace's custom or inherited    connector. If the slot is disabled or incomplete, no Jira link is shown; ask an    administrator to check <b>Integrations</b>.</p>
         </div>
       </div>
       <div class="step">
@@ -159,7 +166,9 @@
   </div>
 </section>
 
-<section class="wrap"><h2>Follow incidents in the on-call channel</h2><p>Slack uses the team channel; eXpress uses the global on-call group. Personal pages continue. Opening and escalation posts tag on-call users and offer an acknowledge button while the incident is open.</p><p>After clicking acknowledge, wait for the private result in the chat. A receipt only means the request was queued. Repeated clicks report the existing state. Message links open the selected incident.</p></section>
+<section class="wrap"><h2>Follow incidents in the on-call channel</h2><p>Slack posts lifecycle messages to the team's configured channel. eXpress uses the global on-call group. Opening and escalation messages tag on-call users and include an acknowledge button while the incident is open. Personal pages continue. Message links open the selected incident, including resolved incidents.</p>
+<p>A receipt means the acknowledgement request was queued. For a successful click in the configured eXpress on-call group, the shared acknowledged post confirms the change; there is no extra private success reply. Slack, personal eXpress chats, and unsuccessful or repeated clicks still receive private results. Repeated clicks report that the incident is already acknowledged or resolved. If your identity isn't linked, follow the linking guidance in the response.</p>
+<p>See <a href="../features/incident-chat-notifications.md">Incident channel notifications</a>.</p></section>
 <footer>
   <div class="wrap">
     Alerts vs incidents: raw signals live on <b>Alerts</b>; incidents are the work items you ack.

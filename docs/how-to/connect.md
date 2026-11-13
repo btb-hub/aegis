@@ -78,11 +78,17 @@ SSO sign-in and paging are separate. A Google login does not, by itself,
 give Aegis a Slack DM target.
 
 - Each on-call user opens **Account → Paging messengers** and clicks **Connect** for Slack
-  or eXpress. Finish browser authorization and return to Account; no bot command or manual ID
-  is needed. This connects paging without adding a sign-in provider.
+  or eXpress. Finish browser authorization and return to Account. This connects paging
+  without adding a sign-in provider.
+- For eXpress without company SSO, use **Connect eXpress through the bot → Generate link code**
+  in the same Account section. Copy the `/link <code>` command and send it in a personal chat
+  with the Aegis bot, then click **Check connection** in Account. The code lasts 15 minutes,
+  works once, and must stay private. Generating or copying it does not connect the account.
+  Your existing connection stays until the bot accepts the command. An administrator must
+  still configure the bot and its callback.
 - **Replace** keeps the existing connection until authorization succeeds. **Disconnect** asks
   for confirmation and stops pages through that messenger, without removing sign-in identities.
-- If Connect is unavailable, ask an administrator to configure that provider's OIDC credentials
+- If browser Connect is unavailable, ask an administrator to configure that provider's OIDC credentials
   and enabled global bot. Slack authorization must use the global bot's workspace; eXpress SSO
   must provide a verified email that resolves to one active messenger user.
 - Language (**English** / **Русский**) is also on Account; personal pages and private chat
@@ -97,9 +103,10 @@ The team's workspace bot must be able to post there. eXpress shared posts use th
 on-call group, even when personal pages use workspace credentials.
 
 Create a routed test incident and verify the Jira issue, personal page, and shared post. Click
-**Acknowledge** in chat and wait for the private result, then resolve in Aegis and confirm the
-channel update. Opening, acknowledgement, resolution, and escalation produce separate posts;
-handoffs and bounces are outside this shared-channel feature. The worker must be running.
+**Acknowledge** in chat. In the configured eXpress on-call group, confirm success through the
+shared acknowledged post; other supported chats return a private result. Then resolve in Aegis
+and confirm the channel update. Opening, acknowledgement, resolution, and escalation produce
+separate posts; handoffs and bounces are outside this shared-channel feature. The worker must be running.
 
 <a id="skip"></a>
 

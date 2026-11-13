@@ -29,7 +29,7 @@ routing rule, an empty rotation, or a person who never signed in. Software insta
 | Wrong Jira project | Workspace still using the global project key. | Workspace → Integrations → Jira **Inherit** with a project key override, or Custom. |
 | **Connect** is unavailable on Account | Provider OIDC or the global bot isn't configured. | Ask an admin to complete [paging setup](../features/paging-connections.md). A workspace override alone doesn't enable Account authorization. |
 | Personal page arrives, shared post doesn't | Shared destination missing or bot lacks channel access. | Check team Slack channel and workspace bot; for eXpress check the global on-call group and global bot. |
-| Chat click has no private result | Request receipt isn't acknowledgement; worker processing or feedback may have failed. | Check incident status in the web app. Ask the operator to inspect worker logs and `chat_ack_requests`; see [delivery troubleshooting](../features/incident-chat-notifications.md). |
+| Chat click has no confirmation | Successful eXpress group clicks confirm through the shared post. A receipt alone doesn't confirm acknowledgement; the worker may still be processing it. | Check incident status in the web app. Ask the operator to inspect worker logs and `chat_ack_requests`; see [delivery troubleshooting](../features/incident-chat-notifications.md). |
 
 <a id="alerts"></a>
 
@@ -56,7 +56,7 @@ This distinction is the whole product.
 - Each workspace has at least one **routing rule** that matches real alert labels.
 - **Test connection** passed for every connector you rely on.
 - On-call people have connected Slack and/or eXpress in **Account → Paging messengers**.
-- A routed test incident produces a ticket, personal page, shared post, and private chat acknowledgement result where configured.
+- A routed test incident produces a ticket, personal page, shared post, and acknowledgement confirmation: a shared acknowledged post for successful eXpress group clicks, private feedback in other supported chats.
 
 > **Still installing the app?**
 >

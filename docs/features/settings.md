@@ -10,6 +10,7 @@ progress storage are removed. `/setup` redirects here; `/integrations` redirects
 | Integrations / Интеграции | Global Jira, Slack and eXpress bot settings; existing connection tests |
 | App behavior / Поведение приложения | Session duration, deduplication window, escalation timeout, fingerprint labels |
 | Deployment / Развёртывание | Public URL, listening address, webhook secret |
+| Anomaly detection / Обнаружение аномалий | Optional module URL, installation ID, identity and service secrets, enabled state and connection check |
 | Diagnostics / Диагностика | API/database health, provider status, test alert, connection review |
 
 Teams, users, workspaces, overrides, and personal Account connections keep their existing pages.
@@ -46,8 +47,10 @@ closes installation access. Existing installations must use the manual
 и войдите с подтверждённой почтой администратора. Только после успешной проверки активируйте
 провайдера. Неудачная проверка не меняет текущие параметры входа.
 
-Для привязки eXpress настройте SSO в **Вход и доступ**, заполните и включите глобального бота
-в **Интеграции**, затем откройте **Аккаунт → Мессенджеры для пейджинга**. Команды, пользователи
+Для браузерной привязки eXpress настройте SSO в **Вход и доступ**, заполните и включите глобального бота
+в **Интеграции**, затем откройте **Аккаунт → Мессенджеры для пейджинга**. Без SSO используйте
+доступную там привязку через бота: создайте код, отправьте `/link <code>` и проверьте подключение.
+Необязательный модуль настраивается в разделе **Обнаружение аномалий**. Команды, пользователи
 и параметры рабочих областей остаются на своих страницах. Проверка состояния и тестовый алерт
 доступны в **Диагностика**. Мастер настройки удалён.
 

@@ -4,6 +4,12 @@ Design spec for Phase 10 ([EPIC-11](../../backlog/epics/EPIC-11-support-levels-w
 Extends [L2↔L3 transparency](./l2-l3-transparency.md) (Phase 5) with a real domain model and
 closes the gap between backend handoff APIs and the web UI.
 
+**Current implementation:** the domain model and API-backed screens described here have shipped.
+The problem statements and wizard steps below record the original Phase 10 design. Since the
+Settings change, `/setup` redirects to `/settings`; configure workspaces, tiers, paths, routing
+and workspace slots on Workspaces and Teams. Global connectors live in Settings → Integrations.
+See the current [user guide](../user-guide.md) and [Settings](settings.md).
+
 ## Problem
 
 ### What users see today

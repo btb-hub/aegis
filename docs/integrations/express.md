@@ -6,7 +6,10 @@ Chat provider and **OIDC sign-in provider**. Uses BotX HTTP API directly (Go `ne
 
 ### OIDC (auth)
 
-- `EXPRESS_OIDC_ISSUER`, client ID/secret, redirect URI per eXpress SSO docs
+- Configure the issuer, client ID/secret and redirect URI in **Settings → Sign-in and access → eXpress**.
+  These values are stored in PostgreSQL; existing installations import legacy environment values
+  using the [configuration migration](../configuration-migration.md). Browser paging authorization
+  needs SSO, while Account's bot `/link` option works without it.
 
 ### Bot (paging)
 
