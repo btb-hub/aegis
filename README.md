@@ -143,7 +143,8 @@ Use **Docker Compose** for local source builds. Production uses the GHCR all-in-
    traffic and signed bot callbacks through the ingress. See the deployment guide for proxy rules.
 4. Sign in as admin, configure bots under **Settings → Integrations**, then workspaces, teams, and schedules.
    Each responder connects **Account → Paging messengers**. Verify a routed test alert, Jira
-   issue, personal page, shared channel post, and private acknowledgement result.
+   issue, personal page, shared channel post, and acknowledgement result. A successful
+   acknowledgement in the configured eXpress group is confirmed by its shared post.
 
 Shared messages and chat acknowledgements require the worker. See
 [`docs/features/incident-chat-notifications.md`](./docs/features/incident-chat-notifications.md)
@@ -195,7 +196,8 @@ to its Integrations section. The setup wizard has been removed. See the
 for phase goals; further work is listed there under *Later*.
 
 Subsequent releases add workspace administration, API-backed incident and shift screens,
-Account paging connections, and shared incident notifications. The capability lists below
+Account paging connections, shared incident notifications, database-backed Settings, and the
+optional anomaly module. The capability lists below
 describe the current implementation, beyond the original MVP phase table.
 
 | Phase | Exit (summary) | Status |
@@ -207,7 +209,7 @@ describe the current implementation, beyond the original MVP phase table.
 | 3.5 — Web auth & session | Login page, app shell session, OIDC callback redirect | Done |
 | 4 — Alerting workspace | Filters, search, saved views, inline analytics, CSV export | Done (PR #11) |
 | 5 — L2 ↔ L3 | Handoff, shared timeline, bounce, handoff analytics | Done (PR #12) |
-| 6 — Analytics & polish | Dashboard, setup wizard, a11y pass | Done (PR #13) |
+| 6 — Analytics & polish | Dashboard, a11y pass; setup wizard since replaced by Settings | Done (PR #13) |
 | 7 — Local dev auth | Dev sign-in for localhost without OIDC | Done |
 
 ### Backend (`apps/api`, `apps/worker`, `pkg/`)
@@ -224,10 +226,12 @@ describe the current implementation, beyond the original MVP phase table.
   with the incident workspace's saved signing secret. Jira tickets are assigned to the incident's
   current on-call after creation; Server/DC supports exact username fallback when email lookup is empty.
 - **Paging connections:** Slack / eXpress browser authorization from Account; connect, replace,
-  disconnect; independent from sign-in providers. Legacy eXpress `/link` remains API-compatible.
+  disconnect; independent from sign-in providers. Account also offers eXpress `/link` codes
+  for responders without company SSO.
 - **Shared notifications:** opening, acknowledgement, resolution, and escalation posts to the
   team's Slack channel and global eXpress on-call group; durable delivery and chat acknowledgement
-  queues, bounded retries, and private result feedback.
+  queues and bounded retries. Slack and personal eXpress chats receive private results;
+  successful acknowledgements in the configured eXpress group use the shared post.
 - **L2 ↔ L3:** handoff and bounce APIs; shared incident timeline; `notify_handoff` worker job.
 - **Analytics:** MTTA/MTTR, noise, on-call load, handoffs, overview aggregation; setup test-alert endpoint.
 - **Worker jobs:** `process_alert`, `escalate_incident`, `materialise_oncall`, `notify_handoff`,
@@ -262,6 +266,9 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
 | `000019_slack_team_tag` | Slack user group for team mentions |
 | `000020_paging_connections` | session-bound paging authorizations and durable Slack connection management |
 | `000021_incident_chat_outboxes` | shared incident events, per-destination deliveries, queued chat acknowledgements and feedback |
+| `000022_application_settings` | application settings, provider drafts, bootstrap sessions and authorization attempts; integration audit trigger |
+| `000023_anomaly_module` | durable anomaly episodes and event receipts |
+| `000024_incident_numbers` | permanent positive incident numbers, backfilled by creation time, with a global sequence |
 
 ### Frontend (`apps/web/`)
 
@@ -275,7 +282,8 @@ API contracts: [`docs/04-api-spec.md`](./docs/04-api-spec.md). Env vars: [`deplo
   and user roles; protected screens with admin-only configuration controls.
 - **Account:** profile, language, connected sign-in providers, and Slack / eXpress paging
   connections with Connect, Replace, and Disconnect actions.
-- **Integrations page:** list connectors and test connection (admin); API-backed; requires sign-in.
+- **Integrations:** global connector configuration and tests in **Settings → Integrations** (admin);
+  workspace slots remain on workspace pages. `/integrations` redirects to Settings.
 - **Alerts page:** filter bar, paginated table, group-by, inline analytics, saved views, CSV export;
   API-backed; requires sign-in.
 - **Dashboard page:** five north-star widgets (MTTA, MTTR, noise, on-call load, handoffs,

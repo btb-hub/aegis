@@ -10,7 +10,7 @@ Chat provider. Implements `ChatProvider`. Also an **OIDC sign-in provider** (sep
 
 ### Bot (paging)
 
-An administrator opens **Integrations → Configure Slack** and saves:
+An administrator opens **Settings → Integrations → Configure Slack** and saves:
 
 - `bot_token` — the installed app's **Bot User OAuth Token** (`xoxb-...`) from **OAuth & Permissions**.
 - `signing_secret` — the app's **Signing Secret** from **Basic Information**.

@@ -8,7 +8,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 
 | ID | Requirement |
 |----|-------------|
-| NFR-1 | Clean host to first successfully routed alert in ≤ 1 working day (wizard + docs). |
+| NFR-1 | Clean host to first successfully routed alert in ≤ 1 working day (bootstrap, Settings and docs). |
 | NFR-2 | Alert list API p95 < 500 ms at 10k rows with default indexes. |
 | NFR-3 | API errors return `{code, message, details}` JSON. |
 | NFR-4 | Secrets only via env/config; never in code, logs, or committed fixtures. |
@@ -122,7 +122,7 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-INT-02 | Jira: create issue, link to incident, optional status sync inbound. |
 | REQ-INT-03 | Slack: Block Kit page, signed interactive ack callback. |
 | REQ-INT-04 | eXpress: BotX HTTP API, `/link` identity bootstrap, ack via bubble action. BotX CTS calls `GET {base}/status` and `POST {base}/command` on the public callback base (`{PUBLIC_URL}/api/v1/callbacks/express`). |
-| REQ-INT-05 | Per-connector "Test connection" on the Integrations admin page (`/integrations`). Standalone configure (create/edit credentials) without the setup wizard. |
+| REQ-INT-05 | Per-connector "Test connection" in Settings → Integrations (`/settings?section=integrations`) and workspace slots. Configure credentials independently; `/integrations` redirects to Settings. |
 | REQ-INT-06 | Connector failure does not block other connectors; retry with backoff in worker. |
 | REQ-INT-07 | Machine HTTP (eXpress BotX, Slack interactive callback, alert webhook) and health checks must be reachable without interactive Google/IAP login. Document a path-based proxy skip or a separate public host. Do not place IAP in front of those paths on the UI origin. Callback verification (BotX JWT, Slack signature, webhook secret) stays required. |
 
@@ -135,8 +135,8 @@ Numbered requirements win over stories. Stories reference these IDs.
 | REQ-AN-01 | Dashboard answers: MTTA trend, MTTR trend, top noisy alerts, on-call load fairness, L2→L3 stats. |
 | REQ-AN-02 | Drill-down from dashboard widgets to incident/alert lists. |
 | REQ-AN-03 | Compare metrics to previous period (week/month). |
-| REQ-AN-04 | Optional setup wizard as a first-run checklist (org basics → OIDC check → integrations → test alert). Must not gate configuration that also exists on dedicated admin pages. |
-| REQ-AN-05 | "Send test alert" available to admins (wizard and/or equivalent admin control); fires sample webhook. |
+| REQ-AN-04 | Fresh-install bootstrap and independent admin settings for OIDC, integrations and diagnostics; workspaces, teams and routing retain dedicated pages. The former setup wizard is removed. |
+| REQ-AN-05 | "Send test alert" available to admins in Settings → Diagnostics; fires sample webhook. |
 
 **Product decision (Phase 12):** Prefer **independent admin pages** over wizard-gated flows. Admins
 configure integrations (and other areas as they mature) on their own routes without replaying `/setup`.
@@ -145,7 +145,7 @@ Recorded in [`EPIC-13`](../backlog/epics/EPIC-13-integration-admin.md) and
 
 ---
 
-## §7 Support levels & workspaces *(Phase 10 — planned)*
+## §7 Support levels & workspaces *(Phase 10, implemented)*
 
 | ID | Requirement |
 |----|-------------|
@@ -155,7 +155,7 @@ Recorded in [`EPIC-13`](../backlog/epics/EPIC-13-integration-admin.md) and
 | REQ-SLV-04 | Incident list/detail/ack/resolve/handoff/bounce use the API; timeline persists across refresh. |
 | REQ-SLV-05 | Escalation picker shows only configured targets for the incident's owning team. |
 | REQ-SLV-06 | Teams UI displays workspace and support tier; admin can configure escalation paths. |
-| REQ-SLV-07 | Setup wizard includes workspace and escalation setup step. |
+| REQ-SLV-07 | Workspace and escalation setup is available on Workspaces and Teams pages, independently of Settings. |
 | REQ-SLV-08 | L1 and NOC tiers participate in escalation chain (NOC→L1/L2, L1→L2, L2→L3). |
 | REQ-SLV-09 | Integrations may be scoped to a workspace; Jira uses workspace `project_key` when set. |
 | REQ-SLV-10 | Routing rules manageable in UI per workspace. |

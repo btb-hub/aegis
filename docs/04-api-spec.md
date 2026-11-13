@@ -409,7 +409,9 @@ Query: `from`, `to`, `compare_previous` (bool).
 
 **Implemented (AEG-048):** `GET /analytics/overview?from=&to=&compare_previous=` aggregates MTTA, MTTR, noise, on-call load, handoffs, and escalation stats in one response.
 
-**Implemented (AEG-052):** `POST /setup/test-alert` (admin) posts a sample alert through the webhook ingest path and returns `{id, status}`.
+**Implemented (AEG-052):** `POST /settings/test-alert` (admin, same origin) posts a sample alert
+through the webhook ingest path and returns HTTP 202 with `{id, status}`. `/setup/test-alert`
+remains a compatibility alias; the current web control is Settings → Diagnostics.
 
 ## Saved views (Phase 4)
 

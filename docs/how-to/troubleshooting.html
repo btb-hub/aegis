@@ -96,7 +96,7 @@
         </tr>
         <tr><td><b>Connect</b> is unavailable on Account</td><td>Provider OIDC or the global bot isn't configured.</td><td>Ask an admin to complete <a href="../features/paging-connections.md">paging setup</a>. A workspace override alone doesn't enable Account authorization.</td></tr>
         <tr><td>Personal page arrives, shared post doesn't</td><td>Shared destination missing or bot lacks channel access.</td><td>Check team Slack channel and workspace bot; for eXpress check the global on-call group and global bot.</td></tr>
-        <tr><td>Chat click has no private result</td><td>Request receipt isn't acknowledgement; worker processing or feedback may have failed.</td><td>Check incident status in the web app. Ask the operator to inspect worker logs and <code>chat_ack_requests</code>; see <a href="../features/incident-chat-notifications.md">delivery troubleshooting</a>.</td></tr>
+        <tr><td>Chat click has no confirmation</td><td>Successful eXpress group clicks confirm through the shared post. A receipt alone doesn't confirm acknowledgement; the worker may still be processing it.</td><td>Check incident status in the web app. Ask the operator to inspect worker logs and <code>chat_ack_requests</code>; see <a href="../features/incident-chat-notifications.md">delivery troubleshooting</a>.</td></tr>
       </tbody>
     </table>
     </div>
@@ -133,7 +133,7 @@
       <li>Each workspace has at least one <b>routing rule</b> that matches real alert labels.</li>
       <li><b>Test connection</b> passed for every connector you rely on.</li>
       <li>On-call people have connected Slack and/or eXpress in <b>Account → Paging messengers</b>.</li>
-      <li>A routed test incident produces a ticket, personal page, shared post, and private chat acknowledgement result where configured.</li>
+      <li>A routed test incident produces a ticket, personal page, shared post, and acknowledgement confirmation: a shared acknowledged post for successful eXpress group clicks, private feedback in other supported chats.</li>
     </ol>
     <div class="callout info" style="margin-top:18px">
       <b>Still installing the app?</b>

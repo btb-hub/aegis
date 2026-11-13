@@ -31,9 +31,24 @@ and appears under **Incidents**.
 | eXpress | BotX direct message | Bubble action |
 | Web | **Incidents** list | **Acknowledge** on the incident |
 
-If you never get a DM, your
-Slack user ID or eXpress huid is missing — open **Account**. That is identity, not SSO.
-See [paging identity](connect.md#paging).
+If a DM is missing, check **Account → Paging messengers** and confirm the
+bot can reach you. For eXpress, open a personal chat with the bot first.
+Paging connections are separate from sign-in. See [paging identity](connect.md#paging).
+
+### Find and keep the right incident open
+
+Use the status filter for **All**, **Open**, **Acknowledged**, or **Resolved**.
+On a phone it is a **Status** dropdown; wider screens show status buttons.
+A wide desktop shows the queue and detail side by side. On smaller screens,
+select an incident to open its detail, then use **Back to incidents** to return
+to the queue with the same status filter.
+
+Selecting an incident adds its UUID to the page URL as `incident_id`; the readable
+`INC-01` label is for people. A direct link opens that incident even when its
+status is outside the queue filter. After acknowledgement or resolution, the
+selected detail stays open even if the incident leaves the filtered queue.
+Changing the status filter clears the explicit selection and returns to the queue
+on smaller screens. If loading fails, use **Retry** in the affected panel.
 
 <a id="ack"></a>
 
@@ -46,6 +61,10 @@ See [paging identity](connect.md#paging).
 2. **Read the same facts everyone else sees**
    Incident detail: linked **alerts**, Jira ticket (if connected), and the
    **timeline**. There are no hidden L3-only rows. L2 and L3 see the same history.
+   The Jira link uses the current Jira base URL for the owning team's workspace,
+   including any context path. It follows that workspace's custom or inherited
+   connector. If the slot is disabled or incomplete, no Jira link is shown; ask an
+   administrator to check **Integrations**.
 
 3. **Resolve when it is fixed**
    Click **Resolve**. Prefer resolving in Aegis so MTTA/MTTR on **Dashboard** stay
@@ -109,12 +128,14 @@ If you have alerts and no incidents, the workflow is not fully set up —
 
 Slack posts lifecycle messages to the team's configured channel. eXpress uses
 the global on-call group. Opening and escalation messages tag on-call users and
-include an acknowledge button while the incident is open. Personal pages continue
-as before. Message links open the selected incident, including resolved incidents.
+include an acknowledge button while the incident is open. Personal pages continue.
+Message links open the selected incident, including resolved incidents.
 
-Clicking acknowledge first receives a receipt, then a private result in the chat.
-Wait for that result to confirm the change. Repeated clicks report that the
-incident is already acknowledged or resolved. If your identity isn't linked,
-follow the linking guidance in the response.
+A receipt means the acknowledgement request was queued. For a successful click
+in the configured eXpress on-call group, the shared acknowledged post confirms
+the change; there is no extra private success reply. Slack, personal eXpress chats,
+and unsuccessful or repeated clicks still receive private results. Repeated clicks
+report that the incident is already acknowledged or resolved. If your identity
+isn't linked, follow the linking guidance in the response.
 
 See [Incident channel notifications](../features/incident-chat-notifications.md).

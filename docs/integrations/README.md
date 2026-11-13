@@ -83,10 +83,10 @@ verify real issue creation, pages, channel posts, and chat acknowledgements befo
 
 ## Admin configuration
 
-**Preferred UI:** `/integrations` — create, edit credentials, Test connection, enable/disable, delete
-each connector independently. Admins must not need the setup wizard to configure Jira, Slack, or
-eXpress. The global inventory and each workspace's Integrations panel expose the same provisioned
-slots, modes, and effective status. See
+**Global configuration:** **Settings → Integrations** (`/settings?section=integrations`) for
+credentials, Test connection, enable/disable and deletion. `/integrations` redirects here;
+the setup wizard has been removed. Workspace pages retain their provisioned slots, modes and
+effective status. See [Settings](../features/settings.md) and
 [`EPIC-13`](../../backlog/epics/EPIC-13-integration-admin.md).
 
 Config JSON fields per provider: [`jira.md`](./jira.md), [`slack.md`](./slack.md),
@@ -98,8 +98,7 @@ Config JSON fields per provider: [`jira.md`](./jira.md), [`slack.md`](./slack.md
   provider's `TestConnection`.
 - Resolve failures return a structured validation error; unlike runtime delivery, Test does not
   report a skipped success.
-- **Integrations** page surfaces pass/fail with an actionable error message.
-- The setup wizard may still call the same API, but it is not the primary configure path.
+- **Settings → Integrations** and workspace slot panels surface pass/fail with an actionable error message.
 
 ## Specs
 

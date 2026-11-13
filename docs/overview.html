@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Aegis — plan overview</title>
+<title>Aegis overview</title>
 <style>
   :root{
     --paper:#f4f1ea;
@@ -137,8 +137,9 @@
 
 <header class="top">
   <div class="wrap">
-    <div class="brand"><b>Aegis</b> &middot; plan overview</div>
+    <div class="brand"><b>Aegis</b> &middot; product overview</div>
     <nav class="jump">
+      <a href="#changes">latest changes</a>
       <a href="#stars">north-stars</a>
       <a href="#features">features</a>
       <a href="#arch">architecture</a>
@@ -154,23 +155,48 @@
 
 <div class="hero">
   <div class="wrap">
-    <p class="kicker">Ops &amp; incident management &middot; build-ready spec</p>
+    <p class="kicker">Ops &amp; incident management &middot; current product and specifications</p>
     <h1>One place to run on-call, catch incidents, and see who's holding the pager.</h1>
     <p class="lede">Aegis takes a firing alert, turns it into one owned incident, opens a Jira ticket,
       and pages the person who's actually on call right now, across Slack and eXpress. Sign in with
-      Google, Slack, or eXpress OIDC. The web UI and chat pages ship in <b>English</b> and
-      <b>Russian</b>. This is the documentation an AI agent team builds from, story by story.</p>
+      a configured Google, Slack, or eXpress OIDC provider. The web UI and chat pages ship in <b>English</b> and
+      <b>Russian</b>. Refreshed through November 13, 2026 (main <code>c604e55</code>).</p>
     <div class="facts">
       <span class="pill"><b>4</b> MVP features</span>
       <span class="pill"><b>3</b> integrations</span>
-      <span class="pill"><b>7</b> epics</span>
-      <span class="pill"><b>56</b> stories</span>
+      <span class="pill">configuration <b>Settings</b></span>
+      <span class="pill">optional <b>anomaly module</b></span>
       <span class="pill">locales <b>en + ru</b></span>
       <span class="pill">stack <b>Go + React</b></span>
-      <span class="pill">runs on <b>docker compose</b></span>
+      <span class="pill">production <b>GHCR + Postgres</b></span>
     </div>
   </div>
 </div>
+
+<section id="changes">
+  <div class="wrap">
+    <div class="sec-head"><span class="sec-num">NEW</span><h2>Since the October 7 docs refresh</h2></div>
+    <div class="feat"><span class="tag">Settings</span><div><h3>Configuration lives in PostgreSQL</h3>
+      <p>Settings replaces the wizard. <code>/setup</code> and <code>/integrations</code> redirect there.
+        Fresh installs use <code>/bootstrap</code>; upgrades need an explicit configuration import.</p>
+      <div class="links"><a href="features/settings.md">Settings</a><a href="configuration-migration.md">migration</a></div></div></div>
+    <div class="feat"><span class="tag">Anomalies</span><div><h3>Optional detector and local Mimir sandbox</h3>
+      <p>The private module uses Aegis authentication. Recovery resolves its alert and leaves incident closure to responders.</p>
+      <div class="links"><a href="features/anomaly-detection.md">module</a><a href="../devtools/anomaly-sandbox/README.md">sandbox</a></div></div></div>
+    <div class="feat"><span class="tag">Incidents</span><div><h3>Permanent numbers and responsive navigation</h3>
+      <p>Labels such as <code>INC-01</code> stay fixed. Queue/detail navigation adapts to the screen;
+        URL status filters and the selected detail are retained after actions.</p>
+      <div class="links"><a href="how-to/incidents.html">incident guide</a></div></div></div>
+    <div class="feat"><span class="tag">Jira</span><div><h3>Configured destinations and ticket assignment</h3>
+      <p>Detail links use the effective workspace Jira URL, including context paths. New tickets attempt
+        assignee synchronization; Server/DC has an exact username fallback.</p>
+      <div class="links"><a href="integrations/jira.md">Jira</a><a href="04-api-spec.md">API</a></div></div></div>
+    <div class="feat"><span class="tag">eXpress</span><div><h3>Bot linking and clear acknowledgement results</h3>
+      <p>Account offers bot <code>/link</code> codes without SSO. Successful acknowledgements in the configured
+        group confirm through the shared post; personal chats and other outcomes retain feedback. Blank feedback sends nothing.</p>
+      <div class="links"><a href="features/paging-connections.md">connections</a><a href="features/incident-chat-notifications.md">delivery</a></div></div></div>
+  </div>
+</section>
 
 <section id="stars">
   <div class="wrap">
@@ -180,8 +206,8 @@
     <div class="stars">
       <div class="star">
         <div class="n">EASY TO</div><h3>Set up</h3>
-        <p>One <code>.env</code>, one <code>docker compose up</code>, then a guided web wizard. Clean
-          host to first routed alert in under one working day.</p>
+        <p>Bootstrap a fresh installation, then configure sign-in, bots and behavior in Settings.
+          Existing installations import their environment configuration before upgrading.</p>
       </div>
       <div class="star">
         <div class="n">EASY TO</div><h3>Use</h3>
@@ -276,10 +302,11 @@
         Returns 202 fast and gets out of the way.</p></div>
       <div><h4>apps/worker</h4><p>Postgres job poller. Dedup, routing, incident + ticket creation,
         paging, escalation timers, on-call materialisation.</p></div>
-      <div><h4>apps/web</h4><p>React + TypeScript + Vite, Tailwind, Recharts. Wizard, calendar,
+      <div><h4>apps/web</h4><p>React + TypeScript + Vite, Tailwind, Recharts. Settings, calendar,
         alert workspace, incident view, dashboards.</p></div>
       <div><h4>data</h4><p>PostgreSQL 16 only (JSONB labels with GIN, full-text search, jobs table).
-        golang-migrate. Docker Compose for the MVP.</p></div>
+        golang-migrate. Settings and delivery queues live here too. Compose for local builds;
+        GHCR with external Postgres for production.</p></div>
     </div>
     <p style="margin-top:18px;font-size:14px;color:var(--ink-soft)">
       Full detail in <a href="02-architecture.md">02-architecture</a>,
@@ -292,11 +319,12 @@
   <div class="wrap">
     <div class="sec-head"><span class="sec-num">04</span><h2>Integrations</h2></div>
     <p class="sec-sub">Each connector implements a shared interface, so the rest of Aegis doesn't care
-      which ones are on. Any subset works; a failing one degrades gracefully. All outbound calls run
-      in the worker with retry and idempotency.</p>
+      which ones are on. Any subset works; a failing one degrades gracefully. Incident delivery runs
+      in the worker; connection tests and Account authorization run in the API. Shared messages have
+      bounded retries; ordinary failed jobs remain failed.</p>
     <div class="ints">
       <div class="int"><div class="ty">Ticket</div><div class="nm">Jira</div>
-        <p>Auto-creates and links the incident ticket, syncs status back. REST v2/v3.</p></div>
+        <p>Creates and links the incident ticket, then attempts assignee synchronization. REST v2/v3.</p></div>
       <div class="int"><div class="ty">Chat</div><div class="nm">Slack</div>
         <p>Block Kit messages, Acknowledge button, signed callbacks. Also OIDC sign-in.</p></div>
       <div class="int"><div class="ty">Chat</div><div class="nm">eXpress</div>
@@ -312,9 +340,8 @@
 <section id="roadmap">
   <div class="wrap">
     <div class="sec-head"><span class="sec-num">05</span><h2>Roadmap</h2></div>
-    <p class="sec-sub">Build a thin vertical slice first (one alert becomes one incident with one
-      connector and you can see who's on call), then thicken it. Each phase ends with something you
-      can demo.</p>
+    <p class="sec-sub">The original MVP phases 0–7 are complete. The historical milestones below led to
+      workspace administration, Account paging, shared notifications, Settings and the optional anomaly module.</p>
 
     <div class="phase">
       <div class="ph">Phase 0<small>foundation</small></div>
@@ -363,8 +390,8 @@
     <div class="phase">
       <div class="ph">Phase 6<small>analyse + polish</small></div>
       <div class="body"><strong>The five questions on one dashboard</strong>
-        <p>Overview metrics, drill-down, range compare, exports, the full setup wizard with "send test
-          alert", an accessibility pass, and a setup-time check against the target.</p></div>
+        <p>Overview metrics, drill-down, range compare, exports and an accessibility pass. The original
+          setup wizard has since been replaced by Settings and its diagnostic test alert.</p></div>
       <div class="epic"><b>9</b>EPIC-07</div>
     </div>
     <p style="margin-top:20px;font-size:14px;color:var(--ink-soft)">
@@ -413,10 +440,10 @@
       <div>docs/11-localization.md &middot; en + ru i18n</div>
       <div>docs/12-design-system.md &middot; tokens + components</div>
       <div>docs/design_system.html &middot; visual design canvas</div>
-      <div>docs/features/ &middot; 4 feature specs</div>
+      <div>docs/features/ &middot; feature specifications</div>
       <div>docs/integrations/ &middot; 3 connector specs</div>
       <div>backlog/roadmap.md</div>
-      <div>backlog/epics/ &middot; 7 epics, 56 stories</div>
+      <div>backlog/epics/ &middot; epics and stories</div>
       <div>.github/pull_request_template.md</div>
     </div>
   </div>

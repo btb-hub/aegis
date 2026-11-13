@@ -55,7 +55,7 @@ db/
 
 - Poll interval configurable (e.g. 1s).
 - Claim: `status=pending AND run_at <= now()`.
-- On failure: increment `attempts`, set `last_error`, reschedule with exponential backoff.
+- On failure: record `last_error` and mark the job `failed`; ordinary jobs aren't automatically retried.
 - Escalation: insert job with `kind=escalate_incident`, `run_at = now() + policy delay`.
 
 ## Connector pattern
@@ -73,6 +73,35 @@ type ChatProvider interface {
 ```
 
 Registry loads enabled integrations from DB. Worker invokes providers; API handles inbound callbacks.
+
+Personal incident delivery resolves each provider from the owning team's workspace slot. Shared
+Slack posts use that workspace bot and the team's channel; shared eXpress posts use the global
+bot and on-call group. Callbacks queue acknowledgement work before returning a receipt. Independent
+worker loops process lifecycle posts, acknowledgements and feedback through durable outboxes.
+Their bounded retry policy doesn't apply to ordinary `jobs`, which remain failed after an error.
+See [delivery and acknowledgement](features/incident-chat-notifications.md).
+
+## Runtime configuration and installation
+
+PostgreSQL is authoritative for application configuration. API requests and worker jobs read
+saved settings; listener changes require an API restart. Admins use Settings for provider drafts,
+verified sign-in tests, access rules, integrations, behavior and deployment settings. Blank secret
+fields preserve saved values. Environment variables retain database connectivity, bootstrap
+access and local development safeguards.
+
+Fresh installations use `/bootstrap` and permanently close it after the first verified admin
+sign-in. Existing installations require a manual environment import before updated services
+start. See [Settings](features/settings.md) and [configuration migration](configuration-migration.md).
+The production all-in-one image runs the three services with external PostgreSQL; source Compose
+builds remain the local development path.
+
+## Optional anomaly module
+
+The private detector is installed separately and isn't a core build dependency. Aegis proxies
+`/modules/anomaly-detector/` behind session authentication and forwards short-lived signed identity.
+Service-authenticated episode events persist receipts and alert state transactionally. Recovery
+resolves the alert without closing a linked incident; recovery before processing suppresses its
+creation. See [module operations and contract](features/anomaly-detection.md).
 
 ## Authentication
 

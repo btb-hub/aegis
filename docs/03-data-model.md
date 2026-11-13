@@ -12,6 +12,9 @@ PostgreSQL 16. Migrations via golang-migrate. Queries via sqlc.
 | 4 | `saved_views` (+ alert search indexes) |
 | 5 | `handoffs` |
 | 6 | `audit_log` (if not introduced earlier) |
+| Migration 22 | `application_settings`, `settings_provider_drafts`, `settings_bootstrap_sessions`, `settings_authorizations` |
+| Migration 23 | `anomaly_module_episodes`, `anomaly_module_receipts` |
+| Migration 24 | `incidents.number` and `incident_number_seq` |
 
 ## Core entities
 
@@ -110,6 +113,7 @@ Standard org structure. Membership links `users` to `teams` with optional team r
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
+| number | bigint unique, positive, not null | Sequence-backed permanent global number; API exposes a formatted `display_id` such as `INC-01` |
 | team_id | uuid FK | |
 | assignee_id | uuid FK nullable | Current on-call owner |
 | status | text | `open`, `acknowledged`, `resolved` |
@@ -119,6 +123,12 @@ Standard org structure. Membership links `users` to `teams` with optional team r
 | acknowledged_at | timestamptz nullable | |
 | resolved_at | timestamptz nullable | |
 | created_at | timestamptz | |
+
+Migration `000024_incident_numbers` backfills existing incidents in `(created_at, id)` order,
+then allocates new numbers from `incident_number_seq`. Gaps after rollbacks or deletion are
+allowed. UUIDs remain the relation and API identity. Neither `display_id` nor `jira_issue_url`
+is a stored column: the latter is derived for detail responses from the current effective
+workspace Jira configuration and `jira_issue_key`.
 
 ### timeline_events
 
@@ -175,6 +185,31 @@ Outbound page record: `incident_id`, `integration_id`, `status`, `external_ref`,
 ### saved_views
 
 `owner_id`, `name`, `filter` jsonb, `shared` bool.
+
+### Application settings (migration 22)
+
+| Table | Stored state |
+| --- | --- |
+| `application_settings` | Singleton row with JSONB `values` and provider `enabled` maps, optimistic `revision`, `imported`, permanent `bootstrap_closed`, and `updated_at` |
+| `settings_provider_drafts` | One row per OIDC provider: draft values/revision, tested revision/email/time and expected admin email |
+| `settings_bootstrap_sessions` | Hashed temporary bootstrap token and expiry |
+| `settings_authorizations` | Hashed state, kind (`login`, `provider_test`, `bootstrap`), provider, nonce, session binding, draft/settings revisions, expiry and exchange flag |
+
+Application settings replace environment configuration for runtime behavior and provider setup.
+Integration credentials remain in `integrations`; migration 22 adds an audit trigger for changes
+to config, enabled state, name and mode. Audit details contain field names rather than values.
+See [Settings](features/settings.md) and [configuration migration](configuration-migration.md).
+
+### Anomaly module (migration 23)
+
+| Table | Stored state |
+| --- | --- |
+| `anomaly_module_episodes` | Primary key `(installation_id, episode_id)`; workspace/metric UUIDs, SHA256 series ID, positive sequence, firing/resolved state, linked alert and event time |
+| `anomaly_module_receipts` | Primary key `(installation_id, event_id)`; payload hash, linked alert, ignored flag and receipt time |
+
+Episode state and receipts make delivery replay-safe across module restarts. Accepted recovery
+updates the original alert; linked incidents remain under responder control. See the
+[module contract](features/anomaly-detection.md).
 
 ### audit_log
 

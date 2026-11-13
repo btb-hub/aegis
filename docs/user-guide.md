@@ -39,14 +39,19 @@ without registering OIDC apps.
 
 The sidebar links to the main areas:
 
+On a narrow screen, open the navigation menu. Operations and organization pages are grouped;
+Settings and Users appear for admins.
+
 | Page | Route | Purpose |
 |------|-------|---------|
 | Shifts | `/shifts` | Who is on call now; rotation calendar |
 | Teams | `/teams` | Team list, members, escalation paths |
+| Workspaces | `/workspaces` | Projects, routing rules and workspace integration slots |
 | Incidents | `/incidents` | Open work items — ack, resolve, hand off |
 | Alerts | `/alerts` | Raw monitoring signals; search and export |
 | Dashboard | `/dashboard` | MTTA, MTTR, noise, load, handoffs |
 | Settings | `/settings` | Admin authentication, integrations, behavior, deployment and diagnostics |
+| Anomaly detection | `/modules/anomaly-detector/` | Optional private module; availability depends on installation setup |
 
 ### Account
 
@@ -55,6 +60,8 @@ Open **Account** (`/account`) from the header to:
 - Edit display name and language (`en` / `ru`)
 - See connected sign-in providers
 - Connect, replace, or disconnect Slack/eXpress under **Paging messengers** through browser authorization
+- Connect eXpress through the bot without company SSO: generate a `/link <code>` command,
+  send it to the bot, then choose **Check connection**. Codes expire after 15 minutes.
 - View your access role (read-only)
 
 ---
@@ -112,7 +119,7 @@ Open **Account** (`/account`) from the header to:
 | **Teams** | View teams, members, and escalation paths (read-only) |
 | **Alerts** | Search, filter, group, save personal saved views, export CSV |
 | **Dashboard** | View analytics |
-| **Integrations** | View connector list (no add/edit/test) |
+| **Workspace integrations** | View slot status on workspace pages; global Settings is admin-only |
 | **Account** | Edit profile and locale; manage own paging connections |
 
 **Cannot do:** create teams, change schedules, edit routing rules, or manage integrations.
@@ -125,6 +132,12 @@ Open **Account** (`/account`) from the header to:
 4. If the issue needs a higher tier, click the tier-aware handoff button (for example **Hand off to L3**)
    and pick a configured target team.
 5. When fixed, click **Resolve**.
+
+Use the permanent incident number, such as `INC-01`, when discussing the incident. On phones,
+select an incident to open its detail and use **Back to incidents** to return. Status filters and
+the selected incident are reflected in the URL. Acknowledge or resolve keeps that detail open,
+even when its new status removes it from the filtered list. Jira links use the owning workspace's
+current configuration; if the destination is unavailable, the issue key remains plain text.
 
 **Acknowledge from chat:** Slack and eXpress page messages include an **Acknowledge** button. Use it
 instead of opening the web app when you are on mobile or in a war room.
@@ -144,7 +157,7 @@ instead of opening the web app when you are on mobile or in a war room.
 | **Dashboard** | View all widgets and trends |
 | **Shifts** | View calendars and current on-call |
 | **Teams / workspaces** | View configuration (read-only) |
-| **Integrations** | View connector list |
+| **Workspace integrations** | View slot status on workspace pages; global Settings is admin-only |
 | **Account** | Edit own profile and locale; manage own paging connections |
 
 **Cannot do:** acknowledge, resolve, hand off, bounce, or change any configuration.
@@ -209,7 +222,8 @@ You are adding a **Data** project alongside existing **Platform** work.
 2. Create **Data L2** (tier L2) and **Data L3** (tier L3) in that workspace.
 3. On **Data L2** team detail → **Escalation paths** → add **Data L3**.
 4. Open workspace **Data** → **Routing rules** → add rule `project=data` → **Data L2**.
-5. **Integrations** → add workspace-scoped Jira integration with `project_key=DATA`.
+5. **Workspaces → Data → Integrations** → edit the existing Jira slot with `project_key=DATA`.
+   Use **Inherit** for global credentials or **Custom** for a separate Jira configuration.
 6. **Shifts** → open **Data L2** calendar → create weekly rotation with team members.
 
 Alerts with label `project=data` now route to Data L2, create Jira tickets in `DATA`, and hand off
@@ -266,15 +280,18 @@ Admins open routing with **Configure routing** on Alerts, or from **Workspaces**
 
 Every responder opens **Account → Paging messengers** to connect Slack or eXpress through browser
 authorization. **Replace** keeps the current connection until success; **Disconnect** stops pages
-through that messenger and preserves sign-in providers. If Connect is unavailable, ask an admin
-to complete OIDC and global bot setup. See [Paging connections](./features/paging-connections.md).
+through that messenger and preserves sign-in providers. If browser Connect is unavailable, ask an
+admin to complete OIDC and global bot setup, or use the eXpress bot code option when available.
+See [Paging connections](./features/paging-connections.md).
 
 Shared incident updates appear in the team's configured Slack channel and the global eXpress
 on-call group. Opening and escalation posts include mentions and an acknowledge button while open;
 acknowledgement and resolution posts identify the actor. Personal pages continue separately.
-After clicking **Acknowledge** in chat, wait for the private result to confirm the action. A callback
-receipt only confirms the request was queued. Repeated clicks report the existing state. The worker
-must be running. See [Incident channel notifications](./features/incident-chat-notifications.md).
+After clicking **Acknowledge**, wait for confirmation: Slack and personal eXpress chats send a
+private result; a successful click in the configured eXpress on-call group uses the shared
+acknowledged post. Repeated clicks and other outcomes still receive private feedback. A callback
+receipt only confirms queuing. The worker must be running. See
+[Incident channel notifications](./features/incident-chat-notifications.md).
 
 ---
 
