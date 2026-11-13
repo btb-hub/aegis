@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>eXpress acknowledgment fix</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#182c39;background:#f1f5f6;font-size:16px;line-height:1.6}body{max-width:1020px;margin:0 auto;padding:48px 24px}h1{font-size:clamp(2rem,5vw,3.4rem);line-height:1.12;letter-spacing:-.04em;margin:12px 0 24px}h2{font-size:1.25rem;margin-top:32px}p{max-width:78ch}.eyebrow{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#526977}.badge{display:inline-block;background:#dcefe8;color:#175440;border-radius:6px;padding:5px 12px;font-weight:650}.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0}.step{background:white;border:1px solid #d4e0e3;border-top:4px solid #26806a;border-radius:8px;padding:20px}.step small{color:#526977;display:block}.step strong{display:block;margin:6px 0}table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left;padding:13px 16px;border-bottom:1px solid #d4e0e3}th{font-size:.85rem;background:#e6edf0}code{font-size:.9em;overflow-wrap:anywhere}a{color:#146651}.note{border-left:4px solid #c08e34;padding:12px 20px;background:#fff8e9}.links{margin-top:32px;font-size:.9rem}@media(max-width:680px){body{padding:28px 16px}.flow{grid-template-columns:1fr}th,td{padding:10px}table{font-size:.88rem}}@media print{body{padding:0;background:white}.step,table{break-inside:avoid}}
+</style>
+<body>
+<div class="eyebrow">Aegis / November 13, 2026</div>
+<h1>One shared acknowledgment.<br>No extra success reply.</h1>
+<span class="badge">Fixed locally / deployment pending</span>
+<p>The earlier fix skipped blank translations, but shipped English and Russian success messages still contained text. The worker kept sending a separate private notification after a successful group click. The new regression reproduces that path with the real catalogs.</p>
+<div class="flow" aria-label="Updated acknowledgment flow">
+<div class="step"><small>1 / Click</small><strong>Acknowledge in the on-call group</strong>The normal durable acknowledgment action runs.</div>
+<div class="step"><small>2 / Confirm</small><strong>The shared event supplies confirmation</strong>Lifecycle delivery keeps its existing queue and retry behavior.</div>
+<div class="step"><small>3 / Complete</small><strong>Skip the extra success notification</strong>Feedback completes successfully with zero provider HTTP requests.</div>
+</div>
+<h2>What receives feedback</h2>
+<table><thead><tr><th>Scenario</th><th>Result</th></tr></thead><tbody>
+<tr><td>Successful eXpress click in the configured on-call group</td><td>Shared acknowledgment post only</td></tr>
+<tr><td>Personal chat, legacy request, or another group</td><td>Keep the private confirmation</td></tr>
+<tr><td>Repeated click, resolved/missing incident, linking guidance, uncertain result</td><td>Keep the explanatory feedback</td></tr>
+<tr><td>Slack interaction</td><td>Keep ephemeral feedback</td></tr>
+<tr><td>Empty or Unicode whitespace-only eXpress feedback</td><td>Skip before token acquisition or chat lookup</td></tr>
+</tbody></table>
+<h2>Regression evidence</h2>
+<p><code>CHAT-FEEDBACK-GROUP</code> covers 26 shipped-catalog cases. Four group-success cases failed before the fix with two HTTP requests instead of zero, then all passed. <code>CHAT-FEEDBACK-EMPTY-PROVIDER</code> covers eight sender cases. Six blank-body cases failed before the guard, then all passed.</p>
+<p>Repository lint and type checks passed. The full test gate passed with isolated PostgreSQL 16. Business coverage was 91.9% for shared packages, 90.6% for the API, and 91.3% for the worker. All 352 web tests passed with 95.44% statement coverage.</p>
+<p class="note">The affected server's running version and live eXpress rendering weren't verified. Rollout requires the updated worker image or binary. No database migration or translation edit is needed, and no production deployment was performed.</p>
+<div class="links"><a href="express-feedback-evidence.md">Commands, contracts, and full check results</a> · <a href="../features/incident-chat-notifications.md">Delivery behavior</a> · <a href="https://github.com/btb-hub/aegis/pull/70">Earlier fix, PR #70</a></div>
+</body>
+</html>

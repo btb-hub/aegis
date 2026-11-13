@@ -34,11 +34,16 @@ or an existing DM. Expiring leases recover work after a worker restart.
 Bot endpoints authenticate and durably queue acknowledgement requests before
 returning receipt responses: HTTP 200 for Slack, HTTP 202 for eXpress. Receipt
 doesn't mean the incident has been acknowledged. The worker sends a separate
-result after the database commits. Slack uses an ephemeral response; eXpress
-restricts the response in the originating chat to the clicking user's HUID.
+result after the database commits. Slack uses an ephemeral response. A successful
+eXpress click in the configured on-call group relies on the shared acknowledged
+post and completes feedback without a second notification. Personal and legacy
+eXpress chats retain success feedback. Other eXpress outcomes restrict the response
+in the originating chat to the clicking user's HUID.
 Feedback uses the linked user's language. Unlinked users receive linking guidance.
 If the rendered feedback is empty or contains only whitespace, the worker marks
-it complete without sending a message or retrying. Nonempty feedback is sent as rendered.
+it complete without sending a message or retrying. The eXpress provider also skips
+blank feedback before token acquisition or personal-chat lookup. Feedback that is
+sent retains its rendered text.
 Repeated clicks report the existing acknowledged or resolved state without
 another state transition. Existing linked-user eligibility is preserved.
 

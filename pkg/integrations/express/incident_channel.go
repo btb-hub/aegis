@@ -30,7 +30,14 @@ func (p *Provider) SendIncidentEvent(ctx context.Context, event integrations.Inc
 	return p.sendSyncNotification(ctx, map[string]any{"group_chat_id": chat, "notification": notification})
 }
 
+// SendAckFeedback delivers private acknowledgement feedback.
+// CHAT-FEEDBACK-EMPTY-PROVIDER: Empty or Unicode whitespace-only bodies succeed
+// without token acquisition, chat lookup, or delivery. Nonblank bodies are sent
+// unchanged. Evidence: TestSendAckFeedbackBlankAndOriginalBody.
 func (p *Provider) SendAckFeedback(ctx context.Context, chat, user, body string) error {
+	if strings.TrimSpace(body) == "" {
+		return nil
+	}
 	if strings.TrimSpace(chat) == "" {
 		token, err := p.ensureToken(ctx)
 		if err != nil {
