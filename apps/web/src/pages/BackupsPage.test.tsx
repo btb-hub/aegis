@@ -13,15 +13,15 @@ const admin = { ...member, role: 'admin' };
 
 const passed = {
   backup: 'gamepass', stale: false, review: null,
-  check: { id: 'gp-1', backup: 'gamepass', status: 'passed', trigger: 'scheduled', started_at: '2026-11-25T03:00:00Z', finished_at: '2026-11-25T03:40:00Z', replicas_match: true, restore_ok: true, manifest_counts_match: true },
+  check: { id: 'gp-1', backup: 'gamepass', status: 'passed', engine: 'postgres', started_at: '2026-11-25T03:00:00Z', finished_at: '2026-11-25T03:40:00Z', replicas_match: true, restore_ok: true, manifest_counts_match: true },
 };
 const failed = {
   backup: 'nish', stale: true, review: null,
-  check: { id: 'nish-1', backup: 'nish', status: 'failed', trigger: 'scheduled', started_at: '2026-11-23T03:00:00Z', finished_at: '2026-11-23T03:20:00Z', replicas_match: false, restore_ok: true, manifest_counts_match: false, message: 'orders: 10412 rows, manifest 10420' },
+  check: { id: 'nish-1', backup: 'nish', status: 'failed', engine: 'postgres', started_at: '2026-11-23T03:00:00Z', finished_at: '2026-11-23T03:20:00Z', replicas_match: false, restore_ok: true, manifest_counts_match: false, message: 'orders: 10412 rows, manifest 10420' },
 };
 const running = {
   backup: 'billing', stale: false, review: null,
-  check: { id: 'bill-1', backup: 'billing', status: 'running', trigger: 'manual', started_at: '2026-11-25T09:00:00Z', finished_at: null, replicas_match: null, restore_ok: null, manifest_counts_match: null },
+  check: { id: 'bill-1', backup: 'billing', status: 'running', engine: '', started_at: '2026-11-25T09:00:00Z', finished_at: null, replicas_match: null, restore_ok: null, manifest_counts_match: null },
 };
 const reviewed = {
   ...passed, backup: 'ledger', check: { ...passed.check, id: 'led-1', backup: 'ledger' },
@@ -77,6 +77,7 @@ describe('BackupsPage', () => {
     expect(within(row('nish')).getByText('orders: 10412 rows, manifest 10420')).toBeInTheDocument();
     expect(within(row('nish')).getAllByText('Mismatch')).toHaveLength(2);
     expect(within(row('gamepass')).getByText('Waiting for review')).toBeInTheDocument();
+    expect(within(row('gamepass')).getByText('postgres')).toBeInTheDocument();
     expect(within(row('billing')).getByText('Checking')).toBeInTheDocument();
     expect(within(row('billing')).getAllByText('Not checked yet')).toHaveLength(3);
     expect(within(row('billing')).getByText('Review after the check finishes')).toBeInTheDocument();

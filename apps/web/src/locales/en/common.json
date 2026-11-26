@@ -679,7 +679,7 @@
   "shifts.timezone": "Times in UTC",
   "nav.backups": "Backup status",
   "settings.backups": "Backups",
-  "settings.backups_body": "Connect the backup checker so on-call can review backup checks on the Backup status page. Leave the stale threshold empty to use 26h.",
+  "settings.backups_body": "Connect the backup checker so on-call can review backup checks on the Backup status page. The token is optional: leave it empty if the checker has no authentication. Leave the stale threshold empty to use 26h.",
   "settings.field.backup_checker_url": "Backup checker URL",
   "settings.field.backup_checker_token": "Backup checker service token",
   "settings.field.backup_stale_after": "Mark checks stale after (for example 26h)",

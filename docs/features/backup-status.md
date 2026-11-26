@@ -1,20 +1,22 @@
 # Backup status / Статус бэкапов
 
 On-call engineers use **Backup status** (`/backups`, Operations navigation) to see whether every
-backup (gamepass, nish and others) passed its latest automatic check and to record that a person
+backup target (for example `gamepass-prod-pg`) passed its latest automatic check and to record that a person
 looked at it. Stories: [EPIC-16](../../backlog/epics/EPIC-16-backup-status.md).
 
 ## What the page shows
 
-One row per backup, from the latest run in the backup-checker:
+One row per target, from the latest run in the backup-checker. Aegis reads the run list, then
+the details of each latest run, because restore and manifest results are only in the details:
 
 | Column | Source |
 | --- | --- |
-| Result | `passed`, `failed`, or `running` (shown as **Checking**), plus the checker's message |
+| Backup | `target_id` and `engine` |
+| Result | `passed`, `failed`, or `running` (shown as **Checking**), plus checker, restore and source errors |
 | Checked | `finished_at`, or `started_at` while running |
-| S3 copies | `replicas_match` |
-| Restore | `restore_ok` |
-| Counts vs manifest | `manifest_counts_match` |
+| S3 copies | `sources_match` |
+| Restore | `restore.ok` |
+| Counts vs manifest | Manifest comparison of every restored dump |
 | On-call review | Confirmed or Rejected, who, when and the reason; otherwise **Waiting for review** |
 | Stale marker | Check older than `BACKUP_STALE_AFTER` (default 26 h) |
 
@@ -39,7 +41,7 @@ backup and reason).
 
 ## Recheck
 
-Planned in AEG-112 (extra check through the checker) and AEG-113 (extra backup first, once the
+Planned in AEG-112 (extra check through `POST /v1/checks/run`, which runs every target) and AEG-113 (extra backup first, once the
 backup trigger exists).
 
 ## References

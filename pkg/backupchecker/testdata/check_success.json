@@ -1,0 +1,28 @@
+{
+  "id": "77c0712f-c349-4e7c-8a8d-cbeabafa876f",
+  "target_id": "gamepass-prod-pg",
+  "engine": "postgres",
+  "status": "success",
+  "started_at": "2026-11-26T15:51:48.082200Z",
+  "finished_at": "2026-11-26T17:20:11.000000Z",
+  "sources_match": true,
+  "error": null,
+  "sources": [
+    {"name": "yandex", "endpoint": "https://storage.yandexcloud.net", "bucket": "gamepass-prod-pg-backup", "object_key": "pg-backup-20261126-0130.tar", "size_bytes": 42123456789, "sha256": "a1b2c3", "ok": true, "error": null},
+    {"name": "hotbox", "endpoint": "https://hb.ru-msk.vkcs.cloud", "bucket": "gamepass-prod-pg-backup", "object_key": "pg-backup-20261126-0130.tar", "size_bytes": 42123456789, "sha256": "a1b2c3", "ok": true, "error": null},
+    {"name": "minio-dc", "endpoint": "http://minio.example.test:9000", "bucket": "gamepass-prod-pg-backup", "object_key": "pg-backup-20261126-0130.tar", "size_bytes": 42123456789, "sha256": "a1b2c3", "ok": true, "error": null}
+  ],
+  "restore": {
+    "engine": "postgres",
+    "ok": true,
+    "duration_seconds": 5123.4,
+    "error": null,
+    "inventory": {
+      "orpo.dump": {
+        "database": "chk_gamepass_prod_pg_orpo",
+        "tables": {"public.users": 12345, "public.orders": 678},
+        "manifest": {"present": true, "path": "orpo.manifest.json", "dump_sha256": "d4e5f6", "dumped_at": "2026-11-26T01:35:00Z", "mismatch_count": 0, "mismatches": [], "extra_tables": [], "missing_tables": []}
+      }
+    }
+  }
+}

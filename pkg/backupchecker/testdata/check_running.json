@@ -1,1 +1,0 @@
-{"id": "chk_manual_1", "backup": "gamepass", "status": "running", "trigger": "manual", "started_at": "2026-11-25T10:00:00Z", "finished_at": null, "replicas_match": null, "restore_ok": null, "manifest_counts_match": null}

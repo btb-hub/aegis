@@ -10,7 +10,7 @@ progress storage are removed. `/setup` redirects here; `/integrations` redirects
 | Integrations / Интеграции | Global Jira, Slack and eXpress bot settings; existing connection tests |
 | App behavior / Поведение приложения | Session duration, deduplication window, escalation timeout, fingerprint labels |
 | Deployment / Развёртывание | Public URL, listening address, webhook secret |
-| Backups / Бэкапы | Backup-checker URL, service token and stale threshold for [Backup status](backup-status.md) |
+| Backups / Бэкапы | Backup-checker URL, optional token and stale threshold for [Backup status](backup-status.md) |
 | Anomaly detection / Обнаружение аномалий | Optional module URL, installation ID, identity and service secrets, enabled state and connection check |
 | Diagnostics / Диагностика | API/database health, provider status, test alert, connection review |
 

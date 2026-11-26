@@ -26,7 +26,7 @@ fine, because …", and no way to ask for an extra check.
 4. **Recheck** — run an extra check through `POST /v1/checks/run`; later, also trigger an
    extra backup first.
 
-The drafted checker contract lives in
+The checker contract (confirmed by the checker owner on Nov 26, 2026) lives in
 [`docs/integrations/backup-checker.md`](../../docs/integrations/backup-checker.md).
 
 **Out of scope:** editing backup schedules; alerting on failed checks (checker can send alerts
@@ -45,9 +45,12 @@ REQ-BKP-03 (recheck). Role rule: admin and member may act; viewer is read-only.
 - **Acceptance:**
   - [x] Settings has a **Backups** section with `BACKUP_CHECKER_URL`, `BACKUP_CHECKER_TOKEN`
         (secret, never returned) and `BACKUP_STALE_AFTER` (positive duration, default 26h)
-  - [x] URL is validated like other connector URLs; token needs at least 16 bytes
+  - [x] URL is validated like other connector URLs; token is optional (the in-cluster checker has
+        no auth) and needs at least 16 bytes when set
   - [x] `pkg/backupchecker` client calls `GET /v1/checks`, `GET /v1/checks/{id}` and
-        `POST /v1/checks/run` with a bearer token, 10s timeout, no redirects, 1 MiB limit, validated JSON
+        `POST /v1/checks/run {}` with an optional bearer token, 10s timeout, no redirects, 4 MiB
+        limit, validated JSON; maps the checker's `target_id`, `status`, `sources_match`, `restore`
+        and manifest inventory to the page columns
   - [x] Not configured → `503 BACKUP_CHECKER_NOT_CONFIGURED`; unreachable or non-2xx →
         `503 BACKUP_CHECKER_UNAVAILABLE`; malformed response → `502 BACKUP_CHECKER_INVALID_RESPONSE`
   - [x] Tests use `httptest` fixtures; no live checker
@@ -87,8 +90,9 @@ REQ-BKP-03 (recheck). Role rule: admin and member may act; viewer is read-only.
 - **Depends on:** AEG-111
 - **PRD:** REQ-BKP-03 (proposed)
 - **Acceptance:**
-  - [ ] **Recheck** (admin, member) calls `POST /v1/checks/run` for one backup and is audited
-        (`backup.recheck_requested`)
+  - [ ] **Recheck** (admin, member) calls `POST /v1/checks/run` and is audited
+        (`backup.recheck_requested`). The checker's run endpoint takes `{}` and runs every target;
+        a per-target run and the response body still need agreement with the checker owner
   - [ ] While the backup's latest check is `running`, Recheck is disabled in the UI and the API
         returns 409
   - [ ] The page polls `GET /v1/checks/{id}` until the run finishes and shows the result

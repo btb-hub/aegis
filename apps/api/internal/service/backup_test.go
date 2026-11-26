@@ -19,13 +19,23 @@ import (
 type fakeBackupChecker struct {
 	checks  []backupchecker.Check
 	listErr error
+	getErr  error
 }
 
+// ListChecks mirrors the real list: restore and manifest results are only in the details.
 func (f *fakeBackupChecker) ListChecks(context.Context) ([]backupchecker.Check, error) {
-	return f.checks, f.listErr
+	out := make([]backupchecker.Check, len(f.checks))
+	for i, c := range f.checks {
+		c.RestoreOK, c.ManifestCountsMatch = nil, nil
+		out[i] = c
+	}
+	return out, f.listErr
 }
 
 func (f *fakeBackupChecker) GetCheck(_ context.Context, id string) (backupchecker.Check, error) {
+	if f.getErr != nil {
+		return backupchecker.Check{}, f.getErr
+	}
 	for _, c := range f.checks {
 		if c.ID == id {
 			return c, nil
@@ -67,7 +77,7 @@ var backupNow = time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
 func ptrTo[T any](v T) *T { return &v }
 
 func backupCheck(id, backup, status string, started time.Time) backupchecker.Check {
-	c := backupchecker.Check{ID: id, Backup: backup, Status: status, Trigger: "scheduled", StartedAt: started}
+	c := backupchecker.Check{ID: id, Backup: backup, Engine: "postgres", Status: status, StartedAt: started}
 	if status != backupchecker.StatusRunning {
 		c.FinishedAt = ptrTo(started.Add(30 * time.Minute))
 		c.ReplicasMatch, c.RestoreOK, c.ManifestCountsMatch = ptrTo(true), ptrTo(true), ptrTo(status == backupchecker.StatusPassed)
@@ -208,6 +218,36 @@ func TestBackupReviewValidation(t *testing.T) {
 	repo.createErr = plain
 	_, err = svc.Review(ctx, actor, "gp-new", BackupDecisionConfirmed, "")
 	require.ErrorIs(t, err, plain)
+}
+
+func TestBackupStatusReadsCheckDetails(t *testing.T) {
+	svc, checker, _ := backupFixture()
+	status, err := svc.Status(context.Background())
+	require.NoError(t, err)
+	for _, item := range status.Items {
+		if item.Check.Finished() {
+			require.NotNil(t, item.Check.RestoreOK, item.Backup)
+			require.NotNil(t, item.Check.ManifestCountsMatch, item.Backup)
+		}
+	}
+
+	checker.getErr = backupchecker.ErrInvalidResponse
+	_, err = svc.Status(context.Background())
+	require.Equal(t, "BACKUP_CHECKER_INVALID_RESPONSE", backupAppErr(t, err).Code)
+
+	checker.getErr = nil
+	other := &fakeBackupChecker{checks: checker.checks}
+	svc.newChecker = func(config.BackupConfig) BackupChecker { return &swappedTarget{other} }
+	_, err = svc.Status(context.Background())
+	require.Equal(t, "BACKUP_CHECKER_INVALID_RESPONSE", backupAppErr(t, err).Code, "details for another target")
+}
+
+type swappedTarget struct{ *fakeBackupChecker }
+
+func (s *swappedTarget) GetCheck(ctx context.Context, id string) (backupchecker.Check, error) {
+	c, err := s.fakeBackupChecker.GetCheck(ctx, id)
+	c.Backup = "other"
+	return c, err
 }
 
 func TestNewBackupServiceUsesHTTPChecker(t *testing.T) {
