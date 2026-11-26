@@ -457,6 +457,27 @@ Response `202`:
 - Security: [`09-security.md`](./09-security.md)
 - Localization: [`11-localization.md`](./11-localization.md)
 
+## Backup status
+
+See [feature](features/backup-status.md), [OpenAPI](openapi-backups.yaml) and the drafted
+[backup-checker contract](integrations/backup-checker.md). Check results come from the checker on
+every request; Aegis stores only reviews.
+
+| Method | Path | Auth | Result |
+| --- | --- | --- | --- |
+| GET | `/api/v1/backups` | session (any role) | `{stale_after_hours, items:[{backup, check, stale, review}]}`, latest run per backup, sorted by name |
+| POST | `/api/v1/backups/checks/{check_id}/confirm` | admin or member, same origin | `201` review; only a `passed` latest run without a review |
+| POST | `/api/v1/backups/checks/{check_id}/reject` | admin or member, same origin | `201` review; body `{comment}` (1–500 characters after trimming); latest finished run without a review |
+
+Errors: `400 VALIDATION_ERROR` (missing or long comment), `403 FORBIDDEN` (viewer or other
+origin), `404 NOT_FOUND` (unknown check), `409 CONFLICT` (already reviewed, not finished, not
+passed for confirm, or a newer run exists), `503 BACKUP_CHECKER_NOT_CONFIGURED`,
+`503 BACKUP_CHECKER_UNAVAILABLE`, `502 BACKUP_CHECKER_INVALID_RESPONSE`. Each review writes
+`audit_log` action `backup.check_confirmed` or `backup.check_rejected` in the same transaction.
+
+Settings section `backups` stores `BACKUP_CHECKER_URL`, `BACKUP_CHECKER_TOKEN` (secret, at least
+16 bytes) and `BACKUP_STALE_AFTER` (positive Go duration, empty means `26h`).
+
 ## Optional anomaly module
 
 See [module integration](features/anomaly-detection.md) and [OpenAPI](openapi-anomaly-module.yaml).

@@ -15,6 +15,7 @@ PostgreSQL 16. Migrations via golang-migrate. Queries via sqlc.
 | Migration 22 | `application_settings`, `settings_provider_drafts`, `settings_bootstrap_sessions`, `settings_authorizations` |
 | Migration 23 | `anomaly_module_episodes`, `anomaly_module_receipts` |
 | Migration 24 | `incidents.number` and `incident_number_seq` |
+| Migration 25 | `backup_check_reviews` |
 
 ## Core entities
 
@@ -47,6 +48,16 @@ Links multiple OIDC providers to one `users` row. Login resolves `(provider, pro
 | linked_at | timestamptz | |
 
 Unique on `(provider, provider_sub)` and `(user_id, provider)`.
+
+### Backup check reviews (migration 25)
+
+| Table | Stored state |
+| --- | --- |
+| `backup_check_reviews` | UUID id; unique `check_id` (backup-checker run id, 1–128 chars); `backup` name; `decision` `confirmed` or `rejected`; `comment` up to 500 chars, required for rejections; `reviewer_id` → `users`; `created_at` |
+
+A review belongs to a check run, so a new run has no review until on-call acts. Check results
+stay in the backup-checker. Each insert writes an `audit_log` row (`resource_type`
+`backup_check`). See [Backup status](features/backup-status.md).
 
 ### audit_log
 

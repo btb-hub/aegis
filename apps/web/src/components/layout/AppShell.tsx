@@ -7,6 +7,7 @@ import type { AuthUser } from '../../lib/authTypes';
 
 export type AppPage =
   | 'anomaly'
+  | 'backups'
   | 'shifts'
   | 'teams'
   | 'workspaces'
@@ -26,6 +27,7 @@ type AppShellProps = {
 
 const navigationIcons: Record<AppPage, ReactNode> = {
   anomaly: <><path d="M2 12h4l3-8 5 16 3-8h5" /></>,
+  backups: <><ellipse cx="12" cy="6" rx="8" ry="3" /><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>,
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></>,
   alerts: <><path d="M12 3 22 20H2L12 3Z" /><path d="M12 10v4" /><circle cx="12" cy="17" r=".7" fill="currentColor" /></>,
   incidents: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v5" /><circle cx="12" cy="16" r=".7" fill="currentColor" /></>,
@@ -55,7 +57,7 @@ export function AppShell({ children, currentPage = 'shifts', onNavigate, user, o
   const menuButton = useRef<HTMLButtonElement>(null);
 
   const groups: Array<{ label: string; pages: AppPage[] }> = [
-    { label: t('nav.operations'), pages: ['incidents', 'alerts', 'shifts', 'anomaly', 'dashboard'] },
+    { label: t('nav.operations'), pages: ['incidents', 'alerts', 'shifts', 'backups', 'anomaly', 'dashboard'] },
     { label: t('nav.organization'), pages: ['teams', 'workspaces', ...(user?.role === 'admin' ? ['users' as AppPage] : [])] },
     ...(user?.role === 'admin' ? [{ label: t('nav.administration'), pages: ['settings' as AppPage] }] : []),
   ];

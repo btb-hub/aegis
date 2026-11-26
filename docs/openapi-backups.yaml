@@ -1,0 +1,141 @@
+openapi: 3.0.3
+info:
+  title: Aegis backup status
+  version: '1'
+  description: >-
+    Backup status page API (AEG-110, AEG-111). Check results come from the backup-checker service
+    on every request (see docs/integrations/backup-checker.md); Aegis stores only on-call reviews.
+    Review mutations require admin or member and the saved Aegis origin.
+paths:
+  /api/v1/backups:
+    get:
+      summary: Latest check per backup with the review of that check run
+      security: [{ session: [] }]
+      responses:
+        '200':
+          description: Backups sorted by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stale_after_hours, items]
+                properties:
+                  stale_after_hours: { type: number, example: 26 }
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/BackupItem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/backups/checks/{check_id}/confirm:
+    post:
+      summary: Confirm a passed check run
+      security: [{ session: [] }]
+      parameters: [{ $ref: '#/components/parameters/CheckID' }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '201':
+          description: Review stored and audited as backup.check_confirmed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /api/v1/backups/checks/{check_id}/reject:
+    post:
+      summary: Reject a finished check run with a reason
+      security: [{ session: [] }]
+      parameters: [{ $ref: '#/components/parameters/CheckID' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [comment]
+              properties:
+                comment: { type: string, minLength: 1, maxLength: 500, description: Trimmed before validation }
+      responses:
+        '201':
+          description: Review stored and audited as backup.check_rejected
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    session: { type: apiKey, in: cookie, name: aegis_session }
+  parameters:
+    CheckID:
+      name: check_id
+      in: path
+      required: true
+      schema: { type: string, maxLength: 128 }
+  responses:
+    Error:
+      description: Structured error
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code:
+                type: string
+                enum: [UNAUTHORIZED, FORBIDDEN, VALIDATION_ERROR, NOT_FOUND, CONFLICT, BACKUP_CHECKER_NOT_CONFIGURED, BACKUP_CHECKER_UNAVAILABLE, BACKUP_CHECKER_INVALID_RESPONSE]
+              message: { type: string }
+              details: { type: object, nullable: true }
+  schemas:
+    Check:
+      type: object
+      required: [id, backup, status, started_at]
+      properties:
+        id: { type: string }
+        backup: { type: string, example: gamepass }
+        status: { type: string, enum: [running, passed, failed] }
+        trigger: { type: string, enum: [scheduled, manual, ''] }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time, nullable: true }
+        replicas_match: { type: boolean, nullable: true }
+        restore_ok: { type: boolean, nullable: true }
+        manifest_counts_match: { type: boolean, nullable: true }
+        message: { type: string }
+    Review:
+      type: object
+      required: [check_id, decision, comment, reviewer, created_at]
+      properties:
+        check_id: { type: string }
+        decision: { type: string, enum: [confirmed, rejected] }
+        comment: { type: string, description: Empty for confirmations }
+        reviewer:
+          type: object
+          required: [id, display_name, email]
+          properties:
+            id: { type: string, format: uuid }
+            display_name: { type: string }
+            email: { type: string }
+        created_at: { type: string, format: date-time }
+    BackupItem:
+      type: object
+      required: [backup, check, stale, review]
+      properties:
+        backup: { type: string }
+        check: { $ref: '#/components/schemas/Check' }
+        stale: { type: boolean, description: finished_at (or started_at while running) is older than stale_after_hours }
+        review:
+          allOf: [{ $ref: '#/components/schemas/Review' }]
+          nullable: true

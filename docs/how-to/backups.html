@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backup status · Aegis</title><link rel="stylesheet" href="guide.css"></head><body><main class="wrap"><h1>Backup status</h1>
+<p>The <strong>Backup status</strong> page shows the latest automatic check for every backup, such as gamepass and nish. On-call confirms each check after reviewing it, or rejects it with a reason.</p>
+<h2>Connect the backup checker</h2>
+<ol><li>Open <strong>Settings → Backups</strong> as an admin.</li><li>Enter the backup checker URL, for example <code>http://backup-checker:8080</code>, and its service token. Blank token fields keep the saved token.</li><li>Optionally set when a check counts as stale, for example <code>26h</code>. Empty means 26 hours.</li><li>Save, then open <strong>Backup status</strong> in the sidebar. If the page says the checker is not responding, check its address, network access and token.</li></ol>
+<h2>Review a check</h2>
+<p>Each row shows the result, when it was checked, whether the S3 copies match, whether the test restore worked, and whether row counts match the manifest. <strong>Older than N h</strong> means the checker has not reported for longer than the stale threshold.</p>
+<ul><li><strong>Confirm</strong> a passed check after you have looked at it.</li><li><strong>Reject</strong> a passed or failed check when something is wrong. Enter a short reason; it is shown on the page for the next on-call engineer.</li></ul>
+<p>A review applies to that check run only. When the next automatic run arrives, the row shows <strong>Waiting for review</strong> again. Admins and members can review; viewers can only look. Every review is recorded in the audit log.</p>
+<p>See <a href="../features/backup-status.md">Backup status</a> for the checker contract and API.</p></main></body></html>

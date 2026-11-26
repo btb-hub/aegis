@@ -21,6 +21,7 @@ type OIDCProvider struct {
 
 type Config struct {
 	Anomaly                AnomalyConfig
+	Backups                BackupConfig
 	DatabaseURL            string
 	SessionSecret          string
 	WebhookSecret          string

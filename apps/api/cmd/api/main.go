@@ -104,6 +104,7 @@ func main() {
 	handler.NewSlackCallbackHandler(incidents, integrationsSvc).Register(r)
 	handler.NewExpressCallbackHandler(incidents, expressLinks, integrationsSvc).Register(r)
 	handler.NewExpressLinkHandler(expressLinks, auth).Register(r)
+	handler.NewBackupHandler(service.NewBackupService(cfg, store), auth, cfg.PublicURL).Register(r)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r}

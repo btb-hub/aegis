@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BootstrapPage } from './pages/BootstrapPage';
 import { AccountPage } from './pages/AccountPage';
+import { BackupsPage } from './pages/BackupsPage';
 import { ShiftsLandingPage } from './pages/ShiftsLandingPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
 import { TeamsPage } from './pages/TeamsPage';
@@ -45,6 +46,9 @@ function pageFromPath(pathname: string): AppPage {
   }
   if (pathname.startsWith('/incidents')) {
     return 'incidents';
+  }
+  if (pathname.startsWith('/backups')) {
+    return 'backups';
   }
   if (pathname.startsWith('/users')) {
     return 'users';
@@ -96,6 +100,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <WorkspaceDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/backups"
+          element={
+            <ProtectedRoute>
+              <BackupsPage />
             </ProtectedRoute>
           }
         />

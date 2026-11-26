@@ -80,3 +80,4 @@ Installing the software itself:
 Styled HTML for a docs host lives next to these files.
 
 - [Anomaly detection](anomaly-detection.md)
+- [Backup status](backups.md)
