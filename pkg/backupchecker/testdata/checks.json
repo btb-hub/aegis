@@ -1,0 +1,8 @@
+{
+  "items": [
+    {"id": "chk_20261125_gamepass", "backup": "gamepass", "status": "passed", "trigger": "scheduled", "started_at": "2026-11-25T03:00:00Z", "finished_at": "2026-11-25T03:42:10Z", "replicas_match": true, "restore_ok": true, "manifest_counts_match": true},
+    {"id": "chk_20261125_nish", "backup": "nish", "status": "failed", "trigger": "scheduled", "started_at": "2026-11-25T03:00:00Z", "finished_at": "2026-11-25T03:20:00Z", "replicas_match": true, "restore_ok": true, "manifest_counts_match": false, "message": "orders: 10412 rows, manifest 10420"},
+    {"id": "chk_20261124_gamepass", "backup": "gamepass", "status": "passed", "trigger": "scheduled", "started_at": "2026-11-24T03:00:00Z", "finished_at": "2026-11-24T03:40:00Z", "replicas_match": true, "restore_ok": true, "manifest_counts_match": true},
+    {"id": "chk_20261125_billing", "backup": "billing", "status": "running", "trigger": "manual", "started_at": "2026-11-25T09:00:00Z", "finished_at": null, "replicas_match": null, "restore_ok": null, "manifest_counts_match": null}
+  ]
+}

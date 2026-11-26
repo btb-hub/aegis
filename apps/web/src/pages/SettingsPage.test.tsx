@@ -164,6 +164,18 @@ describe('Settings and installation', () => {
     expect(screen.getByRole('link', { name: i18n.t('nav.anomaly') })).toHaveAttribute('href', '/modules/anomaly-detector/');
   });
 
+  it('saves the backup checker connection with a masked token', async () => {
+    show(<SettingsPage />, '/settings?section=backups');
+    await screen.findByLabelText('Backup checker URL');
+    expect(screen.getByLabelText('Backup checker service token')).toHaveAttribute('type', 'password');
+    fireEvent.change(screen.getByLabelText('Backup checker URL'), { target: { value: 'http://backup-checker:8080' } });
+    fireEvent.change(screen.getByLabelText('Mark checks stale after (for example 26h)'), { target: { value: '30h' } });
+    vi.mocked(fetch).mockResolvedValueOnce(response(settings)); fireEvent.click(button('settings.save'));
+    await screen.findByText(i18n.t('settings.saved'));
+    expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/v1/settings/backups', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ revision: 3, values: { BACKUP_CHECKER_URL: 'http://backup-checker:8080', BACKUP_CHECKER_TOKEN: '', BACKUP_STALE_AFTER: '30h' }, confirm_public_url: false }) }));
+    expect(screen.getByRole('link', { name: 'Backup status' })).toHaveAttribute('href', '/backups');
+  });
+
   it('checks the saved module connection and explains every status', async () => {
     show(<SettingsPage />, '/settings?section=anomaly'); await screen.findByLabelText('Module URL');
     const variants = [

@@ -12,10 +12,11 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Modal } from '../components/ui/Modal';
 import { IntegrationsPage } from './IntegrationsPage';
 
-const sections = ['authentication', 'integrations', 'behavior', 'deployment', 'anomaly', 'diagnostics'];
+const sections = ['authentication', 'integrations', 'behavior', 'deployment', 'backups', 'anomaly', 'diagnostics'];
 const fields: Record<string, string[]> = {
   access: ['ADMIN_EMAILS'],
   anomaly: ['AEGIS_ANOMALY_URL', 'AEGIS_INSTALLATION_ID', 'AEGIS_ANOMALY_IDENTITY_SECRET', 'AEGIS_ANOMALY_SERVICE_TOKEN', 'AEGIS_ANOMALY_ENABLED'],
+  backups: ['BACKUP_CHECKER_URL', 'BACKUP_CHECKER_TOKEN', 'BACKUP_STALE_AFTER'],
   behavior: ['SESSION_TTL', 'INCIDENT_DEDUP_WINDOW', 'ESCALATION_TIMEOUT', 'ALERT_FINGERPRINT_LABELS'],
   deployment: ['PUBLIC_URL', 'HTTP_ADDR', 'WEBHOOK_SECRET'],
 };
@@ -87,8 +88,9 @@ export function SettingsPage() {
     <h2 className="text-lg font-semibold">{t(`settings.${group}`)}</h2>
     {group === 'deployment' ? <p className="text-sm text-zinc-600">{t('settings.deployment_body')}</p> : null}
     {group === 'anomaly' ? <p className="text-sm text-zinc-600">{t('settings.anomaly_body')}</p> : null}
+    {group === 'backups' ? <p className="text-sm text-zinc-600">{t('settings.backups_body')}</p> : null}
     {fields[group].filter((key) => key !== 'AEGIS_ANOMALY_ENABLED').map((key) => <Input key={key} label={t(`settings.field.${key.toLowerCase()}`)}
-      value={values[key] ?? ''} type={key === 'WEBHOOK_SECRET' || key === 'AEGIS_ANOMALY_IDENTITY_SECRET' || key === 'AEGIS_ANOMALY_SERVICE_TOKEN' ? 'password' : 'text'}
+      value={values[key] ?? ''} type={key === 'WEBHOOK_SECRET' || key === 'AEGIS_ANOMALY_IDENTITY_SECRET' || key === 'AEGIS_ANOMALY_SERVICE_TOKEN' || key === 'BACKUP_CHECKER_TOKEN' ? 'password' : 'text'}
       hint={settings?.secret_present[key] ? t('settings.secret_saved') : undefined}
       onChange={(value) => { setValues((current) => ({ ...current, [key]: value })); setMessage(null); }} />)}
     {group === 'anomaly' ? <Checkbox label={t('settings.field.aegis_anomaly_enabled')} checked={values.AEGIS_ANOMALY_ENABLED === 'true'} onChange={(checked) => { setValues((current) => ({ ...current, AEGIS_ANOMALY_ENABLED: String(checked) })); setMessage(null); }} /> : null}
@@ -111,6 +113,7 @@ export function SettingsPage() {
       {section === 'integrations' ? <IntegrationsPage embedded /> : null}
       {section === 'behavior' ? renderFields('behavior') : null}
       {section === 'deployment' ? renderFields('deployment') : null}
+      {section === 'backups' ? <>{renderFields('backups')}<Link className="block text-sm text-accent hover:underline" to="/backups">{t('nav.backups')}</Link></> : null}
       {section === 'anomaly' ? <>{renderFields('anomaly')}<section className="space-y-3"><Button variant="secondary" disabled={busy} onClick={() => void checkModule()}>{t('settings.anomaly_check')}</Button>{moduleStatus ? <p role="status">{t(moduleStatus)}</p> : null}<a className="block text-sm text-accent hover:underline" href="/modules/anomaly-detector/">{t('nav.anomaly')}</a></section></> : null}
       {section === 'diagnostics' ? <section className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
         <h2 className="text-lg font-semibold">{t('settings.diagnostics')}</h2>

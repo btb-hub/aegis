@@ -9,6 +9,9 @@ Local first-day path in the product (workspace, teams, routing, then a routed al
 [`../how-to/connect.md`](../how-to/connect.md). Env bootstrap lives in
 [`../07-setup-deployment.md`](../07-setup-deployment.md).
 
+Backup status reads results from the separate backup-checker service:
+[`backup-checker.md`](backup-checker.md).
+
 ## Connector types
 
 | Type | Interface | MVP providers |
