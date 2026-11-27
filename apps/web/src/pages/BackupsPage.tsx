@@ -173,7 +173,8 @@ export function BackupsPage() {
               header: t('backups.col.backup'),
               cellClassName: 'font-medium text-zinc-900',
               render: (item) => <div className="space-y-1">
-                <span>{item.backup}</span>
+                <span className="block">{item.backup}</span>
+                {item.check.engine ? <span className="block text-sm font-normal text-zinc-500">{item.check.engine}</span> : null}
                 {item.stale ? <StatusTag variant="acknowledged" label={t('backups.stale', { hours: status.stale_after_hours })} /> : null}
               </div>,
             },

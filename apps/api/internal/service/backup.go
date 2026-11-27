@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -20,6 +21,8 @@ const (
 	BackupDecisionConfirmed = "confirmed"
 	BackupDecisionRejected  = "rejected"
 	maxBackupCommentLength  = 500
+	// maxCheckDetailCalls bounds parallel GET /v1/checks/{id} calls per page load.
+	maxCheckDetailCalls = 4
 )
 
 type BackupReviewRepository interface {
@@ -86,7 +89,10 @@ func (s *BackupService) Status(ctx context.Context) (BackupStatus, error) {
 	if err != nil {
 		return BackupStatus{}, mapCheckerError(err)
 	}
-	latest := latestChecks(checks)
+	latest, err := checkDetails(ctx, checker, latestChecks(checks))
+	if err != nil {
+		return BackupStatus{}, mapCheckerError(err)
+	}
 	ids := make([]string, 0, len(latest))
 	for _, check := range latest {
 		ids = append(ids, check.ID)
@@ -151,6 +157,34 @@ func (s *BackupService) Review(ctx context.Context, actorID uuid.UUID, checkID, 
 		return nil, err
 	}
 	return backupReviewJSON(stored), nil
+}
+
+// checkDetails replaces each list item with its details, which carry the restore and manifest
+// results the list leaves out. Calls run in parallel, at most maxCheckDetailCalls at a time.
+func checkDetails(ctx context.Context, checker BackupChecker, checks []backupchecker.Check) ([]backupchecker.Check, error) {
+	out := make([]backupchecker.Check, len(checks))
+	errs := make([]error, len(checks))
+	slots := make(chan struct{}, maxCheckDetailCalls)
+	var wg sync.WaitGroup
+	for i, check := range checks {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			slots <- struct{}{}
+			defer func() { <-slots }()
+			out[i], errs[i] = checker.GetCheck(ctx, check.ID)
+			if errs[i] == nil && out[i].Backup != check.Backup {
+				errs[i] = backupchecker.ErrInvalidResponse
+			}
+		}()
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func latestChecks(checks []backupchecker.Check) []backupchecker.Check {

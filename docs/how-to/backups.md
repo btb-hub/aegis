@@ -5,9 +5,9 @@ The **Backup status** page shows the latest automatic check for every backup, su
 ## Connect the backup checker
 
 1. Open **Settings → Backups** as an admin.
-2. Enter the backup checker URL, for example `http://backup-checker:8080`, and its service token. Blank token fields keep the saved token.
+2. Enter the backup checker URL, for example `http://backup-checker.backup-checker.svc.cluster.local:8080`. Leave the token empty unless the checker requires one. Blank token fields keep the saved token.
 3. Optionally set when a check counts as stale, for example `26h`. Empty means 26 hours.
-4. Save, then open **Backup status** in the sidebar. If the page says the checker is not responding, check its address, network access and token.
+4. Save, then open **Backup status** in the sidebar. If the page says the checker is not responding, check its address and network access.
 
 ## Review a check
 

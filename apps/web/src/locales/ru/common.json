@@ -679,7 +679,7 @@
   "shifts.timezone": "Время по UTC",
   "nav.backups": "Статус бэкапов",
   "settings.backups": "Бэкапы",
-  "settings.backups_body": "Подключите backup-checker, чтобы дежурные проверяли бэкапы на странице «Статус бэкапов». Оставьте порог устаревания пустым, чтобы использовать 26h.",
+  "settings.backups_body": "Подключите backup-checker, чтобы дежурные проверяли бэкапы на странице «Статус бэкапов». Токен необязателен: оставьте его пустым, если у backup-checker нет аутентификации. Оставьте порог устаревания пустым, чтобы использовать 26h.",
   "settings.field.backup_checker_url": "URL backup-checker",
   "settings.field.backup_checker_token": "Сервисный токен backup-checker",
   "settings.field.backup_stale_after": "Считать проверку устаревшей через (например, 26h)",

@@ -1,0 +1,22 @@
+{
+  "id": "c3a5d2e1-8b4f-4f0e-b6a2-91e7d4c0b222",
+  "target_id": "nish-prod-pg",
+  "engine": "postgres",
+  "status": "failed",
+  "started_at": "2026-11-26T03:00:00Z",
+  "finished_at": "2026-11-26T03:20:00Z",
+  "sources_match": false,
+  "error": "sha256 differs between sources",
+  "sources": [
+    {"name": "yandex", "ok": true, "error": null},
+    {"name": "minio-dc", "ok": false, "error": "object not found"}
+  ],
+  "restore": {
+    "engine": "postgres",
+    "ok": true,
+    "error": null,
+    "inventory": {
+      "main.dump": {"database": "chk_nish_main", "tables": {"public.orders": 10412}, "manifest": {"present": true, "mismatch_count": 1, "mismatches": [{"table": "public.orders", "expected": 10420, "actual": 10412}], "extra_tables": [], "missing_tables": []}}
+    }
+  }
+}

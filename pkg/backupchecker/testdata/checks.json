@@ -1,8 +1,5 @@
-{
-  "items": [
-    {"id": "chk_20261125_gamepass", "backup": "gamepass", "status": "passed", "trigger": "scheduled", "started_at": "2026-11-25T03:00:00Z", "finished_at": "2026-11-25T03:42:10Z", "replicas_match": true, "restore_ok": true, "manifest_counts_match": true},
-    {"id": "chk_20261125_nish", "backup": "nish", "status": "failed", "trigger": "scheduled", "started_at": "2026-11-25T03:00:00Z", "finished_at": "2026-11-25T03:20:00Z", "replicas_match": true, "restore_ok": true, "manifest_counts_match": false, "message": "orders: 10412 rows, manifest 10420"},
-    {"id": "chk_20261124_gamepass", "backup": "gamepass", "status": "passed", "trigger": "scheduled", "started_at": "2026-11-24T03:00:00Z", "finished_at": "2026-11-24T03:40:00Z", "replicas_match": true, "restore_ok": true, "manifest_counts_match": true},
-    {"id": "chk_20261125_billing", "backup": "billing", "status": "running", "trigger": "manual", "started_at": "2026-11-25T09:00:00Z", "finished_at": null, "replicas_match": null, "restore_ok": null, "manifest_counts_match": null}
-  ]
-}
+[
+  {"id": "77c0712f-c349-4e7c-8a8d-cbeabafa876f", "target_id": "gamepass-prod-pg", "engine": "postgres", "status": "running", "started_at": "2026-11-26T15:51:48.082200Z", "finished_at": null, "sources_match": null, "error": null},
+  {"id": "5b0e8f0a-2f7e-4c1b-9a51-0f1d2f6c3a10", "target_id": "gamepass-prod-pg", "engine": "postgres", "status": "success", "started_at": "2026-11-25T15:50:00Z", "finished_at": "2026-11-25T17:18:00Z", "sources_match": true, "error": null},
+  {"id": "c3a5d2e1-8b4f-4f0e-b6a2-91e7d4c0b222", "target_id": "nish-prod-pg", "engine": "postgres", "status": "failed", "started_at": "2026-11-26T03:00:00Z", "finished_at": "2026-11-26T03:20:00Z", "sources_match": false, "error": "sha256 differs between sources"}
+]

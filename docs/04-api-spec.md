@@ -475,8 +475,9 @@ passed for confirm, or a newer run exists), `503 BACKUP_CHECKER_NOT_CONFIGURED`,
 `503 BACKUP_CHECKER_UNAVAILABLE`, `502 BACKUP_CHECKER_INVALID_RESPONSE`. Each review writes
 `audit_log` action `backup.check_confirmed` or `backup.check_rejected` in the same transaction.
 
-Settings section `backups` stores `BACKUP_CHECKER_URL`, `BACKUP_CHECKER_TOKEN` (secret, at least
-16 bytes) and `BACKUP_STALE_AFTER` (positive Go duration, empty means `26h`).
+Settings section `backups` stores `BACKUP_CHECKER_URL`, optional `BACKUP_CHECKER_TOKEN` (secret,
+at least 16 bytes when set) and `BACKUP_STALE_AFTER` (positive Go duration, empty means `26h`).
+`check.backup` is the checker's `target_id`; `check.engine` is its database engine.
 
 ## Optional anomaly module
 

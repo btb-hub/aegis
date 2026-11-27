@@ -3,8 +3,8 @@ export type BackupCheckStatus = 'running' | 'passed' | 'failed';
 export type BackupCheck = {
   id: string;
   backup: string;
+  engine: string;
   status: BackupCheckStatus;
-  trigger: 'scheduled' | 'manual' | '';
   started_at: string;
   finished_at: string | null;
   replicas_match: boolean | null;

@@ -105,9 +105,9 @@ components:
       required: [id, backup, status, started_at]
       properties:
         id: { type: string }
-        backup: { type: string, example: gamepass }
+        backup: { type: string, description: Checker target_id, example: gamepass-prod-pg }
+        engine: { type: string, example: postgres }
         status: { type: string, enum: [running, passed, failed] }
-        trigger: { type: string, enum: [scheduled, manual, ''] }
         started_at: { type: string, format: date-time }
         finished_at: { type: string, format: date-time, nullable: true }
         replicas_match: { type: boolean, nullable: true }

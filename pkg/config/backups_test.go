@@ -19,6 +19,10 @@ func TestBackupConfig(t *testing.T) {
 	require.Equal(t, "https://checker.internal", c.CheckerURL)
 	require.Equal(t, 6*time.Hour, c.StaleAfter)
 
+	c, err = backupConfig(map[string]string{"BACKUP_CHECKER_URL": "http://backup-checker.backup-checker.svc.cluster.local:8080"})
+	require.NoError(t, err)
+	require.True(t, c.Configured(), "token is optional")
+
 	for name, values := range map[string]map[string]string{
 		"scheme":   {"BACKUP_CHECKER_URL": "ftp://checker"},
 		"path":     {"BACKUP_CHECKER_URL": "https://checker/v1"},
